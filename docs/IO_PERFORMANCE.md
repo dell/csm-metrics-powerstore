@@ -12,9 +12,9 @@ You may obtain a copy of the License at
 
 Storage system I/O performance metrics (IOPS, bandwidth, latency) are available by default and broken down by export node and volume.
 
-To disable these metrics, set the ```powerstore_metrics_enabled``` field to false in helm/values.yaml.
+To disable these metrics, set the ```enable_powerstore_metrics``` field to false in helm/values.yaml.
 
-The [Grafana reference dashboards](https://github.com/dell/karavi-observability/blob/main/grafana/dashboards) for I/O metrics can but uploaded to your Grafana instance.
+The [Grafana reference dashboards](https://github.com/dell/karavi-observability/blob/main/grafana/dashboards/powerstore) for I/O metrics can but uploaded to your Grafana instance.
 
 ## Available Metrics from the OpenTelemetry Collector
 
