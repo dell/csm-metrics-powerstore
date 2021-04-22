@@ -1,5 +1,5 @@
 <!--
-Copyright (c) 2020 Dell Inc., or its subsidiaries. All Rights Reserved.
+Copyright (c) 2021 Dell Inc., or its subsidiaries. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ The [Grafana reference dashboards](https://github.com/dell/karavi-observability/
 
 The following metrics are available from the OpenTelemetry collector endpoint.  Please see the [GETTING STARTED GUIDE](https://github.com/dell/karavi-observability/blob/main/docs/GETTING_STARTED_GUIDE.md) for more information on deploying and configuring the OpenTelemetry collector.
 
-### PowerFlex Metrics
+### PowerStore Metrics
 
 | Metric | Description | Example |
 | ------ | ----------- | ------- |
