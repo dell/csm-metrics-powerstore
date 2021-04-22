@@ -15,8 +15,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/dell/csi-powerstore/pkg/array"
-
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	pstoreServices "github.com/dell/csm-metrics-powerstore/internal/service"
 	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
@@ -43,15 +41,12 @@ var (
 
 // Config holds data that will be used by the service
 type Config struct {
-	VolumeTickInterval     time.Duration
-	PowerStoreClients      map[string]service.PowerStoreClient
-	DefaultPowerStoreArray *array.PowerStoreArray
-	LeaderElector          service.LeaderElector
-	VolumeFinder           service.VolumeFinder
-	VolumeMetricsEnabled   bool
-	CollectorAddress       string
-	CollectorCertPath      string
-	Logger                 *logrus.Logger
+	VolumeTickInterval   time.Duration
+	LeaderElector        service.LeaderElector
+	VolumeMetricsEnabled bool
+	CollectorAddress     string
+	CollectorCertPath    string
+	Logger               *logrus.Logger
 }
 
 // Run is the entry point for starting the service
@@ -111,7 +106,7 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 				logger.Info("powerstore volume metrics collection is disabled")
 				continue
 			}
-			powerStoreSvc.ExportVolumeStatistics(ctx, config.PowerStoreClients, config.VolumeFinder)
+			powerStoreSvc.ExportVolumeStatistics(ctx)
 		case err := <-errCh:
 			if err == nil {
 				continue
@@ -133,10 +128,6 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 func ValidateConfig(config *Config) error {
 	if config == nil {
 		return fmt.Errorf("no config provided")
-	}
-
-	if config.PowerStoreClients == nil {
-		return fmt.Errorf("no PowerStoreClients provided in config")
 	}
 
 	if config.VolumeTickInterval > MaximumVolTickInterval || config.VolumeTickInterval < MinimumVolTickInterval {

@@ -24,16 +24,17 @@ import (
 var _ Service = (*PowerStoreService)(nil)
 
 const (
-	// DefaultMaxPowerStoreConnections is the number of workers that can query powerstore  at a time
+	// DefaultMaxPowerStoreConnections is the number of workers that can query powerstore at a time
 	DefaultMaxPowerStoreConnections = 10
 )
 
 // Service contains operations that would be used to interact with a PowerStore system
 //go:generate mockgen -destination=mocks/service_mocks.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/service Service
 type Service interface {
-	ExportVolumeStatistics(context.Context, map[string]PowerStoreClient, VolumeFinder)
+	ExportVolumeStatistics(context.Context)
 }
 
+// PowerStoreClient contains operations for accessing the PowerStore API
 //go:generate mockgen -destination=mocks/powerstore_client.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/service PowerStoreClient
 type PowerStoreClient interface {
 	PerformanceMetricsByVolume(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByVolumeResponse, error)
@@ -44,6 +45,8 @@ type PowerStoreService struct {
 	MetricsWrapper           MetricsRecorder
 	MaxPowerStoreConnections int
 	Logger                   *logrus.Logger
+	PowerStoreClients        map[string]PowerStoreClient
+	VolumeFinder             VolumeFinder
 }
 
 // VolumeFinder is used to find volume information in kubernetes
@@ -68,7 +71,7 @@ type VolumeMetricsRecord struct {
 }
 
 // ExportVolumeStatistics records I/O statistics for the given list of Volumes
-func (s *PowerStoreService) ExportVolumeStatistics(ctx context.Context, clients map[string]PowerStoreClient, volumeFinder VolumeFinder) {
+func (s *PowerStoreService) ExportVolumeStatistics(ctx context.Context) {
 	start := time.Now()
 	defer s.timeSince(start, "ExportVolumeStatistics")
 
@@ -82,20 +85,19 @@ func (s *PowerStoreService) ExportVolumeStatistics(ctx context.Context, clients 
 		s.MaxPowerStoreConnections = DefaultMaxPowerStoreConnections
 	}
 
-	pvs, err := volumeFinder.GetPersistentVolumes()
+	pvs, err := s.VolumeFinder.GetPersistentVolumes()
 	if err != nil {
 		s.Logger.WithError(err).Error("getting persistent volumes")
 		return
 	}
 
-	for range s.pushVolumeMetrics(ctx, s.gatherVolumeMetrics(ctx, clients, s.volumeServer(pvs))) {
+	for range s.pushVolumeMetrics(ctx, s.gatherVolumeMetrics(ctx, s.volumeServer(pvs))) {
 		// consume the channel until it is empty and closed
 	}
 }
 
 // volumeServer will return a channel of volumes that can provide statistics about each volume
 func (s *PowerStoreService) volumeServer(volumes []k8s.VolumeInfo) <-chan k8s.VolumeInfo {
-
 	volumeChannel := make(chan k8s.VolumeInfo, len(volumes))
 	go func() {
 		for _, volume := range volumes {
@@ -107,7 +109,7 @@ func (s *PowerStoreService) volumeServer(volumes []k8s.VolumeInfo) <-chan k8s.Vo
 }
 
 // gatherVolumeMetrics will return a channel of volume metrics based on the input of volumes
-func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, clients map[string]PowerStoreClient, volumes <-chan k8s.VolumeInfo) <-chan *VolumeMetricsRecord {
+func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-chan k8s.VolumeInfo) <-chan *VolumeMetricsRecord {
 	start := time.Now()
 	defer s.timeSince(start, "gatherVolumeMetrics")
 
@@ -139,10 +141,9 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, clients map
 					ArrayIP:              arrayIP,
 				}
 
-				var goPowerStoreClient PowerStoreClient
-				var ok bool
-				if goPowerStoreClient, ok = clients[arrayIP]; !ok {
-					s.Logger.WithField("ip", arrayIP).Warn("no client found for PowerStore with IP")
+				goPowerStoreClient, err := s.getPowerStoreClient(arrayIP)
+				if err != nil {
+					s.Logger.WithError(err).WithField("ip", arrayIP).Warn("no client found for PowerStore with IP")
 					return
 				}
 
@@ -162,12 +163,12 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, clients map
 
 				if len(metrics) > 0 {
 					latestMetric := metrics[len(metrics)-1]
-					readBW = latestMetric.ReadBandwidth / 1024 / 1024 // bytes to MB
+					readBW = toMegabytes(latestMetric.ReadBandwidth)
 					readIOPS = latestMetric.ReadIops
-					readLatency = latestMetric.AvgReadLatency / 1000    // microseconds to milliseconds
-					writeBW = latestMetric.WriteBandwidth / 1024 / 1024 // bytes to MB
+					readLatency = toMilliseconds(latestMetric.AvgReadLatency)
+					writeBW = toMegabytes(latestMetric.WriteBandwidth)
 					writeIOPS = latestMetric.WriteIops
-					writeLatency = latestMetric.AvgWriteLatency / 1000 // microseconds to milliseconds
+					writeLatency = toMilliseconds(latestMetric.AvgWriteLatency)
 				}
 
 				s.Logger.WithFields(logrus.Fields{
@@ -239,6 +240,22 @@ func (s *PowerStoreService) pushVolumeMetrics(ctx context.Context, volumeMetrics
 	return ch
 }
 
+func (s *PowerStoreService) getPowerStoreClient(arrayIP string) (PowerStoreClient, error) {
+	if goPowerStoreClient, ok := s.PowerStoreClients[arrayIP]; ok {
+		return goPowerStoreClient, nil
+	}
+	return nil, fmt.Errorf("unable to find client")
+}
+
+func toMegabytes(bytes float32) float32 {
+	return bytes / 1024 / 1024
+}
+
+func toMilliseconds(microseconds float32) float32 {
+	return microseconds / 1000
+}
+
+// timeSince will log the amount of time spent in a given function
 func (s *PowerStoreService) timeSince(start time.Time, fName string) {
 	s.Logger.WithFields(logrus.Fields{
 		"duration": fmt.Sprintf("%v", time.Since(start)),

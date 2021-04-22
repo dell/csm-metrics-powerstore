@@ -50,24 +50,9 @@ func Test_Run(t *testing.T) {
 			e.EXPECT().StopExporter().Return(nil)
 
 			svc := metrics.NewMockService(ctrl)
-			svc.EXPECT().ExportVolumeStatistics(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+			svc.EXPECT().ExportVolumeStatistics(gomock.Any()).AnyTimes()
 
 			return false, config, e, svc, prevConfigValidationFunc, ctrl, false
-		},
-		"error with no powerstore clients provided": func(*testing.T) (bool, *entrypoint.Config, otlexporters.Otlexporter, pStoreServices.Service, func(*entrypoint.Config) error, *gomock.Controller, bool) {
-			ctrl := gomock.NewController(t)
-			leaderElector := mocks.NewMockLeaderElector(ctrl)
-			config := &entrypoint.Config{
-				VolumeMetricsEnabled: true,
-				LeaderElector:        leaderElector,
-				VolumeTickInterval:   entrypoint.MinimumVolTickInterval,
-				PowerStoreClients:    nil,
-			}
-			prevConfigValidationFunc := entrypoint.ConfigValidatorFunc
-			e := exportermocks.NewMockOtlexporter(ctrl)
-			svc := metrics.NewMockService(ctrl)
-
-			return true, config, e, svc, prevConfigValidationFunc, ctrl, true
 		},
 		"error with invalid volume ticker interval": func(*testing.T) (bool, *entrypoint.Config, otlexporters.Otlexporter, pStoreServices.Service, func(*entrypoint.Config) error, *gomock.Controller, bool) {
 			ctrl := gomock.NewController(t)
@@ -78,7 +63,6 @@ func Test_Run(t *testing.T) {
 				VolumeMetricsEnabled: true,
 				LeaderElector:        leaderElector,
 				VolumeTickInterval:   1 * time.Second,
-				PowerStoreClients:    clients,
 			}
 			prevConfigValidationFunc := entrypoint.ConfigValidatorFunc
 			e := exportermocks.NewMockOtlexporter(ctrl)

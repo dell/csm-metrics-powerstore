@@ -90,7 +90,6 @@ func main() {
 
 	config := &entrypoint.Config{
 		LeaderElector:     leaderElectorGetter,
-		VolumeFinder:      volumeFinder,
 		CollectorCertPath: collectorCertPath,
 		Logger:            logger,
 	}
@@ -101,10 +100,11 @@ func main() {
 		MetricsWrapper: &service.MetricsWrapper{
 			Meter: global.Meter("powerstore"),
 		},
-		Logger: logger,
+		Logger:       logger,
+		VolumeFinder: volumeFinder,
 	}
 
-	updatePowerStoreConnection(config, volumeFinder, logger)
+	updatePowerStoreConnection(powerStoreSvc, logger)
 	updateCollectorAddress(config, exporter, logger)
 	updateMetricsEnabled(config)
 	updateTickIntervals(config, logger)
@@ -122,7 +122,7 @@ func main() {
 
 	configFileListener.WatchConfig()
 	configFileListener.OnConfigChange(func(e fsnotify.Event) {
-		updatePowerStoreConnection(config, volumeFinder, logger)
+		updatePowerStoreConnection(powerStoreSvc, logger)
 	})
 
 	if err := entrypoint.Run(context.Background(), config, exporter, powerStoreSvc); err != nil {
@@ -130,9 +130,9 @@ func main() {
 	}
 }
 
-func updatePowerStoreConnection(config *entrypoint.Config, volumeFinder *k8s.VolumeFinder, logger *logrus.Logger) {
+func updatePowerStoreConnection(powerStoreSvc *service.PowerStoreService, logger *logrus.Logger) {
 	f := &fs.Fs{Util: &gofsutil.FS{}}
-	arrays, defaultArray, err := array.GetPowerStoreArrays(f, defaultStorageSystemConfigFile)
+	arrays, _, err := array.GetPowerStoreArrays(f, defaultStorageSystemConfigFile)
 	if err != nil {
 		logger.WithError(err).Fatal("initialize arrays in controller service")
 	}
@@ -140,8 +140,7 @@ func updatePowerStoreConnection(config *entrypoint.Config, volumeFinder *k8s.Vol
 	for k, v := range arrays {
 		newArrays[k] = v.Client
 	}
-	config.PowerStoreClients = newArrays
-	config.DefaultPowerStoreArray = defaultArray
+	powerStoreSvc.PowerStoreClients = newArrays
 }
 
 func updateCollectorAddress(config *entrypoint.Config, exporter *otlexporters.OtlCollectorExporter, logger *logrus.Logger) {

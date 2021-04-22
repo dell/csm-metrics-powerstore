@@ -27,8 +27,8 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 		Service *service.PowerStoreService
 	}
 
-	tests := map[string]func(t *testing.T) (service.PowerStoreService, map[string]service.PowerStoreClient, service.VolumeFinder, *gomock.Controller){
-		"success": func(*testing.T) (service.PowerStoreService, map[string]service.PowerStoreClient, service.VolumeFinder, *gomock.Controller) {
+	tests := map[string]func(t *testing.T) (service.PowerStoreService, *gomock.Controller){
+		"success": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
@@ -66,11 +66,15 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			}, nil).Times(3)
 			clients["127.0.0.1"] = c
 
-			service := service.PowerStoreService{MetricsWrapper: metrics}
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
 			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
-			return service, clients, volFinder, ctrl
+			return service, ctrl
 		},
-		"success with 0 volumes": func(*testing.T) (service.PowerStoreService, map[string]service.PowerStoreClient, service.VolumeFinder, *gomock.Controller) {
+		"success with 0 volumes": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
@@ -82,16 +86,19 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			c.EXPECT().PerformanceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 			clients["127.0.0.1"] = c
 
-			service := service.PowerStoreService{MetricsWrapper: metrics}
+			service := service.PowerStoreService{MetricsWrapper: metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
 			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-			return service, clients, volFinder, ctrl
+			return service, ctrl
 		},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			service, clients, volFinder, ctrl := tc(t)
+			service, ctrl := tc(t)
 			service.Logger = logrus.New()
-			service.ExportVolumeStatistics(context.Background(), clients, volFinder)
+			service.ExportVolumeStatistics(context.Background())
 			ctrl.Finish()
 		})
 	}

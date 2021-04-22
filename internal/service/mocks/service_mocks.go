@@ -6,7 +6,6 @@ package mocks
 
 import (
 	context "context"
-	service "github.com/dell/csm-metrics-powerstore/internal/service"
 	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
 )
@@ -35,13 +34,13 @@ func (m *MockService) EXPECT() *MockServiceMockRecorder {
 }
 
 // ExportVolumeStatistics mocks base method
-func (m *MockService) ExportVolumeStatistics(arg0 context.Context, arg1 map[string]service.PowerStoreClient, arg2 service.VolumeFinder) {
+func (m *MockService) ExportVolumeStatistics(arg0 context.Context) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "ExportVolumeStatistics", arg0, arg1, arg2)
+	m.ctrl.Call(m, "ExportVolumeStatistics", arg0)
 }
 
 // ExportVolumeStatistics indicates an expected call of ExportVolumeStatistics
-func (mr *MockServiceMockRecorder) ExportVolumeStatistics(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) ExportVolumeStatistics(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportVolumeStatistics", reflect.TypeOf((*MockService)(nil).ExportVolumeStatistics), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportVolumeStatistics", reflect.TypeOf((*MockService)(nil).ExportVolumeStatistics), arg0)
 }
