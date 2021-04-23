@@ -11,6 +11,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +27,8 @@ var _ Service = (*PowerStoreService)(nil)
 const (
 	// DefaultMaxPowerStoreConnections is the number of workers that can query powerstore at a time
 	DefaultMaxPowerStoreConnections = 10
+	// ExpectedVolumeHandleProperties is the number of properties that the VolumeHandle contains
+	ExpectedVolumeHandleProperties = 3
 )
 
 // Service contains operations that would be used to interact with a PowerStore system
@@ -46,6 +49,7 @@ type PowerStoreService struct {
 	MaxPowerStoreConnections int
 	Logger                   *logrus.Logger
 	PowerStoreClients        map[string]PowerStoreClient
+	DefaultPowerStoreArray   *array.PowerStoreArray
 	VolumeFinder             VolumeFinder
 }
 
@@ -129,11 +133,15 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 					<-sem
 				}()
 
-				volumeID, arrayIP, _, err := array.ParseVolumeID(context.Background(), volume.VolumeHandle, nil, nil)
-				if err != nil {
-					s.Logger.WithField("volume_handle", volume.VolumeHandle).WithError(err).Warn("unable to get Volume ID and Array IP from volume handle")
+				// VolumeHandle is of the format "volume-id/array-ip/protocol"
+				volumeProperties := strings.Split(volume.VolumeHandle, "/")
+				if len(volumeProperties) != ExpectedVolumeHandleProperties {
+					s.Logger.WithField("volume_handle", volume.VolumeHandle).Warn("unable to get Volume ID and Array IP from volume handle")
 					return
 				}
+
+				volumeID := volumeProperties[0]
+				arrayIP := volumeProperties[1]
 
 				volumeMeta := &VolumeMeta{
 					ID:                   volumeID,

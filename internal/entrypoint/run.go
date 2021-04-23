@@ -29,7 +29,7 @@ const (
 	// MinimumVolTickInterval is the minimum allowed interval when querying volume metrics
 	MinimumVolTickInterval = 5 * time.Second
 	// DefaultEndPoint for leader election path
-	DefaultEndPoint = "csm-metrics-powerstore"
+	DefaultEndPoint = "karavi-metrics-powerstore"
 	// DefaultNameSpace for PowerStore pod running metrics collection
 	DefaultNameSpace = "karavi"
 )

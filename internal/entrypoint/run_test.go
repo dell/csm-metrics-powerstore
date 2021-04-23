@@ -35,7 +35,7 @@ func Test_Run(t *testing.T) {
 			ctrl := gomock.NewController(t)
 
 			leaderElector := mocks.NewMockLeaderElector(ctrl)
-			leaderElector.EXPECT().InitLeaderElection("csm-metrics-powerstore", "karavi").Times(1).Return(nil)
+			leaderElector.EXPECT().InitLeaderElection("karavi-metrics-powerstore", "karavi").Times(1).Return(nil)
 			leaderElector.EXPECT().IsLeader().AnyTimes().Return(true)
 
 			config := &entrypoint.Config{
@@ -119,7 +119,7 @@ func Test_Run(t *testing.T) {
 			ctrl := gomock.NewController(t)
 
 			leaderElector := mocks.NewMockLeaderElector(ctrl)
-			leaderElector.EXPECT().InitLeaderElection("csm-metrics-powerstore", "karavi").Times(1).Return(nil)
+			leaderElector.EXPECT().InitLeaderElection("karavi-metrics-powerstore", "karavi").Times(1).Return(nil)
 			leaderElector.EXPECT().IsLeader().AnyTimes().Return(false)
 
 			config := &entrypoint.Config{
@@ -140,7 +140,7 @@ func Test_Run(t *testing.T) {
 			ctrl := gomock.NewController(t)
 
 			leaderElector := mocks.NewMockLeaderElector(ctrl)
-			leaderElector.EXPECT().InitLeaderElection("csm-metrics-powerstore", "karavi").Times(1).Return(nil)
+			leaderElector.EXPECT().InitLeaderElection("karavi-metrics-powerstore", "karavi").Times(1).Return(nil)
 			leaderElector.EXPECT().IsLeader().AnyTimes().Return(true)
 
 			config := &entrypoint.Config{
@@ -162,7 +162,7 @@ func Test_Run(t *testing.T) {
 			ctrl := gomock.NewController(t)
 
 			leaderElector := mocks.NewMockLeaderElector(ctrl)
-			leaderElector.EXPECT().InitLeaderElection("csm-metrics-powerstore", "karavi").AnyTimes().Return(nil)
+			leaderElector.EXPECT().InitLeaderElection("karavi-metrics-powerstore", "karavi").AnyTimes().Return(nil)
 			leaderElector.EXPECT().IsLeader().AnyTimes().Return(true)
 
 			config := &entrypoint.Config{

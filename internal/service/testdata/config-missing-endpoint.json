@@ -1,9 +1,0 @@
-[
-    {
-        "username": "admin",
-        "password": "password",
-        "systemID": "ID1",
-        "insecure": true,
-        "mdm": "mdm1,mdm2"
-    }
-]

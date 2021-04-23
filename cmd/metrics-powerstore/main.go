@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	defaultTickInterval            = 5 * time.Second
-	defaultConfigFile              = "/etc/config/csm-metrics-powerstore.yaml"
+	defaultTickInterval            = 20 * time.Second
+	defaultConfigFile              = "/etc/config/karavi-metrics-powerstore.yaml"
 	defaultStorageSystemConfigFile = "/powerstore-config/config"
 )
 
@@ -106,7 +106,7 @@ func main() {
 
 	updatePowerStoreConnection(powerStoreSvc, logger)
 	updateCollectorAddress(config, exporter, logger)
-	updateMetricsEnabled(config)
+	updateMetricsEnabled(config, logger)
 	updateTickIntervals(config, logger)
 	updateService(powerStoreSvc, logger)
 
@@ -115,7 +115,7 @@ func main() {
 		updateLoggingSettings(logger)
 		updateCollectorAddress(config, exporter, logger)
 		updateProvisionerNames(volumeFinder, logger)
-		updateMetricsEnabled(config)
+		updateMetricsEnabled(config, logger)
 		updateTickIntervals(config, logger)
 		updateService(powerStoreSvc, logger)
 	})
@@ -136,11 +136,12 @@ func updatePowerStoreConnection(powerStoreSvc *service.PowerStoreService, logger
 	if err != nil {
 		logger.WithError(err).Fatal("initialize arrays in controller service")
 	}
-	newArrays := make(map[string]service.PowerStoreClient)
-	for k, v := range arrays {
-		newArrays[k] = v.Client
+	powerStoreClients := make(map[string]service.PowerStoreClient)
+	for arrayIP, client := range arrays {
+		powerStoreClients[arrayIP] = client.Client
+		logger.WithField("array_ip", arrayIP).Debug("setting powerstore client from configuration")
 	}
-	powerStoreSvc.PowerStoreClients = newArrays
+	powerStoreSvc.PowerStoreClients = powerStoreClients
 }
 
 func updateCollectorAddress(config *entrypoint.Config, exporter *otlexporters.OtlCollectorExporter, logger *logrus.Logger) {
@@ -150,6 +151,7 @@ func updateCollectorAddress(config *entrypoint.Config, exporter *otlexporters.Ot
 	}
 	config.CollectorAddress = collectorAddress
 	exporter.CollectorAddr = collectorAddress
+	logger.WithField("collector_address", collectorAddress).Debug("setting collector address")
 }
 
 func updateProvisionerNames(volumeFinder *k8s.VolumeFinder, logger *logrus.Logger) {
@@ -159,15 +161,17 @@ func updateProvisionerNames(volumeFinder *k8s.VolumeFinder, logger *logrus.Logge
 	}
 	provisionerNames := strings.Split(provisionerNamesValue, ",")
 	volumeFinder.DriverNames = provisionerNames
+	logger.WithField("provisioner_names", provisionerNamesValue).Debug("setting provisioner names")
 }
 
-func updateMetricsEnabled(config *entrypoint.Config) {
+func updateMetricsEnabled(config *entrypoint.Config, logger *logrus.Logger) {
 	powerstoreVolumeMetricsEnabled := true
 	powerstoreVolumeMetricsEnabledValue := viper.GetString("POWERSTORE_VOLUME_METRICS_ENABLED")
 	if powerstoreVolumeMetricsEnabledValue == "false" {
 		powerstoreVolumeMetricsEnabled = false
 	}
 	config.VolumeMetricsEnabled = powerstoreVolumeMetricsEnabled
+	logger.WithField("volume_metrics_enabled", powerstoreVolumeMetricsEnabled).Debug("setting volume metrics enabled")
 }
 
 func updateTickIntervals(config *entrypoint.Config, logger *logrus.Logger) {
@@ -181,6 +185,7 @@ func updateTickIntervals(config *entrypoint.Config, logger *logrus.Logger) {
 		volumeTickInterval = time.Duration(numSeconds) * time.Second
 	}
 	config.VolumeTickInterval = volumeTickInterval
+	logger.WithField("volume_tick_interval", fmt.Sprintf("%v", volumeTickInterval)).Debug("setting volume tick interval")
 }
 
 func updateService(pstoreSvc *service.PowerStoreService, logger *logrus.Logger) {
@@ -196,4 +201,5 @@ func updateService(pstoreSvc *service.PowerStoreService, logger *logrus.Logger) 
 		}
 	}
 	pstoreSvc.MaxPowerStoreConnections = maxPowerStoreConcurrentRequests
+	logger.WithField("max_connections", maxPowerStoreConcurrentRequests).Debug("setting max powerstore connections")
 }

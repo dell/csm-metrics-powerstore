@@ -85,7 +85,7 @@ func Test_InitLeaderElection(t *testing.T) {
 				defer func() { k8s.NewLeaderElectorFn = oldLeaderElection }()
 				k8s.NewLeaderElectorFn = leaderelectionFn
 			}
-			err := k8sclient.InitLeaderElection("csm-metrics-powerstore", "karavi")
+			err := k8sclient.InitLeaderElection("karavi-metrics-powerstore", "karavi")
 			for _, checkFn := range checkFns {
 				checkFn(t, err)
 			}
