@@ -56,3 +56,4 @@ fail_checks=0
 [ "${SEC_RETURN_CODE}" != "0" ] && echo "Security checks failed!" && fail_checks=1
 
 exit ${fail_checks}
+
