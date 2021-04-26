@@ -38,15 +38,15 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			volFinder.EXPECT().GetPersistentVolumes().Return([]k8s.VolumeInfo{
 				k8s.VolumeInfo{
 					PersistentVolume: "pv-1",
-					VolumeHandle:     "volume-1/127.0.0.1/protocol",
+					VolumeHandle:     "volume-1/127.0.0.1/scsi",
 				},
 				k8s.VolumeInfo{
 					PersistentVolume: "pv-2",
-					VolumeHandle:     "volume-2/127.0.0.1/protocol",
+					VolumeHandle:     "volume-2/127.0.0.1/scsi",
 				},
 				k8s.VolumeInfo{
 					PersistentVolume: "pv-3",
-					VolumeHandle:     "volume-2/127.0.0.1/protocol",
+					VolumeHandle:     "volume-2/127.0.0.1/scsi",
 				},
 			}, nil).Times(1)
 
@@ -75,6 +75,31 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			}
 			return service, ctrl
 		},
+		"metrics not pushed if volume does not have scsi protocol": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes().Return([]k8s.VolumeInfo{
+				k8s.VolumeInfo{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "volume-1/127.0.0.1/nfs",
+				},
+			}, nil).Times(1)
+
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().PerformanceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
 		"metrics not pushed if error getting volume metrics": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
@@ -84,7 +109,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			volFinder.EXPECT().GetPersistentVolumes().Return([]k8s.VolumeInfo{
 				k8s.VolumeInfo{
 					PersistentVolume: "pv-1",
-					VolumeHandle:     "volume-1/127.0.0.1/protocol",
+					VolumeHandle:     "volume-1/127.0.0.1/scsi",
 				},
 			}, nil).Times(1)
 
@@ -109,7 +134,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			volFinder.EXPECT().GetPersistentVolumes().Return([]k8s.VolumeInfo{
 				k8s.VolumeInfo{
 					PersistentVolume: "pv-1",
-					VolumeHandle:     "volume-1/127.0.0.1/protocol",
+					VolumeHandle:     "volume-1/127.0.0.1/scsi",
 				},
 			}, nil).Times(1)
 

@@ -29,6 +29,7 @@ const (
 	DefaultMaxPowerStoreConnections = 10
 	// ExpectedVolumeHandleProperties is the number of properties that the VolumeHandle contains
 	ExpectedVolumeHandleProperties = 3
+	scsiProtocol                   = "scsi"
 )
 
 // Service contains operations that would be used to interact with a PowerStore system
@@ -142,6 +143,13 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 
 				volumeID := volumeProperties[0]
 				arrayIP := volumeProperties[1]
+				protocol := volumeProperties[2]
+
+				// skip Persistent Volumes that don't have a protocol of 'scsi', such as nfs file systems
+				if !strings.EqualFold(protocol, scsiProtocol) {
+					s.Logger.WithFields(logrus.Fields{"protocol": protocol, "persistent_volume": volume.PersistentVolume}).Debugf("persistent volume is not %s", scsiProtocol)
+					return
+				}
 
 				volumeMeta := &VolumeMeta{
 					ID:                   volumeID,
