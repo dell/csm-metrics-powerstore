@@ -35,7 +35,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
-			volFinder.EXPECT().GetPersistentVolumes().Return([]k8s.VolumeInfo{
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
 				k8s.VolumeInfo{
 					PersistentVolume: "pv-1",
 					VolumeHandle:     "volume-1/127.0.0.1/scsi",
@@ -81,7 +81,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
-			volFinder.EXPECT().GetPersistentVolumes().Return([]k8s.VolumeInfo{
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
 				k8s.VolumeInfo{
 					PersistentVolume: "pv-1",
 					VolumeHandle:     "volume-1/127.0.0.1/nfs",
@@ -106,7 +106,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
-			volFinder.EXPECT().GetPersistentVolumes().Return([]k8s.VolumeInfo{
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
 				k8s.VolumeInfo{
 					PersistentVolume: "pv-1",
 					VolumeHandle:     "volume-1/127.0.0.1/scsi",
@@ -131,7 +131,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
-			volFinder.EXPECT().GetPersistentVolumes().Return([]k8s.VolumeInfo{
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
 				k8s.VolumeInfo{
 					PersistentVolume: "pv-1",
 					VolumeHandle:     "volume-1/127.0.0.1/scsi",
@@ -156,7 +156,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
-			volFinder.EXPECT().GetPersistentVolumes().Return([]k8s.VolumeInfo{
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
 				k8s.VolumeInfo{
 					PersistentVolume: "pv-1",
 					VolumeHandle:     "invalid-volume-handle",
@@ -181,7 +181,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
-			volFinder.EXPECT().GetPersistentVolumes().Return(nil, errors.New("error")).Times(1)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return(nil, errors.New("error")).Times(1)
 
 			clients := make(map[string]service.PowerStoreClient)
 			c := mocks.NewMockPowerStoreClient(ctrl)
@@ -198,7 +198,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 		"metrics not pushed if metrics wrapper is nil": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
-			volFinder.EXPECT().GetPersistentVolumes().Times(0)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Times(0)
 
 			clients := make(map[string]service.PowerStoreClient)
 			c := mocks.NewMockPowerStoreClient(ctrl)
@@ -217,7 +217,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 
-			volFinder.EXPECT().GetPersistentVolumes().Return([]k8s.VolumeInfo{}, nil)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{}, nil)
 
 			clients := make(map[string]service.PowerStoreClient)
 			c := mocks.NewMockPowerStoreClient(ctrl)

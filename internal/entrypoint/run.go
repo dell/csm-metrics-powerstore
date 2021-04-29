@@ -19,6 +19,7 @@ import (
 	pstoreServices "github.com/dell/csm-metrics-powerstore/internal/service"
 	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/api/global"
 	"go.opentelemetry.io/otel/exporters/otlp"
 	"google.golang.org/grpc/credentials"
 )
@@ -98,6 +99,8 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 	for {
 		select {
 		case <-volumeTicker.C:
+			tr := global.TraceProvider().Tracer("metrics-powerstore")
+			ctx, span := tr.Start(ctx, "volume-metrics")
 			if !config.LeaderElector.IsLeader() {
 				logger.Info("not leader pod to collect metrics")
 				continue
@@ -107,6 +110,7 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 				continue
 			}
 			powerStoreSvc.ExportVolumeStatistics(ctx)
+			span.End()
 		case err := <-errCh:
 			if err == nil {
 				continue

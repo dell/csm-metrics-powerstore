@@ -10,10 +10,19 @@ package main
 
 import (
 	"context"
+	"expvar"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
+
+	_ "net/http/pprof"
+
+	stdLog "log"
 
 	"github.com/dell/csi-powerstore/pkg/array"
 	"github.com/dell/csi-powerstore/pkg/common/fs"
@@ -23,9 +32,13 @@ import (
 	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
 	"github.com/dell/gofsutil"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel/api/global"
+
+	"go.opentelemetry.io/otel/exporters/trace/zipkin"
+	"go.opentelemetry.io/otel/sdk/trace"
 
 	"os"
+
+	"go.opentelemetry.io/otel/api/global"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
@@ -35,6 +48,9 @@ const (
 	defaultTickInterval            = 20 * time.Second
 	defaultConfigFile              = "/etc/config/karavi-metrics-powerstore.yaml"
 	defaultStorageSystemConfigFile = "/powerstore-config/config"
+	defaultDebugPort               = "9090"
+	defaultCertFile                = "/certs/localhost.crt"
+	defaultKeyFile                 = "/certs/localhost.key"
 )
 
 func main() {
@@ -109,6 +125,7 @@ func main() {
 	updateMetricsEnabled(config, logger)
 	updateTickIntervals(config, logger)
 	updateService(powerStoreSvc, logger)
+	updateTracing(logger)
 
 	viper.WatchConfig()
 	viper.OnConfigChange(func(e fsnotify.Event) {
@@ -118,6 +135,7 @@ func main() {
 		updateMetricsEnabled(config, logger)
 		updateTickIntervals(config, logger)
 		updateService(powerStoreSvc, logger)
+		updateTracing(logger)
 	})
 
 	configFileListener.WatchConfig()
@@ -125,8 +143,60 @@ func main() {
 		updatePowerStoreConnection(powerStoreSvc, logger)
 	})
 
+	viper.SetDefault("TLS_CERT_PATH", defaultCertFile)
+	viper.SetDefault("TLS_KEY_PATH", defaultKeyFile)
+	viper.SetDefault("PORT", defaultDebugPort)
+
+	// TLS_CERT_PATH is only read as an environment variable
+	certFile := viper.GetString("TLS_CERT_PATH")
+
+	// TLS_KEY_PATH is only read as an environment variable
+	keyFile := viper.GetString("TLS_KEY_PATH")
+
+	var bindPort int
+	// PORT is only read as an environment variable
+	portEnv := viper.GetString("PORT")
+	if portEnv != "" {
+		var err error
+		if bindPort, err = strconv.Atoi(portEnv); err != nil {
+			logger.WithError(err).WithField("port", portEnv).Fatal("port value is invalid")
+		}
+	}
+
+	go func() {
+		expvar.NewString("service").Set("metrics-powerstore")
+		expvar.Publish("goroutines", expvar.Func(func() interface{} {
+			return fmt.Sprintf("%d", runtime.NumGoroutine())
+		}))
+		s := http.Server{
+			Addr:    fmt.Sprintf(":%d", bindPort),
+			Handler: http.DefaultServeMux,
+		}
+		if err := s.ListenAndServeTLS(certFile, keyFile); err != nil {
+			logger.WithError(err).Error("debug listener closed")
+		}
+	}()
+
 	if err := entrypoint.Run(context.Background(), config, exporter, powerStoreSvc); err != nil {
 		logger.WithError(err).Fatal("running service")
+	}
+}
+
+func updateTracing(logger *logrus.Logger) {
+	zipkinURI := viper.GetString("ZIPKIN_URI")
+	zipkinServiceName := viper.GetString("ZIPKIN_SERVICE_NAME")
+	zipkinProbability := viper.GetFloat64("ZIPKIN_PROBABILITY")
+
+	tp, err := initTracing(zipkinURI, zipkinServiceName, zipkinProbability)
+	if err != nil {
+		logger.WithError(err).Error("initializing tracer")
+	}
+	if tp != nil {
+		logger.WithFields(logrus.Fields{"uri": zipkinURI,
+			"service_name": zipkinServiceName,
+			"probablity":   zipkinProbability,
+		}).Infof("setting zipkin tracing")
+		global.SetTraceProvider(tp)
 	}
 }
 
@@ -202,4 +272,33 @@ func updateService(pstoreSvc *service.PowerStoreService, logger *logrus.Logger) 
 	}
 	pstoreSvc.MaxPowerStoreConnections = maxPowerStoreConcurrentRequests
 	logger.WithField("max_connections", maxPowerStoreConcurrentRequests).Debug("setting max powerstore connections")
+}
+
+var logger = log.New(os.Stderr, "zipkin-example", log.Ldate|log.Ltime|log.Llongfile)
+
+func initTracing(uri, name string, prob float64) (*trace.Provider, error) {
+	if len(strings.TrimSpace(uri)) == 0 {
+		return nil, nil
+	}
+	exporter, err := zipkin.NewExporter(
+		uri,
+		name,
+		zipkin.WithLogger(stdLog.New(ioutil.Discard, "", stdLog.LstdFlags)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	tp, err := trace.NewProvider(
+		trace.WithConfig(trace.Config{DefaultSampler: trace.ProbabilitySampler(prob)}),
+		trace.WithBatcher(
+			exporter,
+			trace.WithMaxExportBatchSize(trace.DefaultMaxExportBatchSize),
+			trace.WithBatchTimeout(trace.DefaultBatchTimeout),
+			trace.WithMaxExportBatchSize(trace.DefaultMaxExportBatchSize),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return tp, nil
 }
