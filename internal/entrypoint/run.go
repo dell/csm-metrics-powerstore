@@ -102,10 +102,12 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			ctx, span := tracer.GetTracer(ctx, "volume-metrics")
 			if !config.LeaderElector.IsLeader() {
 				logger.Info("not leader pod to collect metrics")
+				span.End()
 				continue
 			}
 			if !config.VolumeMetricsEnabled {
 				logger.Info("powerstore volume metrics collection is disabled")
+				span.End()
 				continue
 			}
 			powerStoreSvc.ExportVolumeStatistics(ctx)
