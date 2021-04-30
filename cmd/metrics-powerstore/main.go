@@ -13,7 +13,6 @@ import (
 	"expvar"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -273,8 +272,6 @@ func updateService(pstoreSvc *service.PowerStoreService, logger *logrus.Logger) 
 	pstoreSvc.MaxPowerStoreConnections = maxPowerStoreConcurrentRequests
 	logger.WithField("max_connections", maxPowerStoreConcurrentRequests).Debug("setting max powerstore connections")
 }
-
-var logger = log.New(os.Stderr, "zipkin-example", log.Ldate|log.Ltime|log.Llongfile)
 
 func initTracing(uri, name string, prob float64) (*trace.Provider, error) {
 	if len(strings.TrimSpace(uri)) == 0 {
