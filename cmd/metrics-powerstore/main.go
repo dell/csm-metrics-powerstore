@@ -12,7 +12,6 @@ import (
 	"context"
 	"expvar"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -21,19 +20,15 @@ import (
 
 	_ "net/http/pprof"
 
-	stdLog "log"
-
 	"github.com/dell/csi-powerstore/pkg/array"
 	"github.com/dell/csi-powerstore/pkg/common/fs"
 	"github.com/dell/csm-metrics-powerstore/internal/entrypoint"
 	"github.com/dell/csm-metrics-powerstore/internal/k8s"
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
+	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
 	"github.com/dell/gofsutil"
 	"github.com/sirupsen/logrus"
-
-	"go.opentelemetry.io/otel/exporters/trace/zipkin"
-	"go.opentelemetry.io/otel/sdk/trace"
 
 	"os"
 
@@ -186,7 +181,7 @@ func updateTracing(logger *logrus.Logger) {
 	zipkinServiceName := viper.GetString("ZIPKIN_SERVICE_NAME")
 	zipkinProbability := viper.GetFloat64("ZIPKIN_PROBABILITY")
 
-	tp, err := initTracing(zipkinURI, zipkinServiceName, zipkinProbability)
+	tp, err := tracer.InitTracing(zipkinURI, zipkinServiceName, zipkinProbability)
 	if err != nil {
 		logger.WithError(err).Error("initializing tracer")
 	}
@@ -271,31 +266,4 @@ func updateService(pstoreSvc *service.PowerStoreService, logger *logrus.Logger) 
 	}
 	pstoreSvc.MaxPowerStoreConnections = maxPowerStoreConcurrentRequests
 	logger.WithField("max_connections", maxPowerStoreConcurrentRequests).Debug("setting max powerstore connections")
-}
-
-func initTracing(uri, name string, prob float64) (*trace.Provider, error) {
-	if len(strings.TrimSpace(uri)) == 0 {
-		return nil, nil
-	}
-	exporter, err := zipkin.NewExporter(
-		uri,
-		name,
-		zipkin.WithLogger(stdLog.New(ioutil.Discard, "", stdLog.LstdFlags)),
-	)
-	if err != nil {
-		return nil, err
-	}
-	tp, err := trace.NewProvider(
-		trace.WithConfig(trace.Config{DefaultSampler: trace.ProbabilitySampler(prob)}),
-		trace.WithBatcher(
-			exporter,
-			trace.WithMaxExportBatchSize(trace.DefaultMaxExportBatchSize),
-			trace.WithBatchTimeout(trace.DefaultBatchTimeout),
-			trace.WithMaxExportBatchSize(trace.DefaultMaxExportBatchSize),
-		),
-	)
-	if err != nil {
-		return nil, err
-	}
-	return tp, nil
 }

@@ -11,8 +11,8 @@ package k8s
 import (
 	"context"
 
+	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel/api/global"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -47,8 +47,7 @@ type VolumeInfo struct {
 
 // GetPersistentVolumes will return a list of persistent volume information
 func (f VolumeFinder) GetPersistentVolumes(ctx context.Context) ([]VolumeInfo, error) {
-	tr := global.TraceProvider().Tracer("metrics-powerstore")
-	ctx, span := tr.Start(ctx, "GetPersistentVolumes")
+	ctx, span := tracer.GetTracer(ctx, "GetPersistentVolumes")
 	defer span.End()
 
 	volumeInfo := make([]VolumeInfo, 0)

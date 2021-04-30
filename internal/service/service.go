@@ -15,9 +15,10 @@ import (
 	"sync"
 	"time"
 
+	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
+
 	"github.com/dell/csi-powerstore/pkg/array"
 	"github.com/dell/gopowerstore"
-	"go.opentelemetry.io/otel/api/global"
 
 	"github.com/dell/csm-metrics-powerstore/internal/k8s"
 	"github.com/sirupsen/logrus"
@@ -78,8 +79,7 @@ type VolumeMetricsRecord struct {
 
 // ExportVolumeStatistics records I/O statistics for the given list of Volumes
 func (s *PowerStoreService) ExportVolumeStatistics(ctx context.Context) {
-	tr := global.TraceProvider().Tracer("metrics-powerstore")
-	ctx, span := tr.Start(ctx, "ExportVolumeStatistics")
+	ctx, span := tracer.GetTracer(ctx, "ExportVolumeStatistics")
 	defer span.End()
 
 	start := time.Now()
@@ -110,8 +110,7 @@ func (s *PowerStoreService) ExportVolumeStatistics(ctx context.Context) {
 func (s *PowerStoreService) volumeServer(ctx context.Context, volumes []k8s.VolumeInfo) <-chan k8s.VolumeInfo {
 	volumeChannel := make(chan k8s.VolumeInfo, len(volumes))
 	go func() {
-		tr := global.TraceProvider().Tracer("metrics-powerstore")
-		_, span := tr.Start(ctx, "volumeServer")
+		_, span := tracer.GetTracer(ctx, "volumeServer")
 		defer span.End()
 
 		for _, volume := range volumes {
@@ -132,8 +131,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 	sem := make(chan struct{}, s.MaxPowerStoreConnections)
 
 	go func() {
-		tr := global.TraceProvider().Tracer("metrics-powerstore")
-		ctx, span := tr.Start(ctx, "gatherVolumeMetrics")
+		ctx, span := tracer.GetTracer(ctx, "gatherVolumeMetrics")
 		defer span.End()
 
 		exported := false
@@ -245,8 +243,7 @@ func (s *PowerStoreService) pushVolumeMetrics(ctx context.Context, volumeMetrics
 
 	ch := make(chan string)
 	go func() {
-		tr := global.TraceProvider().Tracer("metrics-powerstore")
-		ctx, span := tr.Start(ctx, "pushVolumeMetrics")
+		ctx, span := tracer.GetTracer(ctx, "pushVolumeMetrics")
 		defer span.End()
 
 		for metrics := range volumeMetrics {
