@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
+
 	"github.com/dell/csi-powerstore/pkg/array"
 	"github.com/dell/gopowerstore"
 
@@ -57,7 +59,7 @@ type PowerStoreService struct {
 // VolumeFinder is used to find volume information in kubernetes
 //go:generate mockgen -destination=mocks/volume_finder_mocks.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/service VolumeFinder
 type VolumeFinder interface {
-	GetPersistentVolumes() ([]k8s.VolumeInfo, error)
+	GetPersistentVolumes(context.Context) ([]k8s.VolumeInfo, error)
 }
 
 // LeaderElector will elect a leader
@@ -77,6 +79,9 @@ type VolumeMetricsRecord struct {
 
 // ExportVolumeStatistics records I/O statistics for the given list of Volumes
 func (s *PowerStoreService) ExportVolumeStatistics(ctx context.Context) {
+	ctx, span := tracer.GetTracer(ctx, "ExportVolumeStatistics")
+	defer span.End()
+
 	start := time.Now()
 	defer s.timeSince(start, "ExportVolumeStatistics")
 
@@ -90,21 +95,24 @@ func (s *PowerStoreService) ExportVolumeStatistics(ctx context.Context) {
 		s.MaxPowerStoreConnections = DefaultMaxPowerStoreConnections
 	}
 
-	pvs, err := s.VolumeFinder.GetPersistentVolumes()
+	pvs, err := s.VolumeFinder.GetPersistentVolumes(ctx)
 	if err != nil {
 		s.Logger.WithError(err).Error("getting persistent volumes")
 		return
 	}
 
-	for range s.pushVolumeMetrics(ctx, s.gatherVolumeMetrics(ctx, s.volumeServer(pvs))) {
+	for range s.pushVolumeMetrics(ctx, s.gatherVolumeMetrics(ctx, s.volumeServer(ctx, pvs))) {
 		// consume the channel until it is empty and closed
 	}
 }
 
 // volumeServer will return a channel of volumes that can provide statistics about each volume
-func (s *PowerStoreService) volumeServer(volumes []k8s.VolumeInfo) <-chan k8s.VolumeInfo {
+func (s *PowerStoreService) volumeServer(ctx context.Context, volumes []k8s.VolumeInfo) <-chan k8s.VolumeInfo {
 	volumeChannel := make(chan k8s.VolumeInfo, len(volumes))
 	go func() {
+		_, span := tracer.GetTracer(ctx, "volumeServer")
+		defer span.End()
+
 		for _, volume := range volumes {
 			volumeChannel <- volume
 		}
@@ -123,6 +131,9 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 	sem := make(chan struct{}, s.MaxPowerStoreConnections)
 
 	go func() {
+		ctx, span := tracer.GetTracer(ctx, "gatherVolumeMetrics")
+		defer span.End()
+
 		exported := false
 		for volume := range volumes {
 			exported = true
@@ -157,7 +168,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 					ArrayIP:              arrayIP,
 				}
 
-				goPowerStoreClient, err := s.getPowerStoreClient(arrayIP)
+				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayIP)
 				if err != nil {
 					s.Logger.WithError(err).WithField("ip", arrayIP).Warn("no client found for PowerStore with IP")
 					return
@@ -232,6 +243,9 @@ func (s *PowerStoreService) pushVolumeMetrics(ctx context.Context, volumeMetrics
 
 	ch := make(chan string)
 	go func() {
+		ctx, span := tracer.GetTracer(ctx, "pushVolumeMetrics")
+		defer span.End()
+
 		for metrics := range volumeMetrics {
 			wg.Add(1)
 			go func(metrics *VolumeMetricsRecord) {
@@ -256,7 +270,7 @@ func (s *PowerStoreService) pushVolumeMetrics(ctx context.Context, volumeMetrics
 	return ch
 }
 
-func (s *PowerStoreService) getPowerStoreClient(arrayIP string) (PowerStoreClient, error) {
+func (s *PowerStoreService) getPowerStoreClient(ctx context.Context, arrayIP string) (PowerStoreClient, error) {
 	if goPowerStoreClient, ok := s.PowerStoreClients[arrayIP]; ok {
 		return goPowerStoreClient, nil
 	}

@@ -10,10 +10,15 @@ package main
 
 import (
 	"context"
+	"expvar"
 	"fmt"
+	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
+
+	_ "net/http/pprof"
 
 	"github.com/dell/csi-powerstore/pkg/array"
 	"github.com/dell/csi-powerstore/pkg/common/fs"
@@ -21,11 +26,13 @@ import (
 	"github.com/dell/csm-metrics-powerstore/internal/k8s"
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
+	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
 	"github.com/dell/gofsutil"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel/api/global"
 
 	"os"
+
+	"go.opentelemetry.io/otel/api/global"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
@@ -35,6 +42,9 @@ const (
 	defaultTickInterval            = 20 * time.Second
 	defaultConfigFile              = "/etc/config/karavi-metrics-powerstore.yaml"
 	defaultStorageSystemConfigFile = "/powerstore-config/config"
+	defaultDebugPort               = "9090"
+	defaultCertFile                = "/certs/localhost.crt"
+	defaultKeyFile                 = "/certs/localhost.key"
 )
 
 func main() {
@@ -109,6 +119,7 @@ func main() {
 	updateMetricsEnabled(config, logger)
 	updateTickIntervals(config, logger)
 	updateService(powerStoreSvc, logger)
+	updateTracing(logger)
 
 	viper.WatchConfig()
 	viper.OnConfigChange(func(e fsnotify.Event) {
@@ -118,6 +129,7 @@ func main() {
 		updateMetricsEnabled(config, logger)
 		updateTickIntervals(config, logger)
 		updateService(powerStoreSvc, logger)
+		updateTracing(logger)
 	})
 
 	configFileListener.WatchConfig()
@@ -125,8 +137,60 @@ func main() {
 		updatePowerStoreConnection(powerStoreSvc, logger)
 	})
 
+	viper.SetDefault("TLS_CERT_PATH", defaultCertFile)
+	viper.SetDefault("TLS_KEY_PATH", defaultKeyFile)
+	viper.SetDefault("PORT", defaultDebugPort)
+
+	// TLS_CERT_PATH is only read as an environment variable
+	certFile := viper.GetString("TLS_CERT_PATH")
+
+	// TLS_KEY_PATH is only read as an environment variable
+	keyFile := viper.GetString("TLS_KEY_PATH")
+
+	var bindPort int
+	// PORT is only read as an environment variable
+	portEnv := viper.GetString("PORT")
+	if portEnv != "" {
+		var err error
+		if bindPort, err = strconv.Atoi(portEnv); err != nil {
+			logger.WithError(err).WithField("port", portEnv).Fatal("port value is invalid")
+		}
+	}
+
+	go func() {
+		expvar.NewString("service").Set("metrics-powerstore")
+		expvar.Publish("goroutines", expvar.Func(func() interface{} {
+			return fmt.Sprintf("%d", runtime.NumGoroutine())
+		}))
+		s := http.Server{
+			Addr:    fmt.Sprintf(":%d", bindPort),
+			Handler: http.DefaultServeMux,
+		}
+		if err := s.ListenAndServeTLS(certFile, keyFile); err != nil {
+			logger.WithError(err).Error("debug listener closed")
+		}
+	}()
+
 	if err := entrypoint.Run(context.Background(), config, exporter, powerStoreSvc); err != nil {
 		logger.WithError(err).Fatal("running service")
+	}
+}
+
+func updateTracing(logger *logrus.Logger) {
+	zipkinURI := viper.GetString("ZIPKIN_URI")
+	zipkinServiceName := viper.GetString("ZIPKIN_SERVICE_NAME")
+	zipkinProbability := viper.GetFloat64("ZIPKIN_PROBABILITY")
+
+	tp, err := tracer.InitTracing(zipkinURI, zipkinServiceName, zipkinProbability)
+	if err != nil {
+		logger.WithError(err).Error("initializing tracer")
+	}
+	if tp != nil {
+		logger.WithFields(logrus.Fields{"uri": zipkinURI,
+			"service_name": zipkinServiceName,
+			"probablity":   zipkinProbability,
+		}).Infof("setting zipkin tracing")
+		global.SetTraceProvider(tp)
 	}
 }
 

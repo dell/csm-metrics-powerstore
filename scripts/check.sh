@@ -44,7 +44,8 @@ LINT_RETURN_CODE=$?
 echo === Finished
 
 echo === Running gosec...
-gosec -quiet ${MOD_FLAGS} ${CHECK_DIRS}
+# exclude "G108: Profiling endpoint is automatically exposed" because we are exposing on an internal port
+gosec --exclude=G108 -quiet ${MOD_FLAGS} ${CHECK_DIRS}
 SEC_RETURN_CODE=$?
 echo === Finished
 
