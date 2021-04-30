@@ -44,6 +44,7 @@ jobs:
       - name: Run Go Security
         uses: securego/gosec@master
         with:
+          # exclude "G108: Profiling endpoint is automatically exposed" because we are exposing on an internal port
           args: -exclude=G108 ./...
   malware_security_scan:
     name: Malware Scanner
