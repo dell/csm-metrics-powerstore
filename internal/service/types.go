@@ -12,5 +12,14 @@ package service
 type VolumeMeta struct {
 	ID                   string
 	PersistentVolumeName string
-	ArrayIP              string
+	ArrayID              string
+	StorageClass         string
+}
+
+// StorageClassMeta is meta data about a storage class
+type StorageClassInfo struct {
+	ID              string
+	Name            string
+	Driver          string
+	StorageSystemID string
 }

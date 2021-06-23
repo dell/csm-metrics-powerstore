@@ -48,6 +48,20 @@ func (mr *MockMetricsRecorderMockRecorder) Record(arg0, arg1, arg2, arg3, arg4, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Record", reflect.TypeOf((*MockMetricsRecorder)(nil).Record), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 }
 
+// RecordSpaceMetrics mocks base method
+func (m *MockMetricsRecorder) RecordSpaceMetrics(arg0 context.Context, arg1 interface{}, arg2, arg3, arg4, arg5, arg6 int64, arg7, arg8 float32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecordSpaceMetrics", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecordSpaceMetrics indicates an expected call of RecordSpaceMetrics
+func (mr *MockMetricsRecorderMockRecorder) RecordSpaceMetrics(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordSpaceMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordSpaceMetrics), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+}
+
 // MockFloat64UpDownCounterCreater is a mock of Float64UpDownCounterCreater interface
 type MockFloat64UpDownCounterCreater struct {
 	ctrl     *gomock.Controller

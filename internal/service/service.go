@@ -44,6 +44,7 @@ type Service interface {
 //go:generate mockgen -destination=mocks/powerstore_client.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/service PowerStoreClient
 type PowerStoreClient interface {
 	PerformanceMetricsByVolume(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByVolumeResponse, error)
+	SpaceMetricsByVM(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.SpaceMetricsByVMResponse, error)
 }
 
 // PowerStoreService represents the service for getting metrics data for a PowerStore system
@@ -75,6 +76,14 @@ type VolumeMetricsRecord struct {
 	readBW, writeBW,
 	readIOPS, writeIOPS,
 	readLatency, writeLatency float32
+}
+
+// VolumeSpaceMetricsRecord used for holding output of the Volume space metrics query results
+type VolumeSpaceMetricsRecord struct {
+	volumeMeta *VolumeMeta
+	logicalProvisioned, logicalUsed,
+	lastLogicalProvisioned, lastLogicalUsed, uniquePhysicalUsed int64
+	maxThinSavings, thinSavings float32
 }
 
 // ExportVolumeStatistics records I/O statistics for the given list of Volumes
@@ -153,7 +162,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 				}
 
 				volumeID := volumeProperties[0]
-				arrayIP := volumeProperties[1]
+				arrayID := volumeProperties[1]
 				protocol := volumeProperties[2]
 
 				// skip Persistent Volumes that don't have a protocol of 'scsi', such as nfs file systems
@@ -165,12 +174,12 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 				volumeMeta := &VolumeMeta{
 					ID:                   volumeID,
 					PersistentVolumeName: volume.PersistentVolume,
-					ArrayIP:              arrayIP,
+					ArrayID:              arrayID,
 				}
 
-				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayIP)
+				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)
 				if err != nil {
-					s.Logger.WithError(err).WithField("ip", arrayIP).Warn("no client found for PowerStore with IP")
+					s.Logger.WithError(err).WithField("ip", arrayID).Warn("no client found for PowerStore with IP")
 					return
 				}
 
@@ -185,7 +194,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 				s.Logger.WithFields(logrus.Fields{
 					"volume_performance_metrics": len(metrics),
 					"volume_id":                  volumeMeta.ID,
-					"array_ip":                   volumeMeta.ArrayIP,
+					"array_ip":                   volumeMeta.ArrayID,
 				}).Debug("volume performance metrics returned for volume")
 
 				if len(metrics) > 0 {
@@ -281,6 +290,10 @@ func toMegabytes(bytes float32) float32 {
 	return bytes / 1024 / 1024
 }
 
+func toMegabytesInt64(bytes int64) int64 {
+	return bytes / 1024 / 1024
+}
+
 func toMilliseconds(microseconds float32) float32 {
 	return microseconds / 1000
 }
@@ -291,4 +304,198 @@ func (s *PowerStoreService) timeSince(start time.Time, fName string) {
 		"duration": fmt.Sprintf("%v", time.Since(start)),
 		"function": fName,
 	}).Info("function duration")
+}
+
+// gatherSpaceVolumeMetrics will return a channel of volume metrics based on the input of volumes
+func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volumes <-chan k8s.VolumeInfo) <-chan *VolumeSpaceMetricsRecord {
+	start := time.Now()
+	defer s.timeSince(start, "gatherSpaceVolumeMetrics")
+
+	ch := make(chan *VolumeSpaceMetricsRecord)
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, s.MaxPowerStoreConnections)
+
+	go func() {
+		ctx, span := tracer.GetTracer(ctx, "gatherSpaceVolumeMetrics")
+		defer span.End()
+
+		exported := false
+		for volume := range volumes {
+			exported = true
+			wg.Add(1)
+			sem <- struct{}{}
+			go func(volume k8s.VolumeInfo) {
+				defer func() {
+					wg.Done()
+					<-sem
+				}()
+
+				// VolumeHandle is of the format "volume-id/array-ip/protocol"
+				volumeProperties := strings.Split(volume.VolumeHandle, "/")
+				if len(volumeProperties) != ExpectedVolumeHandleProperties {
+					s.Logger.WithField("volume_handle", volume.VolumeHandle).Warn("unable to get Volume ID and Array IP from volume handle")
+					return
+				}
+
+				volumeID := volumeProperties[0]
+				arrayID := volumeProperties[1]
+				protocol := volumeProperties[2]
+
+				// skip Persistent Volumes that don't have a protocol of 'scsi', such as nfs file systems
+				if !strings.EqualFold(protocol, scsiProtocol) {
+					s.Logger.WithFields(logrus.Fields{"protocol": protocol, "persistent_volume": volume.PersistentVolume}).Debugf("persistent volume is not %s", scsiProtocol)
+					return
+				}
+
+				volumeMeta := &VolumeMeta{
+					ID:                   volumeID,
+					PersistentVolumeName: volume.PersistentVolume,
+					ArrayID:              arrayID,
+					StorageClass:         volume.StorageClass,
+				}
+
+				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)
+				if err != nil {
+					s.Logger.WithError(err).WithField("ip", arrayID).Warn("no client found for PowerStore with IP")
+					return
+				}
+
+				metrics, err := goPowerStoreClient.SpaceMetricsByVM(ctx, volumeID, gopowerstore.TwentySec)
+				if err != nil {
+					s.Logger.WithError(err).WithField("volume_id", volumeMeta.ID).Error("getting performance metrics for volume")
+					return
+				}
+
+				var lastLogicalProvisioned, lastLogicalUsed, logicalProvisioned, logicalUsed, uniquePhysicalUsed int64
+				var maxThinSavings, thinSavings float32
+
+				s.Logger.WithFields(logrus.Fields{
+					"volume_space_metrics": len(metrics),
+					"volume_id":            volumeMeta.ID,
+					"array_id":             volumeMeta.ArrayID,
+				}).Debug("volume space metrics returned for volume")
+
+				if len(metrics) > 0 {
+					latestMetric := metrics[len(metrics)-1]
+					logicalProvisioned = toMegabytesInt64(*latestMetric.LogicalProvisioned)
+					logicalUsed = toMegabytesInt64(*latestMetric.LogicalUsed)
+					lastLogicalProvisioned = toMegabytesInt64(*latestMetric.LastLogicalProvisioned)
+					lastLogicalUsed = toMegabytesInt64(*latestMetric.LastLogicalUsed)
+					uniquePhysicalUsed = toMegabytesInt64(*latestMetric.UniquePhysicalUsed)
+					thinSavings = toMegabytes(latestMetric.ThinSavings)
+					maxThinSavings = toMegabytes(latestMetric.MaxThinSavings)
+				}
+
+				s.Logger.WithFields(logrus.Fields{
+					"volume_meta":              volumeMeta,
+					"logical_provisioned":      logicalProvisioned,
+					"logical_used":             logicalUsed,
+					"last_logical_provisioned": lastLogicalProvisioned,
+					"last_logical_used":        lastLogicalUsed,
+					"unique_physical_used":     uniquePhysicalUsed,
+					"thin_savings":             thinSavings,
+					"max_thin_savings":         maxThinSavings,
+				}).Debug("volume space metrics")
+
+				ch <- &VolumeSpaceMetricsRecord{
+					volumeMeta:             volumeMeta,
+					logicalProvisioned:     logicalProvisioned,
+					logicalUsed:            logicalUsed,
+					lastLogicalProvisioned: lastLogicalProvisioned,
+					lastLogicalUsed:        lastLogicalUsed,
+					uniquePhysicalUsed:     uniquePhysicalUsed,
+					thinSavings:            thinSavings,
+					maxThinSavings:         maxThinSavings,
+				}
+
+			}(volume)
+		}
+
+		if !exported {
+			// If no volumes metrics were exported, we need to export an "empty" metric to update the OT Collector
+			// so that stale entries are removed
+			ch <- &VolumeSpaceMetricsRecord{
+				volumeMeta:             &VolumeMeta{},
+				logicalProvisioned:     0,
+				logicalUsed:            0,
+				lastLogicalProvisioned: 0,
+				lastLogicalUsed:        0,
+				uniquePhysicalUsed:     0,
+				thinSavings:            0,
+				maxThinSavings:         0,
+			}
+		}
+		wg.Wait()
+		close(ch)
+		close(sem)
+	}()
+	return ch
+}
+
+// pushSpaceVolumeMetrics will push the provided channel of volume metrics to a data collector
+func (s *PowerStoreService) pushSpaceVolumeMetrics(ctx context.Context, volumeSpaceMetrics <-chan *VolumeSpaceMetricsRecord) <-chan string {
+	start := time.Now()
+	defer s.timeSince(start, "pushSpaceVolumeMetrics")
+	var wg sync.WaitGroup
+
+	ch := make(chan string)
+	go func() {
+		ctx, span := tracer.GetTracer(ctx, "pushSpaceVolumeMetrics")
+		defer span.End()
+
+		for metrics := range volumeSpaceMetrics {
+			wg.Add(1)
+			go func(metrics *VolumeSpaceMetricsRecord) {
+				defer wg.Done()
+				err := s.MetricsWrapper.RecordSpaceMetrics(ctx,
+					metrics.volumeMeta,
+					metrics.logicalProvisioned,
+					metrics.logicalUsed,
+					metrics.lastLogicalProvisioned,
+					metrics.lastLogicalUsed,
+					metrics.uniquePhysicalUsed,
+					metrics.thinSavings,
+					metrics.maxThinSavings,
+				)
+				if err != nil {
+					s.Logger.WithError(err).WithField("volume_id", metrics.volumeMeta.ID).Error("recording statistics for volume")
+				} else {
+					ch <- fmt.Sprintf(metrics.volumeMeta.ID)
+				}
+			}(metrics)
+		}
+		wg.Wait()
+		close(ch)
+	}()
+
+	return ch
+}
+
+// ExportSpaceVolumeMetrics records I/O statistics for the given list of Volumes
+func (s *PowerStoreService) ExportSpaceVolumeMetrics(ctx context.Context) {
+	ctx, span := tracer.GetTracer(ctx, "ExportSpaceVolumeMetrics")
+	defer span.End()
+
+	start := time.Now()
+	defer s.timeSince(start, "ExportSpaceVolumeMetrics")
+
+	if s.MetricsWrapper == nil {
+		s.Logger.Warn("no MetricsWrapper provided for getting ExportSpaceVolumeMetrics")
+		return
+	}
+
+	if s.MaxPowerStoreConnections == 0 {
+		s.Logger.Debug("Using DefaultMaxPowerStoreConnections")
+		s.MaxPowerStoreConnections = DefaultMaxPowerStoreConnections
+	}
+
+	pvs, err := s.VolumeFinder.GetPersistentVolumes(ctx)
+	if err != nil {
+		s.Logger.WithError(err).Error("getting persistent volumes")
+		return
+	}
+
+	for range s.pushSpaceVolumeMetrics(ctx, s.gatherSpaceVolumeMetrics(ctx, s.volumeServer(ctx, pvs))) {
+		// consume the channel until it is empty and closed
+	}
 }

@@ -196,7 +196,7 @@ func updateTracing(logger *logrus.Logger) {
 
 func updatePowerStoreConnection(powerStoreSvc *service.PowerStoreService, logger *logrus.Logger) {
 	f := &fs.Fs{Util: &gofsutil.FS{}}
-	arrays, _, err := array.GetPowerStoreArrays(f, defaultStorageSystemConfigFile)
+	arrays, _, _, err := array.GetPowerStoreArrays(f, defaultStorageSystemConfigFile)
 	if err != nil {
 		logger.WithError(err).Fatal("initialize arrays in controller service")
 	}
