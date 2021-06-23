@@ -33,6 +33,18 @@ func (m *MockService) EXPECT() *MockServiceMockRecorder {
 	return m.recorder
 }
 
+// ExportSpaceVolumeMetrics mocks base method
+func (m *MockService) ExportSpaceVolumeMetrics(arg0 context.Context) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ExportSpaceVolumeMetrics", arg0)
+}
+
+// ExportSpaceVolumeMetrics indicates an expected call of ExportSpaceVolumeMetrics
+func (mr *MockServiceMockRecorder) ExportSpaceVolumeMetrics(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportSpaceVolumeMetrics", reflect.TypeOf((*MockService)(nil).ExportSpaceVolumeMetrics), arg0)
+}
+
 // ExportVolumeStatistics mocks base method
 func (m *MockService) ExportVolumeStatistics(arg0 context.Context) {
 	m.ctrl.T.Helper()

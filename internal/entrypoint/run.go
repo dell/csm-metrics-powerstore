@@ -43,6 +43,7 @@ var (
 // Config holds data that will be used by the service
 type Config struct {
 	VolumeTickInterval   time.Duration
+	SpaceTickInterval    time.Duration
 	LeaderElector        service.LeaderElector
 	VolumeMetricsEnabled bool
 	CollectorAddress     string
@@ -96,6 +97,9 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 	//set initial tick intervals
 	VolumeTickInterval := config.VolumeTickInterval
 	volumeTicker := time.NewTicker(VolumeTickInterval)
+	SpaceTickInterval := config.SpaceTickInterval
+	spaceTicker := time.NewTicker(SpaceTickInterval)
+
 	for {
 		select {
 		case <-volumeTicker.C:
@@ -112,6 +116,20 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			}
 			powerStoreSvc.ExportVolumeStatistics(ctx)
 			span.End()
+		case <-spaceTicker.C:
+			ctx, span := tracer.GetTracer(ctx, "sapce-volume-metrics")
+			if !config.LeaderElector.IsLeader() {
+				logger.Info("not leader pod to collect metrics")
+				span.End()
+				continue
+			}
+			if !config.VolumeMetricsEnabled {
+				logger.Info("powerstore volume metrics collection is disabled")
+				span.End()
+				continue
+			}
+			powerStoreSvc.ExportSpaceVolumeMetrics(ctx)
+			span.End()
 		case err := <-errCh:
 			if err == nil {
 				continue
@@ -126,6 +144,10 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			VolumeTickInterval = config.VolumeTickInterval
 			volumeTicker = time.NewTicker(VolumeTickInterval)
 		}
+		if SpaceTickInterval != config.SpaceTickInterval {
+			SpaceTickInterval = config.SpaceTickInterval
+			volumeTicker = time.NewTicker(SpaceTickInterval)
+		}
 	}
 }
 
@@ -137,6 +159,10 @@ func ValidateConfig(config *Config) error {
 
 	if config.VolumeTickInterval > MaximumVolTickInterval || config.VolumeTickInterval < MinimumVolTickInterval {
 		return fmt.Errorf("volume polling frequency not within allowed range of %v and %v", MinimumVolTickInterval.String(), MaximumVolTickInterval.String())
+	}
+
+	if config.SpaceTickInterval > MaximumVolTickInterval || config.SpaceTickInterval < MinimumVolTickInterval {
+		return fmt.Errorf("sapce polling frequency not within allowed range of %v and %v", MinimumVolTickInterval.String(), MaximumVolTickInterval.String())
 	}
 
 	return nil

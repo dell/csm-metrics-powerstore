@@ -38,6 +38,7 @@ const (
 //go:generate mockgen -destination=mocks/service_mocks.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/service Service
 type Service interface {
 	ExportVolumeStatistics(context.Context)
+	ExportSpaceVolumeMetrics(context.Context)
 }
 
 // PowerStoreClient contains operations for accessing the PowerStore API
