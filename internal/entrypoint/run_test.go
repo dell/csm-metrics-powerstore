@@ -51,6 +51,8 @@ func Test_Run(t *testing.T) {
 
 			svc := metrics.NewMockService(ctrl)
 			svc.EXPECT().ExportVolumeStatistics(gomock.Any()).AnyTimes()
+			svc.EXPECT().ExportSpaceVolumeMetrics(gomock.Any()).AnyTimes()
+			svc.EXPECT().ExportArraySpaceMetrics(gomock.Any()).AnyTimes()
 
 			return false, config, e, svc, prevConfigValidationFunc, ctrl, false
 		},
@@ -193,6 +195,8 @@ func Test_Run(t *testing.T) {
 					// The configuration is not nil and the test is not attempting to validate the configuration.
 					// In this case, we can use smaller intervals for testing purposes.
 					config.VolumeTickInterval = 100 * time.Millisecond
+					config.SpaceTickInterval = 100 * time.Millisecond
+					config.ArrayTickInterval = 100 * time.Millisecond
 				}
 			}
 			err := entrypoint.Run(ctx, config, exporter, svc)

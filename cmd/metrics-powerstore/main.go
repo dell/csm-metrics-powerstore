@@ -261,7 +261,19 @@ func updateTickIntervals(config *entrypoint.Config, logger *logrus.Logger) {
 		spaceTickInterval = time.Duration(numSeconds) * time.Second
 	}
 	config.SpaceTickInterval = spaceTickInterval
-	logger.WithField("sapce_tick_interval", fmt.Sprintf("%v", spaceTickInterval)).Debug("setting space tick interval")
+	logger.WithField("space_tick_interval", fmt.Sprintf("%v", spaceTickInterval)).Debug("setting space tick interval")
+
+	arrayTickInterval := defaultTickInterval
+	arrayPollFrequencySeconds := viper.GetString("POWERSTORE_ARRAY_POLL_FREQUENCY")
+	if arrayPollFrequencySeconds != "" {
+		numSeconds, err := strconv.Atoi(spacePollFrequencySeconds)
+		if err != nil {
+			logger.WithError(err).Fatal("POWERSTORE_ARRAY_POLL_FREQUENCY was not set to a valid number")
+		}
+		arrayTickInterval = time.Duration(numSeconds) * time.Second
+	}
+	config.ArrayTickInterval = arrayTickInterval
+	logger.WithField("array_tick_interval", fmt.Sprintf("%v", arrayTickInterval)).Debug("setting array tick interval")
 }
 
 func updateService(pstoreSvc *service.PowerStoreService, logger *logrus.Logger) {

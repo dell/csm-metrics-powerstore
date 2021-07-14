@@ -23,3 +23,9 @@ type StorageClassInfo struct {
 	Driver          string
 	StorageSystemID string
 }
+
+// TotalSpaceMeta is meta data about array and storage class space
+type TotalSpaceMeta struct {
+	ArrayID      string
+	StorageClass string
+}

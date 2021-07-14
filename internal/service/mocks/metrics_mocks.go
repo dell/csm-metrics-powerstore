@@ -48,18 +48,46 @@ func (mr *MockMetricsRecorderMockRecorder) Record(arg0, arg1, arg2, arg3, arg4, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Record", reflect.TypeOf((*MockMetricsRecorder)(nil).Record), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 }
 
-// RecordSpaceMetrics mocks base method
-func (m *MockMetricsRecorder) RecordSpaceMetrics(arg0 context.Context, arg1 interface{}, arg2, arg3, arg4, arg5, arg6 int64, arg7, arg8 float32) error {
+// RecordArraySpaceMetrics mocks base method
+func (m *MockMetricsRecorder) RecordArraySpaceMetrics(arg0 context.Context, arg1 string, arg2, arg3 int64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RecordSpaceMetrics", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	ret := m.ctrl.Call(m, "RecordArraySpaceMetrics", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecordArraySpaceMetrics indicates an expected call of RecordArraySpaceMetrics
+func (mr *MockMetricsRecorderMockRecorder) RecordArraySpaceMetrics(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordArraySpaceMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordArraySpaceMetrics), arg0, arg1, arg2, arg3)
+}
+
+// RecordSpaceMetrics mocks base method
+func (m *MockMetricsRecorder) RecordSpaceMetrics(arg0 context.Context, arg1 interface{}, arg2, arg3 int64, arg4, arg5 float32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecordSpaceMetrics", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RecordSpaceMetrics indicates an expected call of RecordSpaceMetrics
-func (mr *MockMetricsRecorderMockRecorder) RecordSpaceMetrics(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 interface{}) *gomock.Call {
+func (mr *MockMetricsRecorderMockRecorder) RecordSpaceMetrics(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordSpaceMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordSpaceMetrics), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordSpaceMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordSpaceMetrics), arg0, arg1, arg2, arg3, arg4, arg5)
+}
+
+// RecordStorageClassSpaceMetrics mocks base method
+func (m *MockMetricsRecorder) RecordStorageClassSpaceMetrics(arg0 context.Context, arg1 string, arg2, arg3 int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecordStorageClassSpaceMetrics", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecordStorageClassSpaceMetrics indicates an expected call of RecordStorageClassSpaceMetrics
+func (mr *MockMetricsRecorderMockRecorder) RecordStorageClassSpaceMetrics(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordStorageClassSpaceMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordStorageClassSpaceMetrics), arg0, arg1, arg2, arg3)
 }
 
 // MockFloat64UpDownCounterCreater is a mock of Float64UpDownCounterCreater interface
