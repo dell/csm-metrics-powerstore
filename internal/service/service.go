@@ -602,14 +602,14 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 		defer span.End()
 
 		// Sum based on array id for total space metrics for array and storage class
-		arrayIdMap := make(map[string]ArraySpaceMetricsRecord)
+		arrayIDMap := make(map[string]ArraySpaceMetricsRecord)
 		storageClassMap := make(map[string]ArraySpaceMetricsRecord)
 
 		for metrics := range volumeSpaceMetrics {
 
 			// for array id cumulative
-			if volMetrics, ok := arrayIdMap[metrics.arrayID]; !ok {
-				arrayIdMap[metrics.arrayID] = ArraySpaceMetricsRecord{
+			if volMetrics, ok := arrayIDMap[metrics.arrayID]; !ok {
+				arrayIDMap[metrics.arrayID] = ArraySpaceMetricsRecord{
 					arrayID:            metrics.arrayID,
 					logicalProvisioned: metrics.logicalProvisioned,
 					logicalUsed:        metrics.logicalUsed,
@@ -617,7 +617,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 			} else {
 				volMetrics.logicalProvisioned = volMetrics.logicalProvisioned + metrics.logicalProvisioned
 				volMetrics.logicalUsed = volMetrics.logicalUsed + metrics.logicalUsed
-				arrayIdMap[metrics.arrayID] = volMetrics
+				arrayIDMap[metrics.arrayID] = volMetrics
 				s.Logger.WithFields(logrus.Fields{
 					"array_id":                             metrics.arrayID,
 					"cumulative_array_logical_provisioned": volMetrics.logicalProvisioned,
@@ -645,7 +645,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 		}
 
 		// for array id
-		for _, metrics := range arrayIdMap {
+		for _, metrics := range arrayIDMap {
 			wg.Add(1)
 			go func(metrics ArraySpaceMetricsRecord) {
 				defer wg.Done()

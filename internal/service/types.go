@@ -16,7 +16,7 @@ type VolumeMeta struct {
 	StorageClass         string
 }
 
-// StorageClassMeta is meta data about a storage class
+// StorageClassInfo is meta data about a storage class
 type StorageClassInfo struct {
 	ID              string
 	Name            string

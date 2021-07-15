@@ -27,9 +27,9 @@ type MetricsRecorder interface {
 	RecordSpaceMetrics(ctx context.Context, meta interface{},
 		logicalProvisioned, logicalUsed int64,
 		maxThinSavings, thinSavings float32) error
-	RecordArraySpaceMetrics(ctx context.Context, arrayId string,
+	RecordArraySpaceMetrics(ctx context.Context, arrayID string,
 		logicalProvisioned, logicalUsed int64) error
-	RecordStorageClassSpaceMetrics(ctx context.Context, arrayId string,
+	RecordStorageClassSpaceMetrics(ctx context.Context, storageclass string,
 		logicalProvisioned, logicalUsed int64) error
 }
 
@@ -47,7 +47,7 @@ type MetricsWrapper struct {
 	ArraySpaceMetrics sync.Map
 }
 
-// CapacityMetrics contains the metrics related to a capacity
+// SpaceMetrics contains the metrics related to a capacity
 type SpaceMetrics struct {
 	LogicalProvisioned metric.BoundFloat64UpDownCounter
 	LogicalUsed        metric.BoundFloat64UpDownCounter
@@ -332,16 +332,16 @@ func (mw *MetricsWrapper) initArraySpaceMetrics(prefix, metaID string, labels []
 	return metrics, nil
 }
 
-// RecordSpaceMetrics will publish space metrics data for a given instance
-func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayId string,
+// RecordArraySpaceMetrics will publish space metrics data for a given instance
+func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID string,
 	logicalProvisioned, logicalUsed int64) error {
 	var prefix string
 	var metaID string
 	var labels []kv.KeyValue
 
-	prefix, metaID = "powerstore_array_", arrayId
+	prefix, metaID = "powerstore_array_", arrayID
 	labels = []kv.KeyValue{
-		kv.String("ArrayID", arrayId),
+		kv.String("ArrayID", arrayID),
 		kv.String("PlotWithMean", "No"),
 	}
 
@@ -392,7 +392,7 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayId s
 	return nil
 }
 
-// RecordSpaceMetrics will publish space metrics data for a given instance
+// RecordStorageClassSpaceMetrics will publish space metrics for storage class
 func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, storageclass string,
 	logicalProvisioned, logicalUsed int64) error {
 	var prefix string
