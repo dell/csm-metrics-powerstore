@@ -183,12 +183,11 @@ func ValidateConfig(config *Config) error {
 	}
 
 	if config.SpaceTickInterval > MaximumVolTickInterval || config.SpaceTickInterval < MinimumVolTickInterval {
-		return fmt.Errorf("space polling frequency not within allowed range of %v and %v", MinimumVolTickInterval.String(), MaximumVolTickInterval.String())
+		return fmt.Errorf("volume space polling frequency not within allowed range of %v and %v", MinimumVolTickInterval.String(), MaximumVolTickInterval.String())
 	}
 
 	if config.ArrayTickInterval > MaximumVolTickInterval || config.ArrayTickInterval < MinimumVolTickInterval {
-		return fmt.Errorf("space polling frequency not within allowed range of %v and %v", MinimumVolTickInterval.String(), MaximumVolTickInterval.String())
+		return fmt.Errorf("array space polling frequency not within allowed range of %v and %v", MinimumVolTickInterval.String(), MaximumVolTickInterval.String())
 	}
-
 	return nil
 }

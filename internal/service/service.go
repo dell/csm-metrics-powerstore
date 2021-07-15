@@ -319,7 +319,7 @@ func (s *PowerStoreService) timeSince(start time.Time, fName string) {
 	}).Info("function duration")
 }
 
-// gatherSpaceVolumeMetrics will return a channel of volume metrics based on the input of volumes
+// gatherSpaceVolumeMetrics will return a channel of space volume metrics based on the input of volumes
 func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volumes <-chan k8s.VolumeInfo) <-chan *VolumeSpaceMetricsRecord {
 	start := time.Now()
 	defer s.timeSince(start, "gatherSpaceVolumeMetrics")
@@ -433,7 +433,7 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 	return ch
 }
 
-// pushSpaceVolumeMetrics will push the provided channel of volume metrics to a data collector
+// pushSpaceVolumeMetrics will push the provided channel of space metrics to a data collector
 func (s *PowerStoreService) pushSpaceVolumeMetrics(ctx context.Context, volumeSpaceMetrics <-chan *VolumeSpaceMetricsRecord) <-chan string {
 	start := time.Now()
 	defer s.timeSince(start, "pushSpaceVolumeMetrics")
@@ -469,7 +469,7 @@ func (s *PowerStoreService) pushSpaceVolumeMetrics(ctx context.Context, volumeSp
 	return ch
 }
 
-// ExportSpaceVolumeMetrics records I/O statistics for the given list of Volumes
+// ExportSpaceVolumeMetrics records space capacity for the given list of Volumes
 func (s *PowerStoreService) ExportSpaceVolumeMetrics(ctx context.Context) {
 	ctx, span := tracer.GetTracer(ctx, "ExportSpaceVolumeMetrics")
 	defer span.End()
@@ -498,7 +498,7 @@ func (s *PowerStoreService) ExportSpaceVolumeMetrics(ctx context.Context) {
 	}
 }
 
-// gatherArraySpaceMetrics will return a channel of volume metrics based on the input of volumes
+// gatherArraySpaceMetrics will return a channel of array space metrics based on the input of volumes
 func (s *PowerStoreService) gatherArraySpaceMetrics(ctx context.Context, volumes <-chan k8s.VolumeInfo) <-chan *ArraySpaceMetricsRecord {
 	start := time.Now()
 	defer s.timeSince(start, "gatherArraySpaceMetrics")
@@ -590,7 +590,7 @@ func (s *PowerStoreService) gatherArraySpaceMetrics(ctx context.Context, volumes
 	return ch
 }
 
-// pushArraySpaceMetrics will push the provided channel of volume metrics to a data collector
+// pushArraySpaceMetrics will push the provided channel of array and storageclass space metrics to a data collector
 func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpaceMetrics <-chan *ArraySpaceMetricsRecord) <-chan string {
 	start := time.Now()
 	defer s.timeSince(start, "pushArraySpaceMetrics")
@@ -686,7 +686,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 	return ch
 }
 
-// ExportArraySpaceMetrics records I/O statistics for the given list of Volumes
+// ExportArraySpaceMetrics records space capacity statistics for the given list of arrays
 func (s *PowerStoreService) ExportArraySpaceMetrics(ctx context.Context) {
 	ctx, span := tracer.GetTracer(ctx, "ExportArraySpaceMetrics")
 	defer span.End()
