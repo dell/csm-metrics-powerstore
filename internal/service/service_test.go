@@ -277,9 +277,8 @@ func Test_ExportSpaceVolumeMetrics(t *testing.T) {
 					LogicalUsed:            new(int64),
 					LastLogicalProvisioned: new(int64),
 					LastLogicalUsed:        new(int64),
-					//UniquePhysicalUsed:     new(int64),
-					ThinSavings:    1,
-					MaxThinSavings: 1,
+					ThinSavings:            1,
+					MaxThinSavings:         1,
 				},
 			}, nil).Times(3)
 			clients["127.0.0.1"] = c
@@ -428,6 +427,202 @@ func Test_ExportSpaceVolumeMetrics(t *testing.T) {
 			service, ctrl := tc(t)
 			service.Logger = logrus.New()
 			service.ExportSpaceVolumeMetrics(context.Background())
+			ctrl.Finish()
+		})
+	}
+}
+
+func Test_ExportArraySpaceMetrics(t *testing.T) {
+	type setup struct {
+		Service *service.PowerStoreService
+	}
+
+	tests := map[string]func(t *testing.T) (service.PowerStoreService, *gomock.Controller){
+		"success": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				k8s.VolumeInfo{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "volume-1/127.0.0.1/scsi",
+				},
+				k8s.VolumeInfo{
+					PersistentVolume: "pv-2",
+					VolumeHandle:     "volume-2/127.0.0.1/scsi",
+				},
+				k8s.VolumeInfo{
+					PersistentVolume: "pv-3",
+					VolumeHandle:     "volume-2/127.0.0.1/scsi",
+				},
+			}, nil).Times(1)
+
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().SpaceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return([]gopowerstore.SpaceMetricsByVolumeResponse{
+				gopowerstore.SpaceMetricsByVolumeResponse{
+					LogicalProvisioned:     new(int64),
+					LogicalUsed:            new(int64),
+					LastLogicalProvisioned: new(int64),
+					LastLogicalUsed:        new(int64),
+					ThinSavings:            1,
+					MaxThinSavings:         1,
+				},
+			}, nil).Times(3)
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
+		"metrics not pushed if error getting space metrics": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				k8s.VolumeInfo{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "volume-1/127.0.0.1/scsi",
+				},
+			}, nil).Times(1)
+
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().SpaceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("error")).Times(1)
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
+		"metrics not pushed if client not found for array ip in volume handle": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				k8s.VolumeInfo{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "volume-1/127.0.0.1/scsi",
+				},
+			}, nil).Times(1)
+
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().SpaceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			clients["127.0.0.2"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
+		"metrics not pushed if volume handle is invalid": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				k8s.VolumeInfo{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "invalid-volume-handle",
+				},
+			}, nil).Times(1)
+
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().SpaceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
+		"metrics not pushed if volume finder returns error": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return(nil, errors.New("error")).Times(1)
+
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().SpaceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
+		"metrics not pushed if metrics wrapper is nil": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Times(0)
+
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().SpaceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    nil,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
+		"metrics not pushed with 0 volumes": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{}, nil)
+
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().SpaceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{MetricsWrapper: metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+			return service, ctrl
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			service, ctrl := tc(t)
+			service.Logger = logrus.New()
+			service.ExportArraySpaceMetrics(context.Background())
 			ctrl.Finish()
 		})
 	}
