@@ -24,6 +24,13 @@ type MetricsRecorder interface {
 		readBW, writeBW,
 		readIOPS, writeIOPS,
 		readLatency, writeLatency float32) error
+	RecordSpaceMetrics(ctx context.Context, meta interface{},
+		logicalProvisioned, logicalUsed int64,
+		maxThinSavings, thinSavings float32) error
+	RecordArraySpaceMetrics(ctx context.Context, arrayID string,
+		logicalProvisioned, logicalUsed int64) error
+	RecordStorageClassSpaceMetrics(ctx context.Context, storageclass string,
+		logicalProvisioned, logicalUsed int64) error
 }
 
 // Float64UpDownCounterCreater creates a Float64UpDownCounter metric
@@ -33,10 +40,25 @@ type Float64UpDownCounterCreater interface {
 
 // MetricsWrapper contains data used for pushing metrics data
 type MetricsWrapper struct {
-	Meter           Float64UpDownCounterCreater
-	Metrics         sync.Map
-	Labels          sync.Map
-	CapacityMetrics sync.Map
+	Meter             Float64UpDownCounterCreater
+	Metrics           sync.Map
+	Labels            sync.Map
+	SpaceMetrics      sync.Map
+	ArraySpaceMetrics sync.Map
+}
+
+// SpaceMetrics contains the metrics related to a capacity
+type SpaceMetrics struct {
+	LogicalProvisioned metric.BoundFloat64UpDownCounter
+	LogicalUsed        metric.BoundFloat64UpDownCounter
+	MaxThinSavings     metric.BoundFloat64UpDownCounter
+	ThinSavings        metric.BoundFloat64UpDownCounter
+}
+
+// ArraySpaceMetrics contains the metrics related to a capacity
+type ArraySpaceMetrics struct {
+	LogicalProvisioned metric.BoundFloat64UpDownCounter
+	LogicalUsed        metric.BoundFloat64UpDownCounter
 }
 
 // Metrics contains the list of metrics data that is collected
@@ -116,7 +138,7 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 		prefix, metaID = "powerstore_volume_", v.ID
 		labels = []kv.KeyValue{
 			kv.String("VolumeID", v.ID),
-			kv.String("ArrayIP", v.ArrayIP),
+			kv.String("ArrayIP", v.ArrayID),
 			kv.String("PersistentVolumeName", v.PersistentVolumeName),
 			kv.String("PlotWithMean", "No"),
 		}
@@ -172,6 +194,260 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 	metrics.WriteIOPS.Add(ctx, float64(writeIOPS))
 	metrics.ReadLatency.Add(ctx, float64(readLatency))
 	metrics.WriteLatency.Add(ctx, float64(writeLatency))
+
+	return nil
+}
+
+func (mw *MetricsWrapper) initSpaceMetrics(prefix, metaID string, labels []kv.KeyValue) (*SpaceMetrics, error) {
+
+	unboundLogicalProvisioned, err := mw.Meter.NewFloat64UpDownCounter(prefix + "logical_provisioned_megabytes")
+	if err != nil {
+		return nil, err
+	}
+	logicalProvisioned := unboundLogicalProvisioned.Bind(labels...)
+
+	unboundLogicalUsed, err := mw.Meter.NewFloat64UpDownCounter(prefix + "logical_used_megabytes")
+	if err != nil {
+		return nil, err
+	}
+	logicalUsed := unboundLogicalUsed.Bind(labels...)
+
+	unboundThinSavings, err := mw.Meter.NewFloat64UpDownCounter(prefix + "thin_savings_megabytes")
+	if err != nil {
+		return nil, err
+	}
+	thinSavings := unboundThinSavings.Bind(labels...)
+
+	unboundMaxThinSavings, err := mw.Meter.NewFloat64UpDownCounter(prefix + "max_thin_savings_megabytes")
+	if err != nil {
+		return nil, err
+	}
+	maxThinSavings := unboundMaxThinSavings.Bind(labels...)
+
+	metrics := &SpaceMetrics{
+		LogicalProvisioned: logicalProvisioned,
+		LogicalUsed:        logicalUsed,
+		MaxThinSavings:     maxThinSavings,
+		ThinSavings:        thinSavings,
+	}
+
+	mw.SpaceMetrics.Store(metaID, metrics)
+	mw.Labels.Store(metaID, labels)
+
+	return metrics, nil
+}
+
+// RecordSpaceMetrics will publish space metrics data for a given instance
+func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface{},
+	logicalProvisioned, logicalUsed int64,
+	maxThinSavings, thinSavings float32) error {
+	var prefix string
+	var metaID string
+	var labels []kv.KeyValue
+	switch v := meta.(type) {
+	case *VolumeMeta:
+		prefix, metaID = "powerstore_volume_", v.ID
+		labels = []kv.KeyValue{
+			kv.String("VolumeID", v.ID),
+			kv.String("ArrayID", v.ArrayID),
+			kv.String("PersistentVolumeName", v.PersistentVolumeName),
+			kv.String("StorageClass", v.StorageClass),
+			kv.String("PlotWithMean", "No"),
+		}
+	default:
+		return errors.New("unknown MetaData type")
+	}
+
+	metricsMapValue, ok := mw.SpaceMetrics.Load(metaID)
+	if !ok {
+		newMetrics, err := mw.initSpaceMetrics(prefix, metaID, labels)
+		if err != nil {
+			return err
+		}
+		metricsMapValue = newMetrics
+	} else {
+		// If Metrics for this MetricsWrapper exist, then check if any labels have changed and update them
+		currentLabels, ok := mw.Labels.Load(metaID)
+		if !ok {
+			newMetrics, err := mw.initSpaceMetrics(prefix, metaID, labels)
+			if err != nil {
+				return err
+			}
+			metricsMapValue = newMetrics
+		} else {
+			currentLabels := currentLabels.([]kv.KeyValue)
+			updatedLabels := currentLabels
+			haveLabelsChanged := false
+			for i, current := range currentLabels {
+				for _, new := range labels {
+					if current.Key == new.Key {
+						if current.Value != new.Value {
+							updatedLabels[i].Value = new.Value
+							haveLabelsChanged = true
+						}
+					}
+				}
+			}
+			if haveLabelsChanged {
+				newMetrics, err := mw.initSpaceMetrics(prefix, metaID, updatedLabels)
+				if err != nil {
+					return err
+				}
+				metricsMapValue = newMetrics
+			}
+		}
+	}
+
+	metrics := metricsMapValue.(*SpaceMetrics)
+	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned))
+	metrics.LogicalUsed.Add(ctx, float64(logicalUsed))
+	metrics.MaxThinSavings.Add(ctx, float64(maxThinSavings))
+	metrics.ThinSavings.Add(ctx, float64(thinSavings))
+
+	return nil
+}
+
+func (mw *MetricsWrapper) initArraySpaceMetrics(prefix, metaID string, labels []kv.KeyValue) (*ArraySpaceMetrics, error) {
+
+	unboundLogicalProvisioned, err := mw.Meter.NewFloat64UpDownCounter(prefix + "logical_provisioned_megabytes")
+	if err != nil {
+		return nil, err
+	}
+	logicalProvisioned := unboundLogicalProvisioned.Bind(labels...)
+
+	unboundLogicalUsed, err := mw.Meter.NewFloat64UpDownCounter(prefix + "logical_used_megabytes")
+	if err != nil {
+		return nil, err
+	}
+	logicalUsed := unboundLogicalUsed.Bind(labels...)
+
+	metrics := &ArraySpaceMetrics{
+		LogicalProvisioned: logicalProvisioned,
+		LogicalUsed:        logicalUsed,
+	}
+
+	mw.ArraySpaceMetrics.Store(metaID, metrics)
+	mw.Labels.Store(metaID, labels)
+
+	return metrics, nil
+}
+
+// RecordArraySpaceMetrics will publish space metrics data for a given instance
+func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID string,
+	logicalProvisioned, logicalUsed int64) error {
+	var prefix string
+	var metaID string
+	var labels []kv.KeyValue
+
+	prefix, metaID = "powerstore_array_", arrayID
+	labels = []kv.KeyValue{
+		kv.String("ArrayID", arrayID),
+		kv.String("PlotWithMean", "No"),
+	}
+
+	metricsMapValue, ok := mw.ArraySpaceMetrics.Load(metaID)
+	if !ok {
+		newMetrics, err := mw.initArraySpaceMetrics(prefix, metaID, labels)
+		if err != nil {
+			return err
+		}
+		metricsMapValue = newMetrics
+	} else {
+		// If Metrics for this MetricsWrapper exist, then check if any labels have changed and update them
+		currentLabels, ok := mw.Labels.Load(metaID)
+		if !ok {
+			newMetrics, err := mw.initArraySpaceMetrics(prefix, metaID, labels)
+			if err != nil {
+				return err
+			}
+			metricsMapValue = newMetrics
+		} else {
+			currentLabels := currentLabels.([]kv.KeyValue)
+			updatedLabels := currentLabels
+			haveLabelsChanged := false
+			for i, current := range currentLabels {
+				for _, new := range labels {
+					if current.Key == new.Key {
+						if current.Value != new.Value {
+							updatedLabels[i].Value = new.Value
+							haveLabelsChanged = true
+						}
+					}
+				}
+			}
+			if haveLabelsChanged {
+				newMetrics, err := mw.initArraySpaceMetrics(prefix, metaID, updatedLabels)
+				if err != nil {
+					return err
+				}
+				metricsMapValue = newMetrics
+			}
+		}
+	}
+
+	metrics := metricsMapValue.(*ArraySpaceMetrics)
+	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned))
+	metrics.LogicalUsed.Add(ctx, float64(logicalUsed))
+
+	return nil
+}
+
+// RecordStorageClassSpaceMetrics will publish space metrics for storage class
+func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, storageclass string,
+	logicalProvisioned, logicalUsed int64) error {
+	var prefix string
+	var metaID string
+	var labels []kv.KeyValue
+
+	prefix, metaID = "powerstore_storage_class_", storageclass
+	labels = []kv.KeyValue{
+		kv.String("StorageClass", storageclass),
+		kv.String("PlotWithMean", "No"),
+	}
+
+	metricsMapValue, ok := mw.ArraySpaceMetrics.Load(metaID)
+	if !ok {
+		newMetrics, err := mw.initArraySpaceMetrics(prefix, metaID, labels)
+		if err != nil {
+			return err
+		}
+		metricsMapValue = newMetrics
+	} else {
+		// If Metrics for this MetricsWrapper exist, then check if any labels have changed and update them
+		currentLabels, ok := mw.Labels.Load(metaID)
+		if !ok {
+			newMetrics, err := mw.initArraySpaceMetrics(prefix, metaID, labels)
+			if err != nil {
+				return err
+			}
+			metricsMapValue = newMetrics
+		} else {
+			currentLabels := currentLabels.([]kv.KeyValue)
+			updatedLabels := currentLabels
+			haveLabelsChanged := false
+			for i, current := range currentLabels {
+				for _, new := range labels {
+					if current.Key == new.Key {
+						if current.Value != new.Value {
+							updatedLabels[i].Value = new.Value
+							haveLabelsChanged = true
+						}
+					}
+				}
+			}
+			if haveLabelsChanged {
+				newMetrics, err := mw.initArraySpaceMetrics(prefix, metaID, updatedLabels)
+				if err != nil {
+					return err
+				}
+				metricsMapValue = newMetrics
+			}
+		}
+	}
+
+	metrics := metricsMapValue.(*ArraySpaceMetrics)
+	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned))
+	metrics.LogicalUsed.Add(ctx, float64(logicalUsed))
 
 	return nil
 }

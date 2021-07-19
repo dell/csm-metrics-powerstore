@@ -48,3 +48,18 @@ func (mr *MockPowerStoreClientMockRecorder) PerformanceMetricsByVolume(arg0, arg
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PerformanceMetricsByVolume", reflect.TypeOf((*MockPowerStoreClient)(nil).PerformanceMetricsByVolume), arg0, arg1, arg2)
 }
+
+// SpaceMetricsByVolume mocks base method
+func (m *MockPowerStoreClient) SpaceMetricsByVolume(arg0 context.Context, arg1 string, arg2 gopowerstore.MetricsIntervalEnum) ([]gopowerstore.SpaceMetricsByVolumeResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SpaceMetricsByVolume", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]gopowerstore.SpaceMetricsByVolumeResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SpaceMetricsByVolume indicates an expected call of SpaceMetricsByVolume
+func (mr *MockPowerStoreClientMockRecorder) SpaceMetricsByVolume(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceMetricsByVolume", reflect.TypeOf((*MockPowerStoreClient)(nil).SpaceMetricsByVolume), arg0, arg1, arg2)
+}
