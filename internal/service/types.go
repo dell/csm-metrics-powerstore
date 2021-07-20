@@ -16,16 +16,11 @@ type VolumeMeta struct {
 	StorageClass         string
 }
 
-// StorageClassInfo is meta data about a storage class
-type StorageClassInfo struct {
-	ID              string
-	Name            string
-	Driver          string
-	StorageSystemID string
-}
-
-// TotalSpaceMeta is meta data about array and storage class space
-type TotalSpaceMeta struct {
-	ArrayID      string
-	StorageClass string
+// SpaceVolumeMeta is the details of a volume in an SDC
+type SpaceVolumeMeta struct {
+	ID                   string
+	PersistentVolumeName string
+	ArrayID              string
+	StorageClass         string
+	Driver               string
 }

@@ -82,20 +82,14 @@ type VolumeMetricsRecord struct {
 
 // VolumeSpaceMetricsRecord used for holding output of the Volume space metrics query results
 type VolumeSpaceMetricsRecord struct {
-	volumeMeta                      *VolumeMeta
+	volumeMeta                      *SpaceVolumeMeta
 	logicalProvisioned, logicalUsed int64
 	maxThinSavings, thinSavings     float32
 }
 
 // ArraySpaceMetricsRecord used for holding output of the Volume space metrics query results
 type ArraySpaceMetricsRecord struct {
-	arrayID, storageclass           string
-	logicalProvisioned, logicalUsed int64
-}
-
-// StorageClassSpaceMetricsRecord used for holding output of the Volume space metrics query results
-type StorageClassSpaceMetricsRecord struct {
-	storageclass                    string
+	arrayID, storageclass, driver   string
 	logicalProvisioned, logicalUsed int64
 }
 
@@ -352,19 +346,13 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 
 				volumeID := volumeProperties[0]
 				arrayID := volumeProperties[1]
-				protocol := volumeProperties[2]
 
-				// skip Persistent Volumes that don't have a protocol of 'scsi', such as nfs file systems
-				if !strings.EqualFold(protocol, scsiProtocol) {
-					s.Logger.WithFields(logrus.Fields{"protocol": protocol, "persistent_volume": volume.PersistentVolume}).Debugf("persistent volume is not %s", scsiProtocol)
-					return
-				}
-
-				volumeMeta := &VolumeMeta{
+				volumeMeta := &SpaceVolumeMeta{
 					ID:                   volumeID,
 					PersistentVolumeName: volume.PersistentVolume,
 					ArrayID:              arrayID,
 					StorageClass:         volume.StorageClass,
+					Driver:               volume.Driver,
 				}
 
 				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)
@@ -419,7 +407,7 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 			// If no volumes metrics were exported, we need to export an "empty" metric to update the OT Collector
 			// so that stale entries are removed
 			ch <- &VolumeSpaceMetricsRecord{
-				volumeMeta:         &VolumeMeta{},
+				volumeMeta:         &SpaceVolumeMeta{},
 				logicalProvisioned: 0,
 				logicalUsed:        0,
 				maxThinSavings:     0,
@@ -532,13 +520,6 @@ func (s *PowerStoreService) gatherArraySpaceMetrics(ctx context.Context, volumes
 
 				volumeID := volumeProperties[0]
 				arrayID := volumeProperties[1]
-				protocol := volumeProperties[2]
-
-				// skip Persistent Volumes that don't have a protocol of 'scsi', such as nfs file systems
-				if !strings.EqualFold(protocol, scsiProtocol) {
-					s.Logger.WithFields(logrus.Fields{"protocol": protocol, "persistent_volume": volume.PersistentVolume}).Debugf("persistent volume is not %s", scsiProtocol)
-					return
-				}
 
 				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)
 				if err != nil {
@@ -561,12 +542,14 @@ func (s *PowerStoreService) gatherArraySpaceMetrics(ctx context.Context, volumes
 				ch <- &ArraySpaceMetricsRecord{
 					arrayID:            arrayID,
 					storageclass:       volume.StorageClass,
+					driver:             volume.Driver,
 					logicalProvisioned: logicalProvisioned,
 					logicalUsed:        logicalUsed,
 				}
 				s.Logger.WithFields(logrus.Fields{
 					"array_id":                  arrayID,
 					"storageClass":              volume.StorageClass,
+					"driver":                    volume.Driver,
 					"array_logical_provisioned": logicalProvisioned,
 					"array_logical_used":        logicalUsed,
 				}).Debug("array space metrics for array")
@@ -611,6 +594,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 			if volMetrics, ok := arrayIDMap[metrics.arrayID]; !ok {
 				arrayIDMap[metrics.arrayID] = ArraySpaceMetricsRecord{
 					arrayID:            metrics.arrayID,
+					driver:             metrics.driver,
 					logicalProvisioned: metrics.logicalProvisioned,
 					logicalUsed:        metrics.logicalUsed,
 				}
@@ -620,6 +604,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 				arrayIDMap[metrics.arrayID] = volMetrics
 				s.Logger.WithFields(logrus.Fields{
 					"array_id":                             metrics.arrayID,
+					"driver":                               metrics.driver,
 					"cumulative_array_logical_provisioned": volMetrics.logicalProvisioned,
 					"cumulative_array_logical_used":        volMetrics.logicalUsed,
 				}).Debug("array cumulative space metrics")
@@ -629,6 +614,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 			if volMetrics, ok := storageClassMap[metrics.storageclass]; !ok {
 				storageClassMap[metrics.storageclass] = ArraySpaceMetricsRecord{
 					storageclass:       metrics.storageclass,
+					driver:             metrics.driver,
 					logicalProvisioned: metrics.logicalProvisioned,
 					logicalUsed:        metrics.logicalUsed,
 				}
@@ -638,6 +624,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 				storageClassMap[metrics.storageclass] = volMetrics
 				s.Logger.WithFields(logrus.Fields{
 					"storage_class": metrics.storageclass,
+					"driver":        metrics.driver,
 					"cumulative_storage_class_logical_provisioned": volMetrics.logicalProvisioned,
 					"cumulative_storage_class_logical_used":        volMetrics.logicalUsed,
 				}).Debug("storage class cumulative space metrics")
@@ -650,7 +637,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 			go func(metrics ArraySpaceMetricsRecord) {
 				defer wg.Done()
 				err := s.MetricsWrapper.RecordArraySpaceMetrics(ctx,
-					metrics.arrayID,
+					metrics.arrayID, metrics.driver,
 					metrics.logicalProvisioned,
 					metrics.logicalUsed,
 				)
@@ -668,7 +655,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 			go func(metrics ArraySpaceMetricsRecord) {
 				defer wg.Done()
 				err := s.MetricsWrapper.RecordStorageClassSpaceMetrics(ctx,
-					metrics.storageclass,
+					metrics.storageclass, metrics.driver,
 					metrics.logicalProvisioned,
 					metrics.logicalUsed,
 				)

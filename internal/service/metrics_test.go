@@ -324,7 +324,7 @@ func Test__SpaceMetrics_Record(t *testing.T) {
 	}
 
 	metas := []interface{}{
-		&service.VolumeMeta{
+		&service.SpaceVolumeMeta{
 			ID: "123",
 		},
 	}
@@ -574,7 +574,7 @@ func Test_ArraySpace_Metrics_Record(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			mws, checks := tc(t)
 			for i := range mws {
-				err := mws[i].RecordArraySpaceMetrics(context.Background(), "123", 1, 2)
+				err := mws[i].RecordArraySpaceMetrics(context.Background(), "123", "driver", 1, 2)
 				for _, check := range checks {
 					check(t, err)
 				}
@@ -669,7 +669,7 @@ func Test_StorageClassSpace_Metrics_Record(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			mws, checks := tc(t)
 			for i := range mws {
-				err := mws[i].RecordStorageClassSpaceMetrics(context.Background(), "123", 1, 2)
+				err := mws[i].RecordStorageClassSpaceMetrics(context.Background(), "123", "driver", 1, 2)
 				for _, check := range checks {
 					check(t, err)
 				}
@@ -770,13 +770,13 @@ func Test_Volume_Metrics_Label_Update(t *testing.T) {
 }
 
 func Test_Space_Metrics_Label_Update(t *testing.T) {
-	metaFirst := &service.VolumeMeta{
+	metaFirst := &service.SpaceVolumeMeta{
 		ID:           "123",
 		ArrayID:      "arr123",
 		StorageClass: "powerstore",
 	}
 
-	metaSecond := &service.VolumeMeta{
+	metaSecond := &service.SpaceVolumeMeta{
 		ID:           "123",
 		ArrayID:      "arr123",
 		StorageClass: "powerstore",
@@ -885,11 +885,11 @@ func Test_ArraySpace_Metrics_Label_Update(t *testing.T) {
 	}
 
 	t.Run("success: volume metric labels updated", func(t *testing.T) {
-		err := mw.RecordArraySpaceMetrics(context.Background(), array1, 1, 2)
+		err := mw.RecordArraySpaceMetrics(context.Background(), array1, "driver", 1, 2)
 		if err != nil {
 			t.Errorf("expected nil error (record #1), got %v", err)
 		}
-		err = mw.RecordArraySpaceMetrics(context.Background(), array2, 1, 2)
+		err = mw.RecordArraySpaceMetrics(context.Background(), array2, "driver", 1, 2)
 		if err != nil {
 			t.Errorf("expected nil error (record #2), got %v", err)
 		}
@@ -945,11 +945,11 @@ func Test_StrorageClass_Space_Metrics_Label_Update(t *testing.T) {
 	}
 
 	t.Run("success: volume metric labels updated", func(t *testing.T) {
-		err := mw.RecordStorageClassSpaceMetrics(context.Background(), array1, 1, 2)
+		err := mw.RecordStorageClassSpaceMetrics(context.Background(), array1, "driver", 1, 2)
 		if err != nil {
 			t.Errorf("expected nil error (record #1), got %v", err)
 		}
-		err = mw.RecordStorageClassSpaceMetrics(context.Background(), array2, 1, 2)
+		err = mw.RecordStorageClassSpaceMetrics(context.Background(), array2, "driver", 1, 2)
 		if err != nil {
 			t.Errorf("expected nil error (record #2), got %v", err)
 		}

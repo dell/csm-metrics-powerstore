@@ -27,9 +27,9 @@ type MetricsRecorder interface {
 	RecordSpaceMetrics(ctx context.Context, meta interface{},
 		logicalProvisioned, logicalUsed int64,
 		maxThinSavings, thinSavings float32) error
-	RecordArraySpaceMetrics(ctx context.Context, arrayID string,
+	RecordArraySpaceMetrics(ctx context.Context, arrayID, driver string,
 		logicalProvisioned, logicalUsed int64) error
-	RecordStorageClassSpaceMetrics(ctx context.Context, storageclass string,
+	RecordStorageClassSpaceMetrics(ctx context.Context, storageclass, driver string,
 		logicalProvisioned, logicalUsed int64) error
 }
 
@@ -245,13 +245,14 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface
 	var metaID string
 	var labels []kv.KeyValue
 	switch v := meta.(type) {
-	case *VolumeMeta:
+	case *SpaceVolumeMeta:
 		prefix, metaID = "powerstore_volume_", v.ID
 		labels = []kv.KeyValue{
 			kv.String("VolumeID", v.ID),
 			kv.String("ArrayID", v.ArrayID),
 			kv.String("PersistentVolumeName", v.PersistentVolumeName),
 			kv.String("StorageClass", v.StorageClass),
+			kv.String("Driver", v.Driver),
 			kv.String("PlotWithMean", "No"),
 		}
 	default:
@@ -333,7 +334,7 @@ func (mw *MetricsWrapper) initArraySpaceMetrics(prefix, metaID string, labels []
 }
 
 // RecordArraySpaceMetrics will publish space metrics data for a given instance
-func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID string,
+func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID, driver string,
 	logicalProvisioned, logicalUsed int64) error {
 	var prefix string
 	var metaID string
@@ -342,6 +343,7 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID s
 	prefix, metaID = "powerstore_array_", arrayID
 	labels = []kv.KeyValue{
 		kv.String("ArrayID", arrayID),
+		kv.String("Driver", driver),
 		kv.String("PlotWithMean", "No"),
 	}
 
@@ -393,7 +395,7 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID s
 }
 
 // RecordStorageClassSpaceMetrics will publish space metrics for storage class
-func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, storageclass string,
+func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, storageclass, driver string,
 	logicalProvisioned, logicalUsed int64) error {
 	var prefix string
 	var metaID string
@@ -402,6 +404,7 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, st
 	prefix, metaID = "powerstore_storage_class_", storageclass
 	labels = []kv.KeyValue{
 		kv.String("StorageClass", storageclass),
+		kv.String("Driver", driver),
 		kv.String("PlotWithMean", "No"),
 	}
 
