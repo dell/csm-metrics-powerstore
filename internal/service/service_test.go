@@ -441,8 +441,8 @@ func Test_ExportArraySpaceMetrics(t *testing.T) {
 		"success": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
@@ -484,8 +484,8 @@ func Test_ExportArraySpaceMetrics(t *testing.T) {
 		"metrics not pushed if error getting space metrics": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
@@ -510,8 +510,8 @@ func Test_ExportArraySpaceMetrics(t *testing.T) {
 		"metrics not pushed if client not found for array ip in volume handle": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
@@ -536,8 +536,8 @@ func Test_ExportArraySpaceMetrics(t *testing.T) {
 		"metrics not pushed if volume handle is invalid": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
@@ -562,8 +562,8 @@ func Test_ExportArraySpaceMetrics(t *testing.T) {
 		"metrics not pushed if volume finder returns error": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return(nil, errors.New("error")).Times(1)
@@ -613,8 +613,8 @@ func Test_ExportArraySpaceMetrics(t *testing.T) {
 				VolumeFinder:      volFinder,
 				PowerStoreClients: clients,
 			}
-			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 			return service, ctrl
 		},
 	}

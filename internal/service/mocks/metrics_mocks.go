@@ -49,17 +49,17 @@ func (mr *MockMetricsRecorderMockRecorder) Record(arg0, arg1, arg2, arg3, arg4, 
 }
 
 // RecordArraySpaceMetrics mocks base method
-func (m *MockMetricsRecorder) RecordArraySpaceMetrics(arg0 context.Context, arg1 string, arg2, arg3 int64) error {
+func (m *MockMetricsRecorder) RecordArraySpaceMetrics(arg0 context.Context, arg1, arg2 string, arg3, arg4 int64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RecordArraySpaceMetrics", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "RecordArraySpaceMetrics", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RecordArraySpaceMetrics indicates an expected call of RecordArraySpaceMetrics
-func (mr *MockMetricsRecorderMockRecorder) RecordArraySpaceMetrics(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockMetricsRecorderMockRecorder) RecordArraySpaceMetrics(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordArraySpaceMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordArraySpaceMetrics), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordArraySpaceMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordArraySpaceMetrics), arg0, arg1, arg2, arg3, arg4)
 }
 
 // RecordSpaceMetrics mocks base method
@@ -77,17 +77,17 @@ func (mr *MockMetricsRecorderMockRecorder) RecordSpaceMetrics(arg0, arg1, arg2, 
 }
 
 // RecordStorageClassSpaceMetrics mocks base method
-func (m *MockMetricsRecorder) RecordStorageClassSpaceMetrics(arg0 context.Context, arg1 string, arg2, arg3 int64) error {
+func (m *MockMetricsRecorder) RecordStorageClassSpaceMetrics(arg0 context.Context, arg1, arg2 string, arg3, arg4 int64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RecordStorageClassSpaceMetrics", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "RecordStorageClassSpaceMetrics", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RecordStorageClassSpaceMetrics indicates an expected call of RecordStorageClassSpaceMetrics
-func (mr *MockMetricsRecorderMockRecorder) RecordStorageClassSpaceMetrics(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockMetricsRecorderMockRecorder) RecordStorageClassSpaceMetrics(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordStorageClassSpaceMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordStorageClassSpaceMetrics), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordStorageClassSpaceMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordStorageClassSpaceMetrics), arg0, arg1, arg2, arg3, arg4)
 }
 
 // MockFloat64UpDownCounterCreater is a mock of Float64UpDownCounterCreater interface
