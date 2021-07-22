@@ -138,7 +138,7 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 		prefix, metaID = "powerstore_volume_", v.ID
 		labels = []kv.KeyValue{
 			kv.String("VolumeID", v.ID),
-			kv.String("ArrayIP", v.ArrayID),
+			kv.String("ArrayID", v.ArrayID),
 			kv.String("PersistentVolumeName", v.PersistentVolumeName),
 			kv.String("PlotWithMean", "No"),
 		}
