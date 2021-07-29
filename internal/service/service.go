@@ -32,6 +32,7 @@ const (
 	// ExpectedVolumeHandleProperties is the number of properties that the VolumeHandle contains
 	ExpectedVolumeHandleProperties = 3
 	scsiProtocol                   = "scsi"
+	nfsProtocol                    = "nfs"
 )
 
 // Service contains operations that would be used to interact with a PowerStore system
@@ -40,6 +41,7 @@ type Service interface {
 	ExportVolumeStatistics(context.Context)
 	ExportSpaceVolumeMetrics(context.Context)
 	ExportArraySpaceMetrics(context.Context)
+	ExportFileSystemStatistics(context.Context)
 }
 
 // PowerStoreClient contains operations for accessing the PowerStore API
@@ -47,6 +49,7 @@ type Service interface {
 type PowerStoreClient interface {
 	PerformanceMetricsByVolume(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByVolumeResponse, error)
 	SpaceMetricsByVolume(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.SpaceMetricsByVolumeResponse, error)
+	PerformanceMetricsByFileSystem(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByFileSystemResponse, error)
 }
 
 // PowerStoreService represents the service for getting metrics data for a PowerStore system
@@ -700,4 +703,183 @@ func (s *PowerStoreService) ExportArraySpaceMetrics(ctx context.Context) {
 	for range s.pushArraySpaceMetrics(ctx, s.gatherArraySpaceMetrics(ctx, s.volumeServer(ctx, pvs))) {
 		// consume the channel until it is empty and closed
 	}
+}
+
+// ExportFileSystemStatistics records I/O statistics for the given list of Volumes
+func (s *PowerStoreService) ExportFileSystemStatistics(ctx context.Context) {
+	ctx, span := tracer.GetTracer(ctx, "ExportFileSystemStatistics")
+	defer span.End()
+
+	start := time.Now()
+	defer s.timeSince(start, "ExportFileSystemStatistics")
+
+	if s.MetricsWrapper == nil {
+		s.Logger.Warn("no MetricsWrapper provided for getting ExportFileSystemStatistics")
+		return
+	}
+
+	if s.MaxPowerStoreConnections == 0 {
+		s.Logger.Debug("Using DefaultMaxPowerStoreConnections")
+		s.MaxPowerStoreConnections = DefaultMaxPowerStoreConnections
+	}
+
+	pvs, err := s.VolumeFinder.GetPersistentVolumes(ctx)
+	if err != nil {
+		s.Logger.WithError(err).Error("getting persistent volumes")
+		return
+	}
+
+	for range s.pushFileSystemMetrics(ctx, s.gatherFileSystemMetrics(ctx, s.volumeServer(ctx, pvs))) {
+		// consume the channel until it is empty and closed
+	}
+}
+
+// gatherFileSystemMetrics will return a channel of filesystem metrics based on the input of volumes
+func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes <-chan k8s.VolumeInfo) <-chan *VolumeMetricsRecord {
+	start := time.Now()
+	defer s.timeSince(start, "gatherFileSystemMetrics")
+
+	ch := make(chan *VolumeMetricsRecord)
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, s.MaxPowerStoreConnections)
+
+	go func() {
+		ctx, span := tracer.GetTracer(ctx, "gatherFileSystemMetrics")
+		defer span.End()
+
+		exported := false
+		for volume := range volumes {
+			exported = true
+			wg.Add(1)
+			sem <- struct{}{}
+			go func(volume k8s.VolumeInfo) {
+				defer func() {
+					wg.Done()
+					<-sem
+				}()
+
+				// VolumeHandle is of the format "volume-id/array-ip/protocol"
+				volumeProperties := strings.Split(volume.VolumeHandle, "/")
+				if len(volumeProperties) != ExpectedVolumeHandleProperties {
+					s.Logger.WithField("volume_handle", volume.VolumeHandle).Warn("unable to get Volume ID and Array IP from volume handle")
+					return
+				}
+
+				volumeID := volumeProperties[0]
+				arrayID := volumeProperties[1]
+				protocol := volumeProperties[2]
+
+				// skip Persistent Volumes that don't have a protocol of 'nfs'
+				if !strings.EqualFold(protocol, nfsProtocol) {
+					s.Logger.WithFields(logrus.Fields{"protocol": protocol, "persistent_volume": volume.PersistentVolume}).Debugf("persistent volume is not %s", nfsProtocol)
+					return
+				}
+
+				volumeMeta := &VolumeMeta{
+					ID:                   volumeID,
+					PersistentVolumeName: volume.PersistentVolume,
+					ArrayID:              arrayID,
+					StorageClass:         volume.StorageClass,
+				}
+
+				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)
+				if err != nil {
+					s.Logger.WithError(err).WithField("ip", arrayID).Warn("no client found for PowerStore with IP")
+					return
+				}
+
+				metrics, err := goPowerStoreClient.PerformanceMetricsByFileSystem(ctx, volumeID, gopowerstore.TwentySec)
+				if err != nil {
+					s.Logger.WithError(err).WithField("volume_id", volumeMeta.ID).Error("getting performance metrics for volume")
+					return
+				}
+
+				var readBW, writeBW, readIOPS, writeIOPS, readLatency, writeLatency float32
+
+				s.Logger.WithFields(logrus.Fields{
+					"filesystem_performance_metrics": len(metrics),
+					"filesystem_id":                  volumeMeta.ID,
+					"array_ip":                       volumeMeta.ArrayID,
+				}).Debug("volume performance metrics returned for volume")
+
+				if len(metrics) > 0 {
+					latestMetric := metrics[len(metrics)-1]
+					readBW = toMegabytes(latestMetric.ReadBandwidth)
+					readIOPS = latestMetric.ReadIops
+					readLatency = toMilliseconds(latestMetric.AvgReadLatency)
+					writeBW = toMegabytes(latestMetric.WriteBandwidth)
+					writeIOPS = latestMetric.WriteIops
+					writeLatency = toMilliseconds(latestMetric.AvgWriteLatency)
+				}
+
+				s.Logger.WithFields(logrus.Fields{
+					"volume_meta":     volumeMeta,
+					"read_bandwidth":  readBW,
+					"write_bandwidth": writeBW,
+					"read_iops":       readIOPS,
+					"write_iops":      writeIOPS,
+					"read_latency":    readLatency,
+					"write_latency":   writeLatency,
+				}).Debug("volume metrics")
+
+				ch <- &VolumeMetricsRecord{
+					volumeMeta: volumeMeta,
+					readBW:     readBW, writeBW: writeBW,
+					readIOPS: readIOPS, writeIOPS: writeIOPS,
+					readLatency: readLatency, writeLatency: writeLatency,
+				}
+
+			}(volume)
+		}
+
+		if !exported {
+			// If no volumes metrics were exported, we need to export an "empty" metric to update the OT Collector
+			// so that stale entries are removed
+			ch <- &VolumeMetricsRecord{
+				volumeMeta: &VolumeMeta{},
+				readBW:     0, writeBW: 0,
+				readIOPS: 0, writeIOPS: 0,
+				readLatency: 0, writeLatency: 0,
+			}
+		}
+		wg.Wait()
+		close(ch)
+		close(sem)
+	}()
+	return ch
+}
+
+// pushFileSystemMetrics will push the provided channel of filesystem metrics to a data collector
+func (s *PowerStoreService) pushFileSystemMetrics(ctx context.Context, volumeMetrics <-chan *VolumeMetricsRecord) <-chan string {
+	start := time.Now()
+	defer s.timeSince(start, "pushFileSystemMetrics")
+	var wg sync.WaitGroup
+
+	ch := make(chan string)
+	go func() {
+		ctx, span := tracer.GetTracer(ctx, "pushFileSystemMetrics")
+		defer span.End()
+
+		for metrics := range volumeMetrics {
+			wg.Add(1)
+			go func(metrics *VolumeMetricsRecord) {
+				defer wg.Done()
+				err := s.MetricsWrapper.RecordFileSystemMetrics(ctx,
+					metrics.volumeMeta,
+					metrics.readBW, metrics.writeBW,
+					metrics.readIOPS, metrics.writeIOPS,
+					metrics.readLatency, metrics.writeLatency,
+				)
+				if err != nil {
+					s.Logger.WithError(err).WithField("volume_id", metrics.volumeMeta.ID).Error("recording statistics for volume")
+				} else {
+					ch <- fmt.Sprintf(metrics.volumeMeta.ID)
+				}
+			}(metrics)
+		}
+		wg.Wait()
+		close(ch)
+	}()
+
+	return ch
 }

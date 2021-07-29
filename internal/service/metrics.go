@@ -31,6 +31,10 @@ type MetricsRecorder interface {
 		logicalProvisioned, logicalUsed int64) error
 	RecordStorageClassSpaceMetrics(ctx context.Context, storageclass, driver string,
 		logicalProvisioned, logicalUsed int64) error
+	RecordFileSystemMetrics(ctx context.Context, meta interface{},
+		readBW, writeBW,
+		readIOPS, writeIOPS,
+		readLatency, writeLatency float32) error
 }
 
 // Float64UpDownCounterCreater creates a Float64UpDownCounter metric
@@ -451,6 +455,134 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, st
 	metrics := metricsMapValue.(*ArraySpaceMetrics)
 	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned))
 	metrics.LogicalUsed.Add(ctx, float64(logicalUsed))
+
+	return nil
+}
+
+func (mw *MetricsWrapper) initFileSystemMetrics(prefix, metaID string, labels []kv.KeyValue) (*Metrics, error) {
+	unboundReadBW, err := mw.Meter.NewFloat64UpDownCounter(prefix + "read_bw_megabytes_per_second")
+	if err != nil {
+		return nil, err
+	}
+	readBW := unboundReadBW.Bind(labels...)
+
+	unboundWriteBW, err := mw.Meter.NewFloat64UpDownCounter(prefix + "write_bw_megabytes_per_second")
+	if err != nil {
+		return nil, err
+	}
+	writeBW := unboundWriteBW.Bind(labels...)
+
+	unboundReadIOPS, err := mw.Meter.NewFloat64UpDownCounter(prefix + "read_iops_per_second")
+	if err != nil {
+		return nil, err
+	}
+	readIOPS := unboundReadIOPS.Bind(labels...)
+
+	unboundWriteIOPS, err := mw.Meter.NewFloat64UpDownCounter(prefix + "write_iops_per_second")
+	if err != nil {
+		return nil, err
+	}
+	writeIOPS := unboundWriteIOPS.Bind(labels...)
+
+	unboundReadLatency, err := mw.Meter.NewFloat64UpDownCounter(prefix + "read_latency_milliseconds")
+	if err != nil {
+		return nil, err
+	}
+	readLatency := unboundReadLatency.Bind(labels...)
+
+	unboundWriteLatency, err := mw.Meter.NewFloat64UpDownCounter(prefix + "write_latency_milliseconds")
+	if err != nil {
+		return nil, err
+	}
+	writeLatency := unboundWriteLatency.Bind(labels...)
+
+	metrics := &Metrics{
+		ReadBW:       readBW,
+		WriteBW:      writeBW,
+		ReadIOPS:     readIOPS,
+		WriteIOPS:    writeIOPS,
+		ReadLatency:  readLatency,
+		WriteLatency: writeLatency,
+	}
+
+	mw.Metrics.Store(metaID, metrics)
+	mw.Labels.Store(metaID, labels)
+
+	return metrics, nil
+}
+
+// RecordFileSystemMetrics will publish filesystem metrics data for a given instance
+func (mw *MetricsWrapper) RecordFileSystemMetrics(ctx context.Context, meta interface{},
+	readBW, writeBW,
+	readIOPS, writeIOPS,
+	readLatency, writeLatency float32,
+) error {
+
+	var prefix string
+	var metaID string
+	var labels []kv.KeyValue
+	switch v := meta.(type) {
+	case *VolumeMeta:
+		prefix, metaID = "powerstore_filesystem_", v.ID
+		labels = []kv.KeyValue{
+			kv.String("FileSystemID", v.ID),
+			kv.String("ArrayID", v.ArrayID),
+			kv.String("PersistentVolumeName", v.PersistentVolumeName),
+			kv.String("StorageClass", v.StorageClass),
+			kv.String("PlotWithMean", "No"),
+		}
+	default:
+		return errors.New("unknown MetaData type")
+	}
+
+	metricsMapValue, ok := mw.Metrics.Load(metaID)
+	if !ok {
+		newMetrics, err := mw.initFileSystemMetrics(prefix, metaID, labels)
+		if err != nil {
+			return err
+		}
+		metricsMapValue = newMetrics
+	} else {
+		// If Metrics for this MetricsWrapper exist, then check if any labels have changed and update them
+		currentLabels, ok := mw.Labels.Load(metaID)
+		if !ok {
+			newMetrics, err := mw.initFileSystemMetrics(prefix, metaID, labels)
+			if err != nil {
+				return err
+			}
+			metricsMapValue = newMetrics
+		} else {
+			currentLabels := currentLabels.([]kv.KeyValue)
+			updatedLabels := currentLabels
+			haveLabelsChanged := false
+			for i, current := range currentLabels {
+				for _, new := range labels {
+					if current.Key == new.Key {
+						if current.Value != new.Value {
+							updatedLabels[i].Value = new.Value
+							haveLabelsChanged = true
+						}
+					}
+				}
+			}
+			if haveLabelsChanged {
+				newMetrics, err := mw.initFileSystemMetrics(prefix, metaID, updatedLabels)
+				if err != nil {
+					return err
+				}
+				metricsMapValue = newMetrics
+			}
+		}
+	}
+
+	metrics := metricsMapValue.(*Metrics)
+
+	metrics.ReadBW.Add(ctx, float64(readBW))
+	metrics.WriteBW.Add(ctx, float64(writeBW))
+	metrics.ReadIOPS.Add(ctx, float64(readIOPS))
+	metrics.WriteIOPS.Add(ctx, float64(writeIOPS))
+	metrics.ReadLatency.Add(ctx, float64(readLatency))
+	metrics.WriteLatency.Add(ctx, float64(writeLatency))
 
 	return nil
 }

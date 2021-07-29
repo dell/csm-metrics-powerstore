@@ -266,7 +266,7 @@ func updateTickIntervals(config *entrypoint.Config, logger *logrus.Logger) {
 	arrayTickInterval := defaultTickInterval
 	arrayPollFrequencySeconds := viper.GetString("POWERSTORE_ARRAY_POLL_FREQUENCY")
 	if arrayPollFrequencySeconds != "" {
-		numSeconds, err := strconv.Atoi(spacePollFrequencySeconds)
+		numSeconds, err := strconv.Atoi(arrayPollFrequencySeconds)
 		if err != nil {
 			logger.WithError(err).Fatal("POWERSTORE_ARRAY_POLL_FREQUENCY was not set to a valid number")
 		}
@@ -274,6 +274,18 @@ func updateTickIntervals(config *entrypoint.Config, logger *logrus.Logger) {
 	}
 	config.ArrayTickInterval = arrayTickInterval
 	logger.WithField("array_tick_interval", fmt.Sprintf("%v", arrayTickInterval)).Debug("setting array tick interval")
+
+	fileSystemTickInterval := defaultTickInterval
+	fileSystemPollFrequencySeconds := viper.GetString("POWERSTORE_FILE_SYSTEM_POLL_FREQUENCY")
+	if arrayPollFrequencySeconds != "" {
+		numSeconds, err := strconv.Atoi(fileSystemPollFrequencySeconds)
+		if err != nil {
+			logger.WithError(err).Fatal("POWERSTORE_FILE_SYSTEM_POLL_FREQUENCY was not set to a valid number")
+		}
+		fileSystemTickInterval = time.Duration(numSeconds) * time.Second
+	}
+	config.FileSystemTickInterval = fileSystemTickInterval
+	logger.WithField("array_tick_interval", fmt.Sprintf("%v", fileSystemTickInterval)).Debug("setting filesystem tick interval")
 }
 
 func updateService(pstoreSvc *service.PowerStoreService, logger *logrus.Logger) {

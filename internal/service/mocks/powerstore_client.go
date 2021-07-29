@@ -34,6 +34,21 @@ func (m *MockPowerStoreClient) EXPECT() *MockPowerStoreClientMockRecorder {
 	return m.recorder
 }
 
+// PerformanceMetricsByFileSystem mocks base method
+func (m *MockPowerStoreClient) PerformanceMetricsByFileSystem(arg0 context.Context, arg1 string, arg2 gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByFileSystemResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PerformanceMetricsByFileSystem", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]gopowerstore.PerformanceMetricsByFileSystemResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PerformanceMetricsByFileSystem indicates an expected call of PerformanceMetricsByFileSystem
+func (mr *MockPowerStoreClientMockRecorder) PerformanceMetricsByFileSystem(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PerformanceMetricsByFileSystem", reflect.TypeOf((*MockPowerStoreClient)(nil).PerformanceMetricsByFileSystem), arg0, arg1, arg2)
+}
+
 // PerformanceMetricsByVolume mocks base method
 func (m *MockPowerStoreClient) PerformanceMetricsByVolume(arg0 context.Context, arg1 string, arg2 gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByVolumeResponse, error) {
 	m.ctrl.T.Helper()

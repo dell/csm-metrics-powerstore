@@ -62,6 +62,20 @@ func (mr *MockMetricsRecorderMockRecorder) RecordArraySpaceMetrics(arg0, arg1, a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordArraySpaceMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordArraySpaceMetrics), arg0, arg1, arg2, arg3, arg4)
 }
 
+// RecordFileSystemMetrics mocks base method
+func (m *MockMetricsRecorder) RecordFileSystemMetrics(arg0 context.Context, arg1 interface{}, arg2, arg3, arg4, arg5, arg6, arg7 float32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecordFileSystemMetrics", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecordFileSystemMetrics indicates an expected call of RecordFileSystemMetrics
+func (mr *MockMetricsRecorderMockRecorder) RecordFileSystemMetrics(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordFileSystemMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordFileSystemMetrics), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+}
+
 // RecordSpaceMetrics mocks base method
 func (m *MockMetricsRecorder) RecordSpaceMetrics(arg0 context.Context, arg1 interface{}, arg2, arg3 int64, arg4, arg5 float32) error {
 	m.ctrl.T.Helper()

@@ -53,6 +53,7 @@ func Test_Run(t *testing.T) {
 			svc.EXPECT().ExportVolumeStatistics(gomock.Any()).AnyTimes()
 			svc.EXPECT().ExportSpaceVolumeMetrics(gomock.Any()).AnyTimes()
 			svc.EXPECT().ExportArraySpaceMetrics(gomock.Any()).AnyTimes()
+			svc.EXPECT().ExportFileSystemStatistics(gomock.Any()).AnyTimes()
 
 			return false, config, e, svc, prevConfigValidationFunc, ctrl, false
 		},
@@ -100,6 +101,25 @@ func Test_Run(t *testing.T) {
 				VolumeTickInterval:   200 * time.Second,
 				SpaceTickInterval:    200 * time.Second,
 				ArrayTickInterval:    1 * time.Second,
+			}
+			prevConfigValidationFunc := entrypoint.ConfigValidatorFunc
+			e := exportermocks.NewMockOtlexporter(ctrl)
+			svc := metrics.NewMockService(ctrl)
+
+			return true, config, e, svc, prevConfigValidationFunc, ctrl, true
+		},
+		"error with invalid filesystem ticker interval": func(*testing.T) (bool, *entrypoint.Config, otlexporters.Otlexporter, pStoreServices.Service, func(*entrypoint.Config) error, *gomock.Controller, bool) {
+			ctrl := gomock.NewController(t)
+			leaderElector := mocks.NewMockLeaderElector(ctrl)
+			clients := make(map[string]service.PowerStoreClient)
+			clients["test"] = mocks.NewMockPowerStoreClient(ctrl)
+			config := &entrypoint.Config{
+				VolumeMetricsEnabled:   true,
+				LeaderElector:          leaderElector,
+				VolumeTickInterval:     200 * time.Second,
+				SpaceTickInterval:      200 * time.Second,
+				ArrayTickInterval:      200 * time.Second,
+				FileSystemTickInterval: 1 * time.Second,
 			}
 			prevConfigValidationFunc := entrypoint.ConfigValidatorFunc
 			e := exportermocks.NewMockOtlexporter(ctrl)
@@ -232,6 +252,7 @@ func Test_Run(t *testing.T) {
 					config.VolumeTickInterval = 100 * time.Millisecond
 					config.SpaceTickInterval = 100 * time.Millisecond
 					config.ArrayTickInterval = 100 * time.Millisecond
+					config.FileSystemTickInterval = 100 * time.Millisecond
 				}
 			}
 			err := entrypoint.Run(ctx, config, exporter, svc)
