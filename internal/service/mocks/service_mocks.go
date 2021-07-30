@@ -45,6 +45,18 @@ func (mr *MockServiceMockRecorder) ExportArraySpaceMetrics(arg0 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportArraySpaceMetrics", reflect.TypeOf((*MockService)(nil).ExportArraySpaceMetrics), arg0)
 }
 
+// ExportFileSystemStatistics mocks base method
+func (m *MockService) ExportFileSystemStatistics(arg0 context.Context) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ExportFileSystemStatistics", arg0)
+}
+
+// ExportFileSystemStatistics indicates an expected call of ExportFileSystemStatistics
+func (mr *MockServiceMockRecorder) ExportFileSystemStatistics(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportFileSystemStatistics", reflect.TypeOf((*MockService)(nil).ExportFileSystemStatistics), arg0)
+}
+
 // ExportSpaceVolumeMetrics mocks base method
 func (m *MockService) ExportSpaceVolumeMetrics(arg0 context.Context) {
 	m.ctrl.T.Helper()

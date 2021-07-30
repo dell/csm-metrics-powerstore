@@ -42,14 +42,15 @@ var (
 
 // Config holds data that will be used by the service
 type Config struct {
-	VolumeTickInterval   time.Duration
-	SpaceTickInterval    time.Duration
-	ArrayTickInterval    time.Duration
-	LeaderElector        service.LeaderElector
-	VolumeMetricsEnabled bool
-	CollectorAddress     string
-	CollectorCertPath    string
-	Logger               *logrus.Logger
+	VolumeTickInterval     time.Duration
+	SpaceTickInterval      time.Duration
+	ArrayTickInterval      time.Duration
+	FileSystemTickInterval time.Duration
+	LeaderElector          service.LeaderElector
+	VolumeMetricsEnabled   bool
+	CollectorAddress       string
+	CollectorCertPath      string
+	Logger                 *logrus.Logger
 }
 
 // Run is the entry point for starting the service
@@ -102,6 +103,8 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 	spaceTicker := time.NewTicker(SpaceTickInterval)
 	ArrayTickInterval := config.ArrayTickInterval
 	arrayTicker := time.NewTicker(ArrayTickInterval)
+	FileSystemTickInterval := config.FileSystemTickInterval
+	filesystemTicker := time.NewTicker(FileSystemTickInterval)
 
 	for {
 		select {
@@ -147,6 +150,20 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			}
 			powerStoreSvc.ExportArraySpaceMetrics(ctx)
 			span.End()
+		case <-filesystemTicker.C:
+			ctx, span := tracer.GetTracer(ctx, "filesystem-metrics")
+			if !config.LeaderElector.IsLeader() {
+				logger.Info("not leader pod to collect metrics")
+				span.End()
+				continue
+			}
+			if !config.VolumeMetricsEnabled {
+				logger.Info("powerstore filesystem metrics collection is disabled")
+				span.End()
+				continue
+			}
+			powerStoreSvc.ExportFileSystemStatistics(ctx)
+			span.End()
 		case err := <-errCh:
 			if err == nil {
 				continue
@@ -169,6 +186,10 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			ArrayTickInterval = config.ArrayTickInterval
 			arrayTicker = time.NewTicker(ArrayTickInterval)
 		}
+		if FileSystemTickInterval != config.FileSystemTickInterval {
+			FileSystemTickInterval = config.FileSystemTickInterval
+			filesystemTicker = time.NewTicker(FileSystemTickInterval)
+		}
 	}
 }
 
@@ -189,5 +210,10 @@ func ValidateConfig(config *Config) error {
 	if config.ArrayTickInterval > MaximumVolTickInterval || config.ArrayTickInterval < MinimumVolTickInterval {
 		return fmt.Errorf("array space polling frequency not within allowed range of %v and %v", MinimumVolTickInterval.String(), MaximumVolTickInterval.String())
 	}
+
+	if config.FileSystemTickInterval > MaximumVolTickInterval || config.FileSystemTickInterval < MinimumVolTickInterval {
+		return fmt.Errorf("filesystem polling frequency not within allowed range of %v and %v", MinimumVolTickInterval.String(), MaximumVolTickInterval.String())
+	}
+
 	return nil
 }
