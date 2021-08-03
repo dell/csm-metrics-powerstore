@@ -34,6 +34,21 @@ func (m *MockPowerStoreClient) EXPECT() *MockPowerStoreClientMockRecorder {
 	return m.recorder
 }
 
+// GetFS mocks base method
+func (m *MockPowerStoreClient) GetFS(arg0 context.Context, arg1 string) (gopowerstore.FileSystem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFS", arg0, arg1)
+	ret0, _ := ret[0].(gopowerstore.FileSystem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFS indicates an expected call of GetFS
+func (mr *MockPowerStoreClientMockRecorder) GetFS(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFS", reflect.TypeOf((*MockPowerStoreClient)(nil).GetFS), arg0, arg1)
+}
+
 // PerformanceMetricsByFileSystem mocks base method
 func (m *MockPowerStoreClient) PerformanceMetricsByFileSystem(arg0 context.Context, arg1 string, arg2 gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByFileSystemResponse, error) {
 	m.ctrl.T.Helper()

@@ -251,7 +251,7 @@ func Test_ExportSpaceVolumeMetrics(t *testing.T) {
 		"success": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().RecordSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
+			metrics.EXPECT().RecordSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
@@ -290,10 +290,46 @@ func Test_ExportSpaceVolumeMetrics(t *testing.T) {
 			}
 			return service, ctrl
 		},
+		"success for filesystem": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().RecordSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				k8s.VolumeInfo{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "volume-1/127.0.0.1/nfs",
+				},
+				k8s.VolumeInfo{
+					PersistentVolume: "pv-2",
+					VolumeHandle:     "volume-2/127.0.0.1/nfs",
+				},
+				k8s.VolumeInfo{
+					PersistentVolume: "pv-3",
+					VolumeHandle:     "volume-2/127.0.0.1/nfs",
+				},
+			}, nil).Times(1)
+
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().GetFS(gomock.Any(), gomock.Any()).Return(gopowerstore.FileSystem{
+				SizeTotal: 10,
+				SizeUsed:  2,
+			}, nil).Times(3)
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
 		"metrics not pushed if error getting space metrics": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().RecordSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
@@ -318,7 +354,7 @@ func Test_ExportSpaceVolumeMetrics(t *testing.T) {
 		"metrics not pushed if client not found for array ip in volume handle": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().RecordSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
@@ -343,7 +379,7 @@ func Test_ExportSpaceVolumeMetrics(t *testing.T) {
 		"metrics not pushed if volume handle is invalid": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().RecordSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
@@ -368,7 +404,7 @@ func Test_ExportSpaceVolumeMetrics(t *testing.T) {
 		"metrics not pushed if volume finder returns error": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().RecordSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return(nil, errors.New("error")).Times(1)
@@ -418,7 +454,7 @@ func Test_ExportSpaceVolumeMetrics(t *testing.T) {
 				VolumeFinder:      volFinder,
 				PowerStoreClients: clients,
 			}
-			metrics.EXPECT().RecordSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+			metrics.EXPECT().RecordSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 			return service, ctrl
 		},
 	}
@@ -471,6 +507,43 @@ func Test_ExportArraySpaceMetrics(t *testing.T) {
 					ThinSavings:            1,
 					MaxThinSavings:         1,
 				},
+			}, nil).Times(3)
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
+		"success for filesystem": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().RecordArraySpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+			metrics.EXPECT().RecordStorageClassSpaceMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				k8s.VolumeInfo{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "volume-1/127.0.0.1/nfs",
+				},
+				k8s.VolumeInfo{
+					PersistentVolume: "pv-2",
+					VolumeHandle:     "volume-2/127.0.0.1/nfs",
+				},
+				k8s.VolumeInfo{
+					PersistentVolume: "pv-3",
+					VolumeHandle:     "volume-2/127.0.0.1/nfs",
+				},
+			}, nil).Times(1)
+
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().GetFS(gomock.Any(), gomock.Any()).Return(gopowerstore.FileSystem{
+				SizeTotal: 10,
+				SizeUsed:  2,
 			}, nil).Times(3)
 			clients["127.0.0.1"] = c
 

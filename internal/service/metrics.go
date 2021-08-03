@@ -11,6 +11,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 
 	"go.opentelemetry.io/otel/api/kv"
@@ -25,8 +26,7 @@ type MetricsRecorder interface {
 		readIOPS, writeIOPS,
 		readLatency, writeLatency float32) error
 	RecordSpaceMetrics(ctx context.Context, meta interface{},
-		logicalProvisioned, logicalUsed int64,
-		maxThinSavings, thinSavings float32) error
+		logicalProvisioned, logicalUsed int64) error
 	RecordArraySpaceMetrics(ctx context.Context, arrayID, driver string,
 		logicalProvisioned, logicalUsed int64) error
 	RecordStorageClassSpaceMetrics(ctx context.Context, storageclass, driver string,
@@ -55,8 +55,6 @@ type MetricsWrapper struct {
 type SpaceMetrics struct {
 	LogicalProvisioned metric.BoundFloat64UpDownCounter
 	LogicalUsed        metric.BoundFloat64UpDownCounter
-	MaxThinSavings     metric.BoundFloat64UpDownCounter
-	ThinSavings        metric.BoundFloat64UpDownCounter
 }
 
 // ArraySpaceMetrics contains the metrics related to a capacity
@@ -216,23 +214,9 @@ func (mw *MetricsWrapper) initSpaceMetrics(prefix, metaID string, labels []kv.Ke
 	}
 	logicalUsed := unboundLogicalUsed.Bind(labels...)
 
-	unboundThinSavings, err := mw.Meter.NewFloat64UpDownCounter(prefix + "thin_savings_megabytes")
-	if err != nil {
-		return nil, err
-	}
-	thinSavings := unboundThinSavings.Bind(labels...)
-
-	unboundMaxThinSavings, err := mw.Meter.NewFloat64UpDownCounter(prefix + "max_thin_savings_megabytes")
-	if err != nil {
-		return nil, err
-	}
-	maxThinSavings := unboundMaxThinSavings.Bind(labels...)
-
 	metrics := &SpaceMetrics{
 		LogicalProvisioned: logicalProvisioned,
 		LogicalUsed:        logicalUsed,
-		MaxThinSavings:     maxThinSavings,
-		ThinSavings:        thinSavings,
 	}
 
 	mw.SpaceMetrics.Store(metaID, metrics)
@@ -243,21 +227,35 @@ func (mw *MetricsWrapper) initSpaceMetrics(prefix, metaID string, labels []kv.Ke
 
 // RecordSpaceMetrics will publish space metrics data for a given instance
 func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface{},
-	logicalProvisioned, logicalUsed int64,
-	maxThinSavings, thinSavings float32) error {
+	logicalProvisioned, logicalUsed int64) error {
 	var prefix string
 	var metaID string
 	var labels []kv.KeyValue
 	switch v := meta.(type) {
 	case *SpaceVolumeMeta:
-		prefix, metaID = "powerstore_volume_", v.ID
-		labels = []kv.KeyValue{
-			kv.String("VolumeID", v.ID),
-			kv.String("ArrayID", v.ArrayID),
-			kv.String("PersistentVolumeName", v.PersistentVolumeName),
-			kv.String("StorageClass", v.StorageClass),
-			kv.String("Driver", v.Driver),
-			kv.String("PlotWithMean", "No"),
+		if strings.EqualFold(v.Protocol, scsiProtocol) {
+			prefix, metaID = "powerstore_volume_", v.ID
+			labels = []kv.KeyValue{
+				kv.String("VolumeID", v.ID),
+				kv.String("ArrayID", v.ArrayID),
+				kv.String("PersistentVolumeName", v.PersistentVolumeName),
+				kv.String("StorageClass", v.StorageClass),
+				kv.String("Driver", v.Driver),
+				kv.String("Protocol", v.Protocol),
+				kv.String("PlotWithMean", "No"),
+			}
+		}
+		if strings.EqualFold(v.Protocol, nfsProtocol) {
+			prefix, metaID = "powerstore_filesystem_", v.ID
+			labels = []kv.KeyValue{
+				kv.String("FileSystemID", v.ID),
+				kv.String("ArrayID", v.ArrayID),
+				kv.String("PersistentVolumeName", v.PersistentVolumeName),
+				kv.String("StorageClass", v.StorageClass),
+				kv.String("Driver", v.Driver),
+				kv.String("Protocol", v.Protocol),
+				kv.String("PlotWithMean", "No"),
+			}
 		}
 	default:
 		return errors.New("unknown MetaData type")
@@ -306,9 +304,6 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface
 	metrics := metricsMapValue.(*SpaceMetrics)
 	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned))
 	metrics.LogicalUsed.Add(ctx, float64(logicalUsed))
-	metrics.MaxThinSavings.Add(ctx, float64(maxThinSavings))
-	metrics.ThinSavings.Add(ctx, float64(thinSavings))
-
 	return nil
 }
 

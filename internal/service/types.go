@@ -23,4 +23,5 @@ type SpaceVolumeMeta struct {
 	ArrayID              string
 	StorageClass         string
 	Driver               string
+	Protocol             string
 }
