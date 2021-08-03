@@ -317,12 +317,6 @@ func Test_Metrics_Record_Meta(t *testing.T) {
 		}
 	}
 
-	/*verifyNoError := func(t *testing.T, err error) {
-		if err != nil {
-			t.Errorf("expected nil error, got %v", err)
-		}
-	} */
-
 	metas := []interface{}{
 		&service.ArraySpaceMetrics{},
 	}
