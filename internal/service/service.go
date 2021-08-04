@@ -368,8 +368,19 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 					return
 				}
 
-				// get space metrics for Persistent Volumes that have a protocol as 'scsi'
-				if strings.EqualFold(protocol, scsiProtocol) {
+				switch protocol {
+				case nfsProtocol: // nfs space metrics
+					fs, err := goPowerStoreClient.GetFS(ctx, volumeID)
+					if err != nil {
+						s.Logger.WithError(err).WithField("filesystem_id", volumeID).Error("getting space metrics for filesystem")
+						return
+					}
+
+					logicalProvisioned = toMegabytesInt64(fs.SizeTotal)
+					logicalUsed = toMegabytesInt64(fs.SizeUsed)
+					s.Logger.WithFields(logrus.Fields{"filesystem": volumeID, "persistent_volume": volume.PersistentVolume}).Debugf("got data %d %d", logicalProvisioned, logicalUsed)
+
+				default: // space metrics for Persistent Volumes
 					metrics, err := goPowerStoreClient.SpaceMetricsByVolume(ctx, volumeID, gopowerstore.FiveMins)
 					if err != nil {
 						s.Logger.WithError(err).WithField("volume_id", spaceMeta.ID).Error("getting space metrics for volume")
@@ -386,19 +397,6 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 						"array_id":      spaceMeta.ArrayID,
 						"storage_class": spaceMeta.StorageClass,
 					}).Debug("volume space metrics returned for volume")
-				}
-
-				// For 'nfs' space metrics
-				if strings.EqualFold(protocol, nfsProtocol) {
-					fs, err := goPowerStoreClient.GetFS(ctx, volumeID)
-					if err != nil {
-						s.Logger.WithError(err).WithField("filesystem_id", volumeID).Error("getting space metrics for filesystem")
-						return
-					}
-
-					logicalProvisioned = toMegabytesInt64(fs.SizeTotal)
-					logicalUsed = toMegabytesInt64(fs.SizeUsed)
-					s.Logger.WithFields(logrus.Fields{"filesystem": volumeID, "persistent_volume": volume.PersistentVolume}).Debugf("got data %d %d", logicalProvisioned, logicalUsed)
 				}
 
 				s.Logger.WithFields(logrus.Fields{
@@ -537,7 +535,21 @@ func (s *PowerStoreService) gatherArraySpaceMetrics(ctx context.Context, volumes
 				}
 
 				var logicalProvisioned, logicalUsed int64
-				if strings.EqualFold(protocol, scsiProtocol) {
+				switch protocol {
+				// filesystem: nfs protocol space metrics
+				case nfsProtocol:
+					fs, err := goPowerStoreClient.GetFS(ctx, volumeID)
+					if err != nil {
+						s.Logger.WithError(err).WithField("filesystem_id", volumeID).Error("getting space metrics for filesystem")
+						return
+					}
+
+					logicalProvisioned = toMegabytesInt64(fs.SizeTotal)
+					logicalUsed = toMegabytesInt64(fs.SizeUsed)
+					s.Logger.WithFields(logrus.Fields{"filesystem": volumeID, "persistent_volume": volume.PersistentVolume}).Debugf("got data %d %d", logicalProvisioned, logicalUsed)
+
+					// volume space metrics: scsi as default protocol
+				default:
 					metrics, err := goPowerStoreClient.SpaceMetricsByVolume(ctx, volumeID, gopowerstore.FiveMins)
 					if err != nil {
 						s.Logger.WithError(err).WithField("volume_id", volumeID).Error("getting space metrics for volume")
@@ -548,18 +560,6 @@ func (s *PowerStoreService) gatherArraySpaceMetrics(ctx context.Context, volumes
 						logicalProvisioned = toMegabytesInt64(*latestMetric.LogicalProvisioned)
 						logicalUsed = toMegabytesInt64(*latestMetric.LogicalUsed)
 					}
-				}
-
-				if strings.EqualFold(protocol, nfsProtocol) {
-					fs, err := goPowerStoreClient.GetFS(ctx, volumeID)
-					if err != nil {
-						s.Logger.WithError(err).WithField("filesystem_id", volumeID).Error("getting space metrics for filesystem")
-						return
-					}
-
-					logicalProvisioned = toMegabytesInt64(fs.SizeTotal)
-					logicalUsed = toMegabytesInt64(fs.SizeUsed)
-					s.Logger.WithFields(logrus.Fields{"filesystem": volumeID, "persistent_volume": volume.PersistentVolume}).Debugf("got data %d %d", logicalProvisioned, logicalUsed)
 				}
 
 				ch <- &ArraySpaceMetricsRecord{

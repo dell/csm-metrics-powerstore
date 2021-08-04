@@ -11,7 +11,6 @@ package service
 import (
 	"context"
 	"errors"
-	"strings"
 	"sync"
 
 	"go.opentelemetry.io/otel/api/kv"
@@ -233,10 +232,11 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface
 	var labels []kv.KeyValue
 	switch v := meta.(type) {
 	case *SpaceVolumeMeta:
-		if strings.EqualFold(v.Protocol, scsiProtocol) {
-			prefix, metaID = "powerstore_volume_", v.ID
+		switch v.Protocol {
+		case nfsProtocol:
+			prefix, metaID = "powerstore_filesystem_", v.ID
 			labels = []kv.KeyValue{
-				kv.String("VolumeID", v.ID),
+				kv.String("FileSystemID", v.ID),
 				kv.String("ArrayID", v.ArrayID),
 				kv.String("PersistentVolumeName", v.PersistentVolumeName),
 				kv.String("StorageClass", v.StorageClass),
@@ -244,11 +244,11 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface
 				kv.String("Protocol", v.Protocol),
 				kv.String("PlotWithMean", "No"),
 			}
-		}
-		if strings.EqualFold(v.Protocol, nfsProtocol) {
-			prefix, metaID = "powerstore_filesystem_", v.ID
+		// volume metrics as default
+		default:
+			prefix, metaID = "powerstore_volume_", v.ID
 			labels = []kv.KeyValue{
-				kv.String("FileSystemID", v.ID),
+				kv.String("VolumeID", v.ID),
 				kv.String("ArrayID", v.ArrayID),
 				kv.String("PersistentVolumeName", v.PersistentVolumeName),
 				kv.String("StorageClass", v.StorageClass),
