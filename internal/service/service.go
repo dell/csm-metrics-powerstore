@@ -50,6 +50,7 @@ type PowerStoreClient interface {
 	PerformanceMetricsByVolume(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByVolumeResponse, error)
 	SpaceMetricsByVolume(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.SpaceMetricsByVolumeResponse, error)
 	PerformanceMetricsByFileSystem(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByFileSystemResponse, error)
+	GetFS(context.Context, string) (gopowerstore.FileSystem, error)
 }
 
 // PowerStoreService represents the service for getting metrics data for a PowerStore system
@@ -85,9 +86,8 @@ type VolumeMetricsRecord struct {
 
 // VolumeSpaceMetricsRecord used for holding output of the Volume space metrics query results
 type VolumeSpaceMetricsRecord struct {
-	volumeMeta                      *SpaceVolumeMeta
+	spaceMeta                       *SpaceVolumeMeta
 	logicalProvisioned, logicalUsed int64
-	maxThinSavings, thinSavings     float32
 }
 
 // ArraySpaceMetricsRecord used for holding output of the Volume space metrics query results
@@ -340,6 +340,8 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 					<-sem
 				}()
 
+				var logicalProvisioned, logicalUsed int64
+
 				// VolumeHandle is of the format "volume-id/array-ip/protocol"
 				volumeProperties := strings.Split(volume.VolumeHandle, "/")
 				if len(volumeProperties) != ExpectedVolumeHandleProperties {
@@ -349,13 +351,15 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 
 				volumeID := volumeProperties[0]
 				arrayID := volumeProperties[1]
+				protocol := volumeProperties[2]
 
-				volumeMeta := &SpaceVolumeMeta{
+				spaceMeta := &SpaceVolumeMeta{
 					ID:                   volumeID,
 					PersistentVolumeName: volume.PersistentVolume,
 					ArrayID:              arrayID,
 					StorageClass:         volume.StorageClass,
 					Driver:               volume.Driver,
+					Protocol:             protocol,
 				}
 
 				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)
@@ -364,45 +368,48 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 					return
 				}
 
-				metrics, err := goPowerStoreClient.SpaceMetricsByVolume(ctx, volumeID, gopowerstore.FiveMins)
-				if err != nil {
-					s.Logger.WithError(err).WithField("volume_id", volumeMeta.ID).Error("getting space metrics for volume")
-					return
+				switch protocol {
+				case nfsProtocol: // nfs space metrics
+					fs, err := goPowerStoreClient.GetFS(ctx, volumeID)
+					if err != nil {
+						s.Logger.WithError(err).WithField("filesystem_id", volumeID).Error("getting space metrics for filesystem")
+						return
+					}
+
+					logicalProvisioned = toMegabytesInt64(fs.SizeTotal)
+					logicalUsed = toMegabytesInt64(fs.SizeUsed)
+					s.Logger.WithFields(logrus.Fields{"filesystem": volumeID, "persistent_volume": volume.PersistentVolume}).Debugf("got data %d %d", logicalProvisioned, logicalUsed)
+
+				default: // space metrics for Persistent Volumes
+					metrics, err := goPowerStoreClient.SpaceMetricsByVolume(ctx, volumeID, gopowerstore.FiveMins)
+					if err != nil {
+						s.Logger.WithError(err).WithField("volume_id", spaceMeta.ID).Error("getting space metrics for volume")
+						return
+					}
+					if len(metrics) > 0 {
+						latestMetric := metrics[len(metrics)-1]
+						logicalProvisioned = toMegabytesInt64(*latestMetric.LogicalProvisioned)
+						logicalUsed = toMegabytesInt64(*latestMetric.LogicalUsed)
+					}
+					s.Logger.WithFields(logrus.Fields{
+						"space_metrics": len(metrics),
+						"id":            spaceMeta.ID,
+						"array_id":      spaceMeta.ArrayID,
+						"storage_class": spaceMeta.StorageClass,
+					}).Debug("volume space metrics returned for volume")
 				}
 
-				var logicalProvisioned, logicalUsed int64
-				var maxThinSavings, thinSavings float32
-
 				s.Logger.WithFields(logrus.Fields{
-					"volume_space_metrics": len(metrics),
-					"volume_id":            volumeMeta.ID,
-					"array_id":             volumeMeta.ArrayID,
-				}).Debug("volume space metrics returned for volume")
-
-				if len(metrics) > 0 {
-					latestMetric := metrics[len(metrics)-1]
-					logicalProvisioned = toMegabytesInt64(*latestMetric.LogicalProvisioned)
-					logicalUsed = toMegabytesInt64(*latestMetric.LogicalUsed)
-					thinSavings = toMegabytes(latestMetric.ThinSavings)
-					maxThinSavings = toMegabytes(latestMetric.MaxThinSavings)
-				}
-
-				s.Logger.WithFields(logrus.Fields{
-					"volume_meta":         volumeMeta,
+					"space_meta":          spaceMeta,
 					"logical_provisioned": logicalProvisioned,
 					"logical_used":        logicalUsed,
-					"max_thin_savings":    maxThinSavings,
-					"thin_savings":        thinSavings,
 				}).Debug("volume space metrics")
 
 				ch <- &VolumeSpaceMetricsRecord{
-					volumeMeta:         volumeMeta,
+					spaceMeta:          spaceMeta,
 					logicalProvisioned: logicalProvisioned,
 					logicalUsed:        logicalUsed,
-					maxThinSavings:     maxThinSavings,
-					thinSavings:        thinSavings,
 				}
-
 			}(volume)
 		}
 
@@ -410,11 +417,9 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 			// If no volumes metrics were exported, we need to export an "empty" metric to update the OT Collector
 			// so that stale entries are removed
 			ch <- &VolumeSpaceMetricsRecord{
-				volumeMeta:         &SpaceVolumeMeta{},
+				spaceMeta:          &SpaceVolumeMeta{},
 				logicalProvisioned: 0,
 				logicalUsed:        0,
-				maxThinSavings:     0,
-				thinSavings:        0,
 			}
 		}
 		wg.Wait()
@@ -440,16 +445,14 @@ func (s *PowerStoreService) pushSpaceVolumeMetrics(ctx context.Context, volumeSp
 			go func(metrics *VolumeSpaceMetricsRecord) {
 				defer wg.Done()
 				err := s.MetricsWrapper.RecordSpaceMetrics(ctx,
-					metrics.volumeMeta,
+					metrics.spaceMeta,
 					metrics.logicalProvisioned,
 					metrics.logicalUsed,
-					metrics.maxThinSavings,
-					metrics.thinSavings,
 				)
 				if err != nil {
-					s.Logger.WithError(err).WithField("volume_id", metrics.volumeMeta.ID).Error("recording statistics for volume")
+					s.Logger.WithError(err).WithField("id", metrics.spaceMeta.ID).Error("recording statistics for volume")
 				} else {
-					ch <- fmt.Sprintf(metrics.volumeMeta.ID)
+					ch <- fmt.Sprintf(metrics.spaceMeta.ID)
 				}
 			}(metrics)
 		}
@@ -523,6 +526,7 @@ func (s *PowerStoreService) gatherArraySpaceMetrics(ctx context.Context, volumes
 
 				volumeID := volumeProperties[0]
 				arrayID := volumeProperties[1]
+				protocol := volumeProperties[2]
 
 				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)
 				if err != nil {
@@ -530,18 +534,34 @@ func (s *PowerStoreService) gatherArraySpaceMetrics(ctx context.Context, volumes
 					return
 				}
 
-				metrics, err := goPowerStoreClient.SpaceMetricsByVolume(ctx, volumeID, gopowerstore.FiveMins)
-				if err != nil {
-					s.Logger.WithError(err).WithField("volume_id", volumeID).Error("getting space metrics for volume")
-				}
-
 				var logicalProvisioned, logicalUsed int64
+				switch protocol {
+				// filesystem: nfs protocol space metrics
+				case nfsProtocol:
+					fs, err := goPowerStoreClient.GetFS(ctx, volumeID)
+					if err != nil {
+						s.Logger.WithError(err).WithField("filesystem_id", volumeID).Error("getting space metrics for filesystem")
+						return
+					}
 
-				if len(metrics) > 0 {
-					latestMetric := metrics[len(metrics)-1]
-					logicalProvisioned = toMegabytesInt64(*latestMetric.LogicalProvisioned)
-					logicalUsed = toMegabytesInt64(*latestMetric.LogicalUsed)
+					logicalProvisioned = toMegabytesInt64(fs.SizeTotal)
+					logicalUsed = toMegabytesInt64(fs.SizeUsed)
+					s.Logger.WithFields(logrus.Fields{"filesystem": volumeID, "persistent_volume": volume.PersistentVolume}).Debugf("got data %d %d", logicalProvisioned, logicalUsed)
+
+					// volume space metrics: scsi as default protocol
+				default:
+					metrics, err := goPowerStoreClient.SpaceMetricsByVolume(ctx, volumeID, gopowerstore.FiveMins)
+					if err != nil {
+						s.Logger.WithError(err).WithField("volume_id", volumeID).Error("getting space metrics for volume")
+						return
+					}
+					if len(metrics) > 0 {
+						latestMetric := metrics[len(metrics)-1]
+						logicalProvisioned = toMegabytesInt64(*latestMetric.LogicalProvisioned)
+						logicalUsed = toMegabytesInt64(*latestMetric.LogicalUsed)
+					}
 				}
+
 				ch <- &ArraySpaceMetricsRecord{
 					arrayID:            arrayID,
 					storageclass:       volume.StorageClass,
