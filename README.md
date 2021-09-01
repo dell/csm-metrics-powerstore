@@ -10,39 +10,36 @@ You may obtain a copy of the License at
 
 # Observability Module for PowerStore
 
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](docs/CODE_OF_CONDUCT.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](https://github.com/dell/csm/blob/main/docs/CODE_OF_CONDUCT.md)
 [![License](https://img.shields.io/github/license/dell/csm-metrics-powerstore)](LICENSE)
 [![Docker Pulls](https://img.shields.io/docker/pulls/dellemc/csm-metrics-powerstore)](https://hub.docker.com/r/dellemc/csm-metrics-powerstore)
 [![Go version](https://img.shields.io/github/go-mod/go-version/dell/csm-metrics-powerstore)](go.mod)
 [![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/dell/csm-metrics-powerstore?include_prereleases&label=latest&style=flat-square)](https://github.com/dell/csm-metrics-powerstore/releases/latest)
 
-The Observability module for PowerStore is part of the Dell EMC Container Storage Module (CSM) for Observability.  This module provides Kubernetes administrators standardized approaches for storage observability in Kuberenetes environments.
+Metrics for PowerStore is part of Dell EMC Container Storage Modules (CSM) for Observability, which provides Kubernetes administrators standardized approaches for storage observability in Kuberenetes environments.
 
-The Observability module for PowerStore is an open source distributed solution that provides insight into storage usage and performance as it relates to the CSI (Container Storage Interface) Driver for Dell EMC PowerStore. This project provides the following metrics:
+Metrics for PowerStore is an open source distributed solution that provides insight into storage usage and performance as it relates to the CSI (Container Storage Interface) Driver for Dell EMC PowerStore.
 
-- **[Storage System I/O Performance Metrics](./docs/IO_PERFORMANCE.md)**: Visibility into the I/O performance of a storage system (IOPs, bandwidth, latency) broken down by Kubernetes node and volume.
-- **[Storage Pool Consumption By CSI Driver](./docs/STORAGE_CAPACITY.md)**: Visibility into the total, used, and available capacity for a storage pool/storage class.
+Metrics for PowerStore captures telemetry data of storage usage and performance obtained through the CSI Driver for Dell EMC PowerStore. The Metrics service pushes it to the OpenTelemetry Collector, so it can be processed, and exported in a format consumable by Prometheus. Prometheus can then be configured to scrape the OpenTelemetry Collector exporter endpoint to provide metrics so they can be visualized in Grafana.
 
-The Observability module for PowerStore captures telemetry data of storage usage and performance obtained through the CSI Driver for Dell EMC PowerStore. The Metrics service then pushes it to the OpenTelemetry Collector, so it can be processed, and exported in a format consumable by Prometheus. Prometheus can then be configured to scrape the OpenTelemetry Collector exporter endpoint to provide metrics so they can be visualized in Grafana. Please see [Getting Started Guide](https://github.com/dell/karavi-observability/blob/main/docs/GETTING_STARTED_GUIDE.md) for information on requirements, deployment, and usage.
+For documentation, please visit [Container Storage Modules documentation](https://dell.github.io/csm-docs/).
 
 ## Table of Contents
 
-- [Code of Conduct](https://github.com/dell/karavi-observability/blob/main/docs/CODE_OF_CONDUCT.md)
-- Guides
-  - [Maintainer Guide](https://github.com/dell/karavi-observability/blob/main/docs/MAINTAINER_GUIDE.md)
-  - [Committer Guide](https://github.com/dell/karavi-observability/blob/main/docs/COMMITTER_GUIDE.md)
-  - [Contributing Guide](https://github.com/dell/karavi-observability/blob/main/docs/CONTRIBUTING.md)
-  - [Getting Started Guide](https://github.com/dell/karavi-observability/blob/main/docs/GETTING_STARTED_GUIDE.md)
-  - [Branching Strategy](./docs/BRANCHING.md)
-- [List of Adopters](https://github.com/dell/karavi-observability/blob/main/ADOPTERS.md)
-- [Maintainers](./docs/MAINTAINERS.md)
-- [Support](https://github.com/dell/karavi-observability/blob/main/docs/SUPPORT.md)
-- [Security](./docs/SECURITY.md)
+- [Code of Conduct](https://github.com/dell/csm/blob/main/docs/CODE_OF_CONDUCT.md)
+- [Maintainer Guide](https://github.com/dell/csm/blob/main/docs/MAINTAINER_GUIDE.md)
+- [Committer Guide](https://github.com/dell/csm/blob/main/docs/COMMITTER_GUIDE.md)
+- [Contributing Guide](https://github.com/dell/csm/blob/main/docs/CONTRIBUTING.md)
+- [Branching Strategy](https://github.com/dell/csm/blob/main/docs/BRANCHING.md)
+- [List of Adopters](https://github.com/dell/csm/blob/main/ADOPTERS.md)
+- [Maintainers](https://github.com/dell/csm/blob/main/docs/MAINTAINERS.md)
+- [Support](https://github.com/dell/csm/blob/main/docs/SUPPORT.md)
+- [Security](https://github.com/dell/csm/blob/main/docs/SECURITY.md)
 - [About](#about)
 
-## Building the Service
+## Building Metrics for PowerStore
 
-If you wish to clone and build the Observability module for PowerStore, a Linux host is required with the following installed:
+If you wish to clone and build the Metrics for PowerStore service, a Linux host is required with the following installed:
 
 | Component       | Version   | Additional Information                                                                                                                     |
 | --------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -77,8 +74,9 @@ This will also provide code coverage statistics for the various Go packages.
 
 ## Support
 
-Don’t hesitate to ask! Contact the team and community on [our support page](https://github.com/dell/karavi-observability/blob/main/docs/SUPPORT.md).
-Open an issue if you found a bug on [Github Issues](https://github.com/dell/karavi-observability/issues).
+For all your support needs or to follow the latest ongoing discussions and updates, join our Slack group. Click [Here](http://del.ly/Slack_request) to request your invite.
+
+You can also interact with us on [GitHub](https://github.com/dell/csm) by creating a [GitHub Issue](https://github.com/dell/csm/issues).
 
 ## Versioning
 
