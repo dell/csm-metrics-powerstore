@@ -58,7 +58,11 @@ func (f VolumeFinder) GetPersistentVolumes(ctx context.Context) ([]VolumeInfo, e
 	}
 
 	for _, volume := range volumes.Items {
-		if contains(f.DriverNames, volume.Spec.CSI.Driver) {
+		if volume.Spec.CSI == nil {
+			f.Logger.Infof("The PV, %s , is not provisioned by a CSI driver\n", volume.GetName())
+			continue
+		}
+		if (volume.Spec.CSI != nil) && contains(f.DriverNames, volume.Spec.CSI.Driver) {
 			capacity := volume.Spec.Capacity[v1.ResourceStorage]
 			claim := volume.Spec.ClaimRef
 			status := volume.Status
