@@ -66,10 +66,6 @@ func main() {
 		API: &k8s.LeaderElector{},
 	}
 
-	volumeFinder := &k8s.VolumeFinder{
-		API: &k8s.API{},
-	}
-
 	updateLoggingSettings := func(logger *logrus.Logger) {
 		logFormat := viper.GetString("LOG_FORMAT")
 		if strings.EqualFold(logFormat, "json") {
@@ -88,6 +84,12 @@ func main() {
 	}
 
 	updateLoggingSettings(logger)
+
+	volumeFinder := &k8s.VolumeFinder{
+		API:    &k8s.API{},
+		Logger: logger,
+	}
+
 	updateProvisionerNames(volumeFinder, logger)
 
 	var collectorCertPath string
