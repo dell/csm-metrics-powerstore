@@ -5,7 +5,7 @@ go 1.14
 require (
 	github.com/dell/csi-powerstore v0.0.0-20210923102620-2b6d0e23ab2e
 	github.com/dell/gofsutil v1.6.0
-	github.com/dell/gopowerstore v1.5.0
+	github.com/dell/gopowerstore v1.6.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/golang/mock v1.4.3
 	github.com/jarcoal/httpmock v1.0.6 // indirect
