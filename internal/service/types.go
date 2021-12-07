@@ -38,7 +38,7 @@ type TransportType string
 // This structure is supposed to be parsed from config and mainly is created by GetPowerStoreArrays function.
 type PowerStoreArray struct {
 	Endpoint      string        `yaml:"endpoint"`
-	GlobalId      string        `yaml:"globalID"`
+	GlobalID      string        `yaml:"globalID"`
 	Username      string        `yaml:"username"`
 	Password      string        `yaml:"password"`
 	NasName       string        `yaml:"nasName"`
