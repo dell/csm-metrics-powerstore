@@ -1,5 +1,5 @@
 arrays:
-  - endpoint: "https://10.0.0.1/api/rest"
+  - endpoint: "https://127.0.0.1/api/rest"
     username: "user"
     password: "password"
     skipCertificateValidation: true
