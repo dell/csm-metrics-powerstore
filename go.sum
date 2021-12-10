@@ -74,7 +74,7 @@ github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMn
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
-github.com/container-storage-interface/spec v1.3.0/go.mod h1:6URME8mwIBbpVyZV93Ce5St17xBiQJQY67NDsuohiy4=
+github.com/container-storage-interface/spec v1.5.0/go.mod h1:8K96oQNkJ7pFcC2R9Z1ynGGBB1I93kcS6PGg3SsOk8s=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
 github.com/coreos/etcd v3.3.13+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/coreos/go-semver v0.3.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=
@@ -85,10 +85,10 @@ github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ3
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/dell/gocsi v1.3.1 h1:YA99j6+kMKiQX/3ERHjKStkAnXWu5sqtk6RE/saMRQk=
-github.com/dell/gocsi v1.3.1/go.mod h1:doJru1XfPHSmROXxtAey6eQ8QseoFKaMtA8YaWCb0mU=
-github.com/dell/gopowerstore v1.5.0 h1:Hm4uRaNcCugaWItly38BOlOIxEql28Z8VqC7VIAio7s=
-github.com/dell/gopowerstore v1.5.0/go.mod h1:0ziQJ1iuZYDV+P53ua+VeH+rIylYT9WNjGSI/7aPly0=
+github.com/dell/gocsi v1.5.0 h1:qi2T6H6JHDo9sJEw24jo6Z88fJszBXfQc3lxOBaUijo=
+github.com/dell/gocsi v1.5.0/go.mod h1:nIsIXXB5JpAvOQ0//gtPGULC2+NUddpi5qwpBeMhiLs=
+github.com/dell/gopowerstore v1.6.0 h1:CoHJ4DSTGuUEsB0+EBSBoW1EWslrATH0p6YPSSDWaZw=
+github.com/dell/gopowerstore v1.6.0/go.mod h1:0ziQJ1iuZYDV+P53ua+VeH+rIylYT9WNjGSI/7aPly0=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
 github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96/go.mod h1:Qh8CwZgvJUkLughtfhJv5dyTYa91l1fOUCrgjqmcifM=
