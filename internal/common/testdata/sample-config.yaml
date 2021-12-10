@@ -1,0 +1,17 @@
+arrays:
+  - endpoint: "https://10.0.0.1/api/rest"
+    globalID: "unique"
+    username: "user"
+    password: "password"
+    skipCertificateValidation: true
+    isDefault: true
+    blockProtocol: "auto"
+    nasName: "nas-server"
+
+  - endpoint: "https://11.0.0.1/api/rest"
+    globalID: "unique"
+    username: "user"
+    password: "password"
+    skipCertificateValidation: true
+    blockProtocol: "FC"
+

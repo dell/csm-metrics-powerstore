@@ -20,14 +20,12 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/dell/csi-powerstore/pkg/array"
-	"github.com/dell/csi-powerstore/pkg/common/fs"
+	"github.com/dell/csm-metrics-powerstore/internal/common"
 	"github.com/dell/csm-metrics-powerstore/internal/entrypoint"
 	"github.com/dell/csm-metrics-powerstore/internal/k8s"
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
 	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
-	"github.com/dell/gofsutil"
 	"github.com/sirupsen/logrus"
 
 	"os"
@@ -197,8 +195,7 @@ func updateTracing(logger *logrus.Logger) {
 }
 
 func updatePowerStoreConnection(powerStoreSvc *service.PowerStoreService, logger *logrus.Logger) {
-	f := &fs.Fs{Util: &gofsutil.FS{}}
-	arrays, _, _, err := array.GetPowerStoreArrays(f, defaultStorageSystemConfigFile)
+	arrays, _, _, err := common.GetPowerStoreArrays(defaultStorageSystemConfigFile, logger)
 	if err != nil {
 		logger.WithError(err).Fatal("initialize arrays in controller service")
 	}
