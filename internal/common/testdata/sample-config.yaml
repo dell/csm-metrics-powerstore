@@ -14,3 +14,4 @@ arrays:
     password: "password"
     skipCertificateValidation: true
     blockProtocol: "FC"
+
