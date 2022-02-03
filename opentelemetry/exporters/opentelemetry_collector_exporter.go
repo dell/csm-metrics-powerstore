@@ -50,7 +50,12 @@ func (c *OtlCollectorExporter) StopExporter() error {
 	if err != nil {
 		return err
 	}
-	c.controller.Stop(context.Background())
+
+    err = c.controller.Stop(context.Background())
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -76,7 +81,10 @@ func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (
 		controller.WithCollectPeriod(5*time.Second),
 	)
 
-	ctrl.Start(context.Background())
+	err = ctrl.Start(context.Background())
+	if err != nil {
+		return nil, nil, err
+	}
 
 	global.SetMeterProvider(ctrl)
 
