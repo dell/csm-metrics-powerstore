@@ -16,10 +16,11 @@ import (
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	"github.com/dell/csm-metrics-powerstore/internal/service/mocks"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/global"
+
 	"github.com/golang/mock/gomock"
-	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/api/metric"
 )
 
 func Test_Metrics_Record(t *testing.T) {
@@ -690,9 +691,9 @@ func Test_Volume_Metrics_Label_Update(t *testing.T) {
 		ID: "123",
 	}
 
-	expectedLables := []kv.KeyValue{
-		kv.String("VolumeID", metaSecond.ID),
-		kv.String("PlotWithMean", "No"),
+	expectedLables := []attribute.KeyValue{
+		attribute.String("VolumeID", metaSecond.ID),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -754,7 +755,7 @@ func Test_Volume_Metrics_Label_Update(t *testing.T) {
 		if !ok {
 			t.Errorf("expected labels to exist for %v, but did not find them", metaFirst.ID)
 		}
-		labels := newLabels.([]kv.KeyValue)
+		labels := newLabels.([]attribute.KeyValue)
 		for _, l := range labels {
 			for _, e := range expectedLables {
 				if l.Key == e.Key {
@@ -782,9 +783,9 @@ func Test_Space_Metrics_Label_Update(t *testing.T) {
 		Protocol:     "scsi",
 	}
 
-	expectedLables := []kv.KeyValue{
-		kv.String("VolumeID", metaSecond.ID),
-		kv.String("PlotWithMean", "No"),
+	expectedLables := []attribute.KeyValue{
+		attribute.String("VolumeID", metaSecond.ID),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -822,7 +823,7 @@ func Test_Space_Metrics_Label_Update(t *testing.T) {
 		if !ok {
 			t.Errorf("expected labels to exist for %v, but did not find them", metaFirst.ID)
 		}
-		labels := newLabels.([]kv.KeyValue)
+		labels := newLabels.([]attribute.KeyValue)
 		for _, l := range labels {
 			for _, e := range expectedLables {
 				if l.Key == e.Key {
@@ -850,9 +851,9 @@ func Test_Filesystem_Metrics_Label_Update(t *testing.T) {
 		Protocol:     "nfs",
 	}
 
-	expectedLables := []kv.KeyValue{
-		kv.String("VolumeID", metaSecond.ID),
-		kv.String("PlotWithMean", "No"),
+	expectedLables := []attribute.KeyValue{
+		attribute.String("VolumeID", metaSecond.ID),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -890,7 +891,7 @@ func Test_Filesystem_Metrics_Label_Update(t *testing.T) {
 		if !ok {
 			t.Errorf("expected labels to exist for %v, but did not find them", metaFirst.ID)
 		}
-		labels := newLabels.([]kv.KeyValue)
+		labels := newLabels.([]attribute.KeyValue)
 		for _, l := range labels {
 			for _, e := range expectedLables {
 				if l.Key == e.Key {
@@ -908,9 +909,9 @@ func Test_ArraySpace_Metrics_Label_Update(t *testing.T) {
 	array1 := "123"
 	array2 := "123"
 
-	expectedLables := []kv.KeyValue{
-		kv.String("ArrayID", array1),
-		kv.String("PlotWithMean", "No"),
+	expectedLables := []attribute.KeyValue{
+		attribute.String("ArrayID", array1),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -948,7 +949,7 @@ func Test_ArraySpace_Metrics_Label_Update(t *testing.T) {
 		if !ok {
 			t.Errorf("expected labels to exist for %v, but did not find them", array1)
 		}
-		labels := newLabels.([]kv.KeyValue)
+		labels := newLabels.([]attribute.KeyValue)
 		for _, l := range labels {
 			for _, e := range expectedLables {
 				if l.Key == e.Key {
@@ -966,9 +967,9 @@ func Test_StrorageClass_Space_Metrics_Label_Update(t *testing.T) {
 	array1 := "123"
 	array2 := "123"
 
-	expectedLables := []kv.KeyValue{
-		kv.String("StorageClass", array1),
-		kv.String("PlotWithMean", "No"),
+	expectedLables := []attribute.KeyValue{
+		attribute.String("StorageClass", array1),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -1006,7 +1007,7 @@ func Test_StrorageClass_Space_Metrics_Label_Update(t *testing.T) {
 		if !ok {
 			t.Errorf("expected labels to exist for %v, but did not find them", array1)
 		}
-		labels := newLabels.([]kv.KeyValue)
+		labels := newLabels.([]attribute.KeyValue)
 		for _, l := range labels {
 			for _, e := range expectedLables {
 				if l.Key == e.Key {
@@ -1028,9 +1029,9 @@ func Test_FileSystem_Metrics_Label_Update(t *testing.T) {
 		ID: "123",
 	}
 
-	expectedLables := []kv.KeyValue{
-		kv.String("FileSystemID", metaSecond.ID),
-		kv.String("PlotWithMean", "No"),
+	expectedLables := []attribute.KeyValue{
+		attribute.String("FileSystemID", metaSecond.ID),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -1092,7 +1093,7 @@ func Test_FileSystem_Metrics_Label_Update(t *testing.T) {
 		if !ok {
 			t.Errorf("expected labels to exist for %v, but did not find them", metaFirst.ID)
 		}
-		labels := newLabels.([]kv.KeyValue)
+		labels := newLabels.([]attribute.KeyValue)
 		for _, l := range labels {
 			for _, e := range expectedLables {
 				if l.Key == e.Key {
