@@ -51,7 +51,7 @@ func (c *OtlCollectorExporter) StopExporter() error {
 		return err
 	}
 
-    err = c.controller.Stop(context.Background())
+	err = c.controller.Stop(context.Background())
 	if err != nil {
 		return err
 	}
