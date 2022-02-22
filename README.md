@@ -16,11 +16,11 @@ You may obtain a copy of the License at
 [![Go version](https://img.shields.io/github/go-mod/go-version/dell/csm-metrics-powerstore)](go.mod)
 [![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/dell/csm-metrics-powerstore?include_prereleases&label=latest&style=flat-square)](https://github.com/dell/csm-metrics-powerstore/releases/latest)
 
-Metrics for PowerStore is part of Dell EMC Container Storage Modules (CSM) for Observability, which provides Kubernetes administrators standardized approaches for storage observability in Kuberenetes environments.
+Metrics for PowerStore is part of Dell Container Storage Modules (CSM) for Observability, which provides Kubernetes administrators standardized approaches for storage observability in Kuberenetes environments.
 
-Metrics for PowerStore is an open source distributed solution that provides insight into storage usage and performance as it relates to the CSI (Container Storage Interface) Driver for Dell EMC PowerStore.
+Metrics for PowerStore is an open source distributed solution that provides insight into storage usage and performance as it relates to the CSI (Container Storage Interface) Driver for Dell PowerStore.
 
-Metrics for PowerStore captures telemetry data of storage usage and performance obtained through the CSI Driver for Dell EMC PowerStore. The Metrics service pushes it to the OpenTelemetry Collector, so it can be processed, and exported in a format consumable by Prometheus. Prometheus can then be configured to scrape the OpenTelemetry Collector exporter endpoint to provide metrics so they can be visualized in Grafana.
+Metrics for PowerStore captures telemetry data of storage usage and performance obtained through the CSI Driver for Dell PowerStore. The Metrics service pushes it to the OpenTelemetry Collector, so it can be processed, and exported in a format consumable by Prometheus. Prometheus can then be configured to scrape the OpenTelemetry Collector exporter endpoint to provide metrics so they can be visualized in Grafana.
 
 For documentation, please visit [Container Storage Modules documentation](https://dell.github.io/csm-docs/).
 
@@ -78,6 +78,6 @@ This project is adhering to [Semantic Versioning](https://semver.org/).
 
 ## About
 
-Dell EMC Container Storage Modules (CSM) is 100% open source and community-driven. All components are available
+Dell Container Storage Modules (CSM) is 100% open source and community-driven. All components are available
 under [Apache 2 License](https://www.apache.org/licenses/LICENSE-2.0.html) on
 GitHub.
