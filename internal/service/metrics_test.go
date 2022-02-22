@@ -16,10 +16,11 @@ import (
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	"github.com/dell/csm-metrics-powerstore/internal/service/mocks"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/global"
+
 	"github.com/golang/mock/gomock"
-	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/api/metric"
 )
 
 func Test_Metrics_Record(t *testing.T) {
@@ -103,7 +104,7 @@ func Test_Metrics_Record(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			meter := mocks.NewMockFloat64UpDownCounterCreater(ctrl)
 
-			meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(metric.Float64UpDownCounter{}, errors.New("error")).Times(2)
+			meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(metric.Float64UpDownCounter{}, errors.New("error")).Times(1)
 
 			mws := []*service.MetricsWrapper{{Meter: meter}}
 
@@ -311,14 +312,14 @@ func Test_Metrics_Record_Meta(t *testing.T) {
 	type checkFn func(*testing.T, error)
 	checkFns := func(checkFns ...checkFn) []checkFn { return checkFns }
 
-	verifyError := func(t *testing.T, err error) {
-		if err == nil {
-			t.Errorf("expected an error, got nil")
+	verifyNoError := func(t *testing.T, err error) {
+		if err != nil {
+			t.Errorf("expected nil error, got %v", err)
 		}
 	}
 
 	metas := []interface{}{
-		&service.ArraySpaceMetrics{},
+		&service.VolumeMeta{},
 	}
 
 	tests := map[string]func(t *testing.T) ([]*service.MetricsWrapper, []checkFn){
@@ -374,7 +375,7 @@ func Test_Metrics_Record_Meta(t *testing.T) {
 				getMeter("powerstore_volume_"),
 			}
 
-			return mws, checkFns(verifyError)
+			return mws, checkFns(verifyNoError)
 		},
 	}
 
@@ -420,30 +421,18 @@ func Test__SpaceMetrics_Record(t *testing.T) {
 			getMeter := func(prefix string) *service.MetricsWrapper {
 				meter := mocks.NewMockFloat64UpDownCounterCreater(ctrl)
 				otMeter := global.Meter(prefix + "_test")
-				readBW, err := otMeter.NewFloat64UpDownCounter(prefix + "logical_provisioned_megabytes")
+				provisioned, err := otMeter.NewFloat64UpDownCounter(prefix + "logical_provisioned_megabytes")
 				if err != nil {
 					t.Fatal(err)
 				}
 
-				writeBW, err := otMeter.NewFloat64UpDownCounter(prefix + "logical_used_megabytes")
+				used, err := otMeter.NewFloat64UpDownCounter(prefix + "logical_used_megabytes")
 				if err != nil {
 					t.Fatal(err)
 				}
 
-				readIOPS, err := otMeter.NewFloat64UpDownCounter(prefix + "thin_savings_megabytes")
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				writeIOPS, err := otMeter.NewFloat64UpDownCounter(prefix + "max_thin_savings_megabytes")
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(readBW, nil)
-				meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(writeBW, nil)
-				meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(readIOPS, nil)
-				meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(writeIOPS, nil)
+				meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(provisioned, nil)
+				meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(used, nil)
 
 				return &service.MetricsWrapper{
 					Meter: meter,
@@ -460,7 +449,7 @@ func Test__SpaceMetrics_Record(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			meter := mocks.NewMockFloat64UpDownCounterCreater(ctrl)
 
-			meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(metric.Float64UpDownCounter{}, errors.New("error")).Times(2)
+			meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(metric.Float64UpDownCounter{}, errors.New("error")).Times(1)
 
 			mws := []*service.MetricsWrapper{{Meter: meter}}
 
@@ -471,11 +460,11 @@ func Test__SpaceMetrics_Record(t *testing.T) {
 			getMeter := func(prefix string) *service.MetricsWrapper {
 				meter := mocks.NewMockFloat64UpDownCounterCreater(ctrl)
 				otMeter := global.Meter(prefix + "_test")
-				readBW, err := otMeter.NewFloat64UpDownCounter(prefix + "logical_provisioned_megabytes")
+				provisioned, err := otMeter.NewFloat64UpDownCounter(prefix + "logical_provisioned_megabytes")
 				if err != nil {
 					t.Fatal(err)
 				}
-				meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(readBW, nil)
+				meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(provisioned, nil)
 				meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(metric.Float64UpDownCounter{}, errors.New("error"))
 
 				return &service.MetricsWrapper{
@@ -555,7 +544,7 @@ func Test_ArraySpace_Metrics_Record(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			meter := mocks.NewMockFloat64UpDownCounterCreater(ctrl)
 
-			meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(metric.Float64UpDownCounter{}, errors.New("error")).Times(2)
+			meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(metric.Float64UpDownCounter{}, errors.New("error")).Times(1)
 
 			mws := []*service.MetricsWrapper{{Meter: meter}}
 
@@ -650,7 +639,7 @@ func Test_StorageClassSpace_Metrics_Record(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			meter := mocks.NewMockFloat64UpDownCounterCreater(ctrl)
 
-			meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(metric.Float64UpDownCounter{}, errors.New("error")).Times(2)
+			meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(metric.Float64UpDownCounter{}, errors.New("error")).Times(1)
 
 			mws := []*service.MetricsWrapper{{Meter: meter}}
 
@@ -702,9 +691,9 @@ func Test_Volume_Metrics_Label_Update(t *testing.T) {
 		ID: "123",
 	}
 
-	expectedLables := []kv.KeyValue{
-		kv.String("VolumeID", metaSecond.ID),
-		kv.String("PlotWithMean", "No"),
+	expectedLables := []attribute.KeyValue{
+		attribute.String("VolumeID", metaSecond.ID),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -747,12 +736,6 @@ func Test_Volume_Metrics_Label_Update(t *testing.T) {
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(writeIOPS, nil)
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(readLatency, nil)
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(writeLatency, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(readBW, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(writeBW, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(readIOPS, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(writeIOPS, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(readLatency, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(writeLatency, nil)
 
 	mw := &service.MetricsWrapper{
 		Meter: meter,
@@ -772,7 +755,7 @@ func Test_Volume_Metrics_Label_Update(t *testing.T) {
 		if !ok {
 			t.Errorf("expected labels to exist for %v, but did not find them", metaFirst.ID)
 		}
-		labels := newLabels.([]kv.KeyValue)
+		labels := newLabels.([]attribute.KeyValue)
 		for _, l := range labels {
 			for _, e := range expectedLables {
 				if l.Key == e.Key {
@@ -800,9 +783,9 @@ func Test_Space_Metrics_Label_Update(t *testing.T) {
 		Protocol:     "scsi",
 	}
 
-	expectedLables := []kv.KeyValue{
-		kv.String("VolumeID", metaSecond.ID),
-		kv.String("PlotWithMean", "No"),
+	expectedLables := []attribute.KeyValue{
+		attribute.String("VolumeID", metaSecond.ID),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -819,8 +802,6 @@ func Test_Space_Metrics_Label_Update(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(provisioned, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(used, nil)
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(provisioned, nil)
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(used, nil)
 
@@ -842,7 +823,7 @@ func Test_Space_Metrics_Label_Update(t *testing.T) {
 		if !ok {
 			t.Errorf("expected labels to exist for %v, but did not find them", metaFirst.ID)
 		}
-		labels := newLabels.([]kv.KeyValue)
+		labels := newLabels.([]attribute.KeyValue)
 		for _, l := range labels {
 			for _, e := range expectedLables {
 				if l.Key == e.Key {
@@ -870,9 +851,9 @@ func Test_Filesystem_Metrics_Label_Update(t *testing.T) {
 		Protocol:     "nfs",
 	}
 
-	expectedLables := []kv.KeyValue{
-		kv.String("VolumeID", metaSecond.ID),
-		kv.String("PlotWithMean", "No"),
+	expectedLables := []attribute.KeyValue{
+		attribute.String("VolumeID", metaSecond.ID),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -889,8 +870,6 @@ func Test_Filesystem_Metrics_Label_Update(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(provisioned, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(used, nil)
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(provisioned, nil)
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(used, nil)
 
@@ -912,7 +891,7 @@ func Test_Filesystem_Metrics_Label_Update(t *testing.T) {
 		if !ok {
 			t.Errorf("expected labels to exist for %v, but did not find them", metaFirst.ID)
 		}
-		labels := newLabels.([]kv.KeyValue)
+		labels := newLabels.([]attribute.KeyValue)
 		for _, l := range labels {
 			for _, e := range expectedLables {
 				if l.Key == e.Key {
@@ -930,9 +909,9 @@ func Test_ArraySpace_Metrics_Label_Update(t *testing.T) {
 	array1 := "123"
 	array2 := "123"
 
-	expectedLables := []kv.KeyValue{
-		kv.String("ArrayID", array1),
-		kv.String("PlotWithMean", "No"),
+	expectedLables := []attribute.KeyValue{
+		attribute.String("ArrayID", array1),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -949,8 +928,6 @@ func Test_ArraySpace_Metrics_Label_Update(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(provisioned, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(used, nil)
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(provisioned, nil)
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(used, nil)
 
@@ -972,7 +949,7 @@ func Test_ArraySpace_Metrics_Label_Update(t *testing.T) {
 		if !ok {
 			t.Errorf("expected labels to exist for %v, but did not find them", array1)
 		}
-		labels := newLabels.([]kv.KeyValue)
+		labels := newLabels.([]attribute.KeyValue)
 		for _, l := range labels {
 			for _, e := range expectedLables {
 				if l.Key == e.Key {
@@ -990,9 +967,9 @@ func Test_StrorageClass_Space_Metrics_Label_Update(t *testing.T) {
 	array1 := "123"
 	array2 := "123"
 
-	expectedLables := []kv.KeyValue{
-		kv.String("StorageClass", array1),
-		kv.String("PlotWithMean", "No"),
+	expectedLables := []attribute.KeyValue{
+		attribute.String("StorageClass", array1),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -1009,8 +986,6 @@ func Test_StrorageClass_Space_Metrics_Label_Update(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(provisioned, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(used, nil)
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(provisioned, nil)
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(used, nil)
 
@@ -1032,7 +1007,7 @@ func Test_StrorageClass_Space_Metrics_Label_Update(t *testing.T) {
 		if !ok {
 			t.Errorf("expected labels to exist for %v, but did not find them", array1)
 		}
-		labels := newLabels.([]kv.KeyValue)
+		labels := newLabels.([]attribute.KeyValue)
 		for _, l := range labels {
 			for _, e := range expectedLables {
 				if l.Key == e.Key {
@@ -1054,9 +1029,9 @@ func Test_FileSystem_Metrics_Label_Update(t *testing.T) {
 		ID: "123",
 	}
 
-	expectedLables := []kv.KeyValue{
-		kv.String("FileSystemID", metaSecond.ID),
-		kv.String("PlotWithMean", "No"),
+	expectedLables := []attribute.KeyValue{
+		attribute.String("FileSystemID", metaSecond.ID),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -1099,12 +1074,6 @@ func Test_FileSystem_Metrics_Label_Update(t *testing.T) {
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(writeIOPS, nil)
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(readLatency, nil)
 	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(writeLatency, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(readBW, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(writeBW, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(readIOPS, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(writeIOPS, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(readLatency, nil)
-	meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(writeLatency, nil)
 
 	mw := &service.MetricsWrapper{
 		Meter: meter,
@@ -1124,7 +1093,7 @@ func Test_FileSystem_Metrics_Label_Update(t *testing.T) {
 		if !ok {
 			t.Errorf("expected labels to exist for %v, but did not find them", metaFirst.ID)
 		}
-		labels := newLabels.([]kv.KeyValue)
+		labels := newLabels.([]attribute.KeyValue)
 		for _, l := range labels {
 			for _, e := range expectedLables {
 				if l.Key == e.Key {
@@ -1218,7 +1187,7 @@ func Test_Record_FileSystem_Metrics(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			meter := mocks.NewMockFloat64UpDownCounterCreater(ctrl)
 
-			meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(metric.Float64UpDownCounter{}, errors.New("error")).Times(2)
+			meter.EXPECT().NewFloat64UpDownCounter(gomock.Any()).Return(metric.Float64UpDownCounter{}, errors.New("error")).Times(1)
 
 			mws := []*service.MetricsWrapper{{Meter: meter}}
 

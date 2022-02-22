@@ -13,6 +13,7 @@ import (
 
 	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -82,7 +83,9 @@ func (f VolumeFinder) GetPersistentVolumes(ctx context.Context) ([]VolumeInfo, e
 			volumeInfo = append(volumeInfo, info)
 		}
 	}
-	span.SetAttribute("volumes", len(volumeInfo))
+	var numVolKey attribute.Key = "volumes"
+	numVolKeyValue := numVolKey.Int(len(volumeInfo))
+	span.SetAttributes(numVolKeyValue)
 	return volumeInfo, nil
 }
 
