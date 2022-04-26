@@ -183,12 +183,12 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 
 	metrics := metricsMapValue.(*Metrics)
 
-	metrics.ReadBW.Add(ctx, float64(readBW))
-	metrics.WriteBW.Add(ctx, float64(writeBW))
-	metrics.ReadIOPS.Add(ctx, float64(readIOPS))
-	metrics.WriteIOPS.Add(ctx, float64(writeIOPS))
-	metrics.ReadLatency.Add(ctx, float64(readLatency))
-	metrics.WriteLatency.Add(ctx, float64(writeLatency))
+	metrics.ReadBW.Add(ctx, float64(readBW), labels...)
+	metrics.WriteBW.Add(ctx, float64(writeBW), labels...)
+	metrics.ReadIOPS.Add(ctx, float64(readIOPS), labels...)
+	metrics.WriteIOPS.Add(ctx, float64(writeIOPS), labels...)
+	metrics.ReadLatency.Add(ctx, float64(readLatency), labels...)
+	metrics.WriteLatency.Add(ctx, float64(writeLatency), labels...)
 
 	return nil
 }
@@ -294,8 +294,8 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface
 	}
 
 	metrics := metricsMapValue.(*SpaceMetrics)
-	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned))
-	metrics.LogicalUsed.Add(ctx, float64(logicalUsed))
+	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned), labels...)
+	metrics.LogicalUsed.Add(ctx, float64(logicalUsed), labels...)
 	return nil
 }
 
@@ -377,8 +377,8 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID, 
 	}
 
 	metrics := metricsMapValue.(*ArraySpaceMetrics)
-	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned))
-	metrics.LogicalUsed.Add(ctx, float64(logicalUsed))
+	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned), labels...)
+	metrics.LogicalUsed.Add(ctx, float64(logicalUsed), labels...)
 
 	return nil
 }
@@ -438,8 +438,8 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, st
 	}
 
 	metrics := metricsMapValue.(*ArraySpaceMetrics)
-	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned))
-	metrics.LogicalUsed.Add(ctx, float64(logicalUsed))
+	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned), labels...)
+	metrics.LogicalUsed.Add(ctx, float64(logicalUsed), labels...)
 
 	return nil
 }
@@ -556,12 +556,12 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(ctx context.Context, meta inte
 
 	metrics := metricsMapValue.(*Metrics)
 
-	metrics.ReadBW.Add(ctx, float64(readBW))
-	metrics.WriteBW.Add(ctx, float64(writeBW))
-	metrics.ReadIOPS.Add(ctx, float64(readIOPS))
-	metrics.WriteIOPS.Add(ctx, float64(writeIOPS))
-	metrics.ReadLatency.Add(ctx, float64(readLatency))
-	metrics.WriteLatency.Add(ctx, float64(writeLatency))
+	metrics.ReadBW.Add(ctx, float64(readBW), labels...)
+	metrics.WriteBW.Add(ctx, float64(writeBW), labels...)
+	metrics.ReadIOPS.Add(ctx, float64(readIOPS), labels...)
+	metrics.WriteIOPS.Add(ctx, float64(writeIOPS), labels...)
+	metrics.ReadLatency.Add(ctx, float64(readLatency), labels...)
+	metrics.WriteLatency.Add(ctx, float64(writeLatency), labels...)
 
 	return nil
 }

@@ -15,7 +15,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/dell/csm-metrics-powerstore/internal/service"
 	pstoreServices "github.com/dell/csm-metrics-powerstore/internal/service"
 	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
 	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
@@ -46,7 +45,7 @@ type Config struct {
 	SpaceTickInterval      time.Duration
 	ArrayTickInterval      time.Duration
 	FileSystemTickInterval time.Duration
-	LeaderElector          service.LeaderElector
+	LeaderElector          pstoreServices.LeaderElector
 	VolumeMetricsEnabled   bool
 	CollectorAddress       string
 	CollectorCertPath      string
