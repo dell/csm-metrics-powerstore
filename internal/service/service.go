@@ -17,7 +17,6 @@ import (
 
 	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
 
-	"github.com/dell/csi-powerstore/pkg/array"
 	"github.com/dell/gopowerstore"
 
 	"github.com/dell/csm-metrics-powerstore/internal/k8s"
@@ -59,7 +58,7 @@ type PowerStoreService struct {
 	MaxPowerStoreConnections int
 	Logger                   *logrus.Logger
 	PowerStoreClients        map[string]PowerStoreClient
-	DefaultPowerStoreArray   *array.PowerStoreArray
+	DefaultPowerStoreArray   *PowerStoreArray
 	VolumeFinder             VolumeFinder
 }
 
