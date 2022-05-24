@@ -3,8 +3,8 @@ module github.com/dell/csm-metrics-powerstore
 go 1.17
 
 require (
-	github.com/dell/gocsi v1.5.0
-	github.com/dell/gopowerstore v1.6.0
+	github.com/dell/gocsi v1.5.1
+	github.com/dell/gopowerstore v1.7.0
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/golang/mock v1.6.0
 	github.com/sirupsen/logrus v1.8.1
@@ -13,7 +13,7 @@ require (
 	go.opentelemetry.io/otel v0.7.0
 	go.opentelemetry.io/otel/exporters/otlp v0.7.0
 	go.opentelemetry.io/otel/exporters/trace/zipkin v0.7.0
-	google.golang.org/grpc v1.43.0
+	google.golang.org/grpc v1.44.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.23.3
 	k8s.io/apimachinery v0.23.3
@@ -54,7 +54,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
-	go.mongodb.org/mongo-driver v1.4.3 // indirect
+	go.mongodb.org/mongo-driver v1.5.1 // indirect
 	golang.org/x/net v0.0.0-20211209124913-491a49abca63 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20211210111614-af8b64212486 // indirect
