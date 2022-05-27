@@ -30,8 +30,7 @@ import (
 
 	"os"
 
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel/api/global"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
@@ -182,7 +181,7 @@ func updateTracing(logger *logrus.Logger) {
 	zipkinServiceName := viper.GetString("ZIPKIN_SERVICE_NAME")
 	zipkinProbability := viper.GetFloat64("ZIPKIN_PROBABILITY")
 
-	tp, err := tracer.InitTracing(zipkinURI, zipkinProbability)
+	tp, err := tracer.InitTracing(zipkinURI, zipkinServiceName, zipkinProbability)
 	if err != nil {
 		logger.WithError(err).Error("initializing tracer")
 	}
@@ -191,7 +190,7 @@ func updateTracing(logger *logrus.Logger) {
 			"service_name": zipkinServiceName,
 			"probablity":   zipkinProbability,
 		}).Infof("setting zipkin tracing")
-		otel.SetTracerProvider(tp)
+		global.SetTraceProvider(tp)
 	}
 }
 

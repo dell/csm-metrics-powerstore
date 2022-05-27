@@ -13,33 +13,36 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/zipkin"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/trace"
+	traceAPI "go.opentelemetry.io/otel/api/trace"
+	"go.opentelemetry.io/otel/exporters/trace/zipkin"
+
+	"go.opentelemetry.io/otel/api/global"
+
+	"go.opentelemetry.io/otel/sdk/trace"
 
 	stdLog "log"
 )
 
 // InitTracing initializes a trace provider
-func InitTracing(uri string, prob float64) (trace.TracerProvider, error) {
+func InitTracing(uri, name string, prob float64) (*trace.Provider, error) {
 	if len(strings.TrimSpace(uri)) == 0 {
 		return nil, nil
 	}
-	exporter, err := zipkin.New(
+	exporter, err := zipkin.NewExporter(
 		uri,
+		name,
 		zipkin.WithLogger(stdLog.New(ioutil.Discard, "", stdLog.LstdFlags)),
 	)
 	if err != nil {
 		return nil, err
 	}
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(prob)),
-		sdktrace.WithBatcher(
+	tp, err := trace.NewProvider(
+		trace.WithConfig(trace.Config{DefaultSampler: trace.ProbabilitySampler(prob)}),
+		trace.WithBatcher(
 			exporter,
-			sdktrace.WithMaxExportBatchSize(sdktrace.DefaultMaxExportBatchSize),
-			sdktrace.WithBatchTimeout(sdktrace.DefaultBatchTimeout),
-			sdktrace.WithMaxExportBatchSize(sdktrace.DefaultMaxExportBatchSize),
+			trace.WithMaxExportBatchSize(trace.DefaultMaxExportBatchSize),
+			trace.WithBatchTimeout(trace.DefaultBatchTimeout),
+			trace.WithMaxExportBatchSize(trace.DefaultMaxExportBatchSize),
 		),
 	)
 	if err != nil {
@@ -49,7 +52,7 @@ func InitTracing(uri string, prob float64) (trace.TracerProvider, error) {
 }
 
 // GetTracer returns the generic tracer for the application
-func GetTracer(ctx context.Context, spanName string) (context.Context, trace.Span) {
-	tr := otel.GetTracerProvider()
-	return tr.Tracer("metrics-powerstore").Start(ctx, spanName)
+func GetTracer(ctx context.Context, spanName string) (context.Context, traceAPI.Span) {
+	tr := global.TraceProvider().Tracer("metrics-powerstore")
+	return tr.Start(ctx, spanName)
 }
