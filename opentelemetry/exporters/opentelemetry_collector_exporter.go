@@ -9,22 +9,19 @@
 package otlexporters
 
 import (
-	"context"
 	"time"
 
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	"go.opentelemetry.io/otel/metric/global"
-	controller "go.opentelemetry.io/otel/sdk/metric/controller/basic"
-	"go.opentelemetry.io/otel/sdk/metric/processor/basic"
+	"go.opentelemetry.io/otel/api/global"
+	"go.opentelemetry.io/otel/exporters/otlp"
+	"go.opentelemetry.io/otel/sdk/metric/controller/push"
 	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
 )
 
 // OtlCollectorExporter is the exporter for the OpenTelemetry Collector
 type OtlCollectorExporter struct {
 	CollectorAddr string
-	exporter      *otlpmetric.Exporter
-	controller    *controller.Controller
+	exporter      *otlp.Exporter
+	pusher        *push.Controller
 }
 
 const (
@@ -33,60 +30,42 @@ const (
 )
 
 // InitExporter is the initialization method for the OpenTelemetry Collector exporter
-func (c *OtlCollectorExporter) InitExporter(opts ...otlpmetricgrpc.Option) error {
-	exporter, controller, err := c.initOTLPExporter(opts...)
+func (c *OtlCollectorExporter) InitExporter(opts ...otlp.ExporterOption) error {
+	exporter, pusher, err := c.initOTLPExporter(opts...)
 	if err != nil {
 		return err
 	}
 	c.exporter = exporter
-	c.controller = controller
+	c.pusher = pusher
 
 	return err
 }
 
 // StopExporter stops the activity of the Otl Collector's required services
 func (c *OtlCollectorExporter) StopExporter() error {
-	err := c.exporter.Shutdown(context.Background())
+	err := c.exporter.Stop()
 	if err != nil {
 		return err
 	}
 
-	err = c.controller.Stop(context.Background())
-	if err != nil {
-		return err
-	}
-
+	c.pusher.Stop()
 	return nil
 }
 
-func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (*otlpmetric.Exporter, *controller.Controller, error) {
-	exporter, err := otlpmetricgrpc.New(context.Background(), opts...)
+func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlp.ExporterOption) (*otlp.Exporter, *push.Controller, error) {
+	exporter, err := otlp.NewExporter(opts...)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	processor := basic.New(
-		simple.NewWithHistogramDistribution(),
+	pusher := push.New(
+		simple.NewWithExactDistribution(),
 		exporter,
+		push.WithPeriod(5*time.Second),
 	)
+	pusher.Start()
 
-	f := basic.NewFactory(
-		processor.AggregatorSelector,
-		processor.TemporalitySelector,
-	)
+	global.SetMeterProvider(pusher.Provider())
 
-	ctrl := controller.New(
-		f,
-		controller.WithExporter(exporter),
-		controller.WithCollectPeriod(5*time.Second),
-	)
-
-	err = ctrl.Start(context.Background())
-	if err != nil {
-		return nil, nil, err
-	}
-
-	global.SetMeterProvider(ctrl)
-
-	return exporter, ctrl, nil
+	return exporter, pusher, nil
 }

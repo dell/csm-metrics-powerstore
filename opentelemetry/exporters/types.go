@@ -8,11 +8,11 @@
 
 package otlexporters
 
-import "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+import "go.opentelemetry.io/otel/exporters/otlp"
 
 // Otlexporter is an interface for all OpenTelemetry exporters
 //go:generate mockgen -destination=mocks/otlexporters_mocks.go -package=exportermocks github.com/dell/csm-metrics-powerstore/opentelemetry/exporters Otlexporter
 type Otlexporter interface {
-	InitExporter(...otlpmetricgrpc.Option) error
+	InitExporter(...otlp.ExporterOption) error
 	StopExporter() error
 }
