@@ -163,8 +163,9 @@ func main() {
 			return fmt.Sprintf("%d", runtime.NumGoroutine())
 		}))
 		s := http.Server{
-			Addr:    fmt.Sprintf(":%d", bindPort),
-			Handler: http.DefaultServeMux,
+			Addr:              fmt.Sprintf(":%d", bindPort),
+			Handler:           http.DefaultServeMux,
+			ReadHeaderTimeout: 5 * time.Second,
 		}
 		if err := s.ListenAndServeTLS(certFile, keyFile); err != nil {
 			logger.WithError(err).Error("debug listener closed")
