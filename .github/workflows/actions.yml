@@ -79,3 +79,5 @@ jobs:
         with:
           image-name: csm-metrics-powerstore
           severity-threshold: HIGH
+        env:
+          DOCKLE_HOST: "unix:///var/run/docker.sock"
