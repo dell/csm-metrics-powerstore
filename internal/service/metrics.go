@@ -13,8 +13,8 @@ import (
 	"errors"
 	"sync"
 
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/api/metric"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric/instrument/asyncfloat64"
 )
 
 // MetricsRecorder supports recording I/O metrics
@@ -36,9 +36,10 @@ type MetricsRecorder interface {
 		readLatency, writeLatency float32) error
 }
 
-// Float64UpDownCounterCreater creates a Float64UpDownCounter metric
+// Float64UpDownCounterCreater creates a Float64UpDownCounter InstrumentProvider
+//go:generate mockgen -destination=mocks/instrument_provider_mocks.go -package=mocks go.opentelemetry.io/otel/metric/instrument/asyncfloat64 InstrumentProvider
 type Float64UpDownCounterCreater interface {
-	NewFloat64UpDownCounter(name string, options ...metric.InstrumentOption) (metric.Float64UpDownCounter, error)
+	AsyncFloat64() asyncfloat64.InstrumentProvider
 }
 
 // MetricsWrapper contains data used for pushing metrics data
@@ -52,62 +53,56 @@ type MetricsWrapper struct {
 
 // SpaceMetrics contains the metrics related to a capacity
 type SpaceMetrics struct {
-	LogicalProvisioned metric.BoundFloat64UpDownCounter
-	LogicalUsed        metric.BoundFloat64UpDownCounter
+	LogicalProvisioned asyncfloat64.UpDownCounter
+	LogicalUsed        asyncfloat64.UpDownCounter
 }
 
 // ArraySpaceMetrics contains the metrics related to a capacity
 type ArraySpaceMetrics struct {
-	LogicalProvisioned metric.BoundFloat64UpDownCounter
-	LogicalUsed        metric.BoundFloat64UpDownCounter
+	LogicalProvisioned asyncfloat64.UpDownCounter
+	LogicalUsed        asyncfloat64.UpDownCounter
 }
 
 // Metrics contains the list of metrics data that is collected
 type Metrics struct {
-	ReadBW       metric.BoundFloat64UpDownCounter
-	WriteBW      metric.BoundFloat64UpDownCounter
-	ReadIOPS     metric.BoundFloat64UpDownCounter
-	WriteIOPS    metric.BoundFloat64UpDownCounter
-	ReadLatency  metric.BoundFloat64UpDownCounter
-	WriteLatency metric.BoundFloat64UpDownCounter
+	ReadBW       asyncfloat64.UpDownCounter
+	WriteBW      asyncfloat64.UpDownCounter
+	ReadIOPS     asyncfloat64.UpDownCounter
+	WriteIOPS    asyncfloat64.UpDownCounter
+	ReadLatency  asyncfloat64.UpDownCounter
+	WriteLatency asyncfloat64.UpDownCounter
 }
 
-func (mw *MetricsWrapper) initMetrics(prefix, metaID string, labels []kv.KeyValue) (*Metrics, error) {
-	unboundReadBW, err := mw.Meter.NewFloat64UpDownCounter(prefix + "read_bw_megabytes_per_second")
+func (mw *MetricsWrapper) initMetrics(prefix, metaID string, labels []attribute.KeyValue) (*Metrics, error) {
+	readBW, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "read_bw_megabytes_per_second")
 	if err != nil {
 		return nil, err
 	}
-	readBW := unboundReadBW.Bind(labels...)
 
-	unboundWriteBW, err := mw.Meter.NewFloat64UpDownCounter(prefix + "write_bw_megabytes_per_second")
+	writeBW, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "write_bw_megabytes_per_second")
 	if err != nil {
 		return nil, err
 	}
-	writeBW := unboundWriteBW.Bind(labels...)
 
-	unboundReadIOPS, err := mw.Meter.NewFloat64UpDownCounter(prefix + "read_iops_per_second")
+	readIOPS, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "read_iops_per_second")
 	if err != nil {
 		return nil, err
 	}
-	readIOPS := unboundReadIOPS.Bind(labels...)
 
-	unboundWriteIOPS, err := mw.Meter.NewFloat64UpDownCounter(prefix + "write_iops_per_second")
+	writeIOPS, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "write_iops_per_second")
 	if err != nil {
 		return nil, err
 	}
-	writeIOPS := unboundWriteIOPS.Bind(labels...)
 
-	unboundReadLatency, err := mw.Meter.NewFloat64UpDownCounter(prefix + "read_latency_milliseconds")
+	readLatency, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "read_latency_milliseconds")
 	if err != nil {
 		return nil, err
 	}
-	readLatency := unboundReadLatency.Bind(labels...)
 
-	unboundWriteLatency, err := mw.Meter.NewFloat64UpDownCounter(prefix + "write_latency_milliseconds")
+	writeLatency, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "write_latency_milliseconds")
 	if err != nil {
 		return nil, err
 	}
-	writeLatency := unboundWriteLatency.Bind(labels...)
 
 	metrics := &Metrics{
 		ReadBW:       readBW,
@@ -133,15 +128,15 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 
 	var prefix string
 	var metaID string
-	var labels []kv.KeyValue
+	var labels []attribute.KeyValue
 	switch v := meta.(type) {
 	case *VolumeMeta:
 		prefix, metaID = "powerstore_volume_", v.ID
-		labels = []kv.KeyValue{
-			kv.String("VolumeID", v.ID),
-			kv.String("ArrayID", v.ArrayID),
-			kv.String("PersistentVolumeName", v.PersistentVolumeName),
-			kv.String("PlotWithMean", "No"),
+		labels = []attribute.KeyValue{
+			attribute.String("VolumeID", v.ID),
+			attribute.String("ArrayID", v.ArrayID),
+			attribute.String("PersistentVolumeName", v.PersistentVolumeName),
+			attribute.String("PlotWithMean", "No"),
 		}
 	default:
 		return errors.New("unknown MetaData type")
@@ -164,7 +159,7 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 			}
 			metricsMapValue = newMetrics
 		} else {
-			currentLabels := currentLabels.([]kv.KeyValue)
+			currentLabels := currentLabels.([]attribute.KeyValue)
 			updatedLabels := currentLabels
 			haveLabelsChanged := false
 			for i, current := range currentLabels {
@@ -189,29 +184,27 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 
 	metrics := metricsMapValue.(*Metrics)
 
-	metrics.ReadBW.Add(ctx, float64(readBW))
-	metrics.WriteBW.Add(ctx, float64(writeBW))
-	metrics.ReadIOPS.Add(ctx, float64(readIOPS))
-	metrics.WriteIOPS.Add(ctx, float64(writeIOPS))
-	metrics.ReadLatency.Add(ctx, float64(readLatency))
-	metrics.WriteLatency.Add(ctx, float64(writeLatency))
+	metrics.ReadBW.Observe(ctx, float64(readBW), labels...)
+	metrics.WriteBW.Observe(ctx, float64(writeBW), labels...)
+	metrics.ReadIOPS.Observe(ctx, float64(readIOPS), labels...)
+	metrics.WriteIOPS.Observe(ctx, float64(writeIOPS), labels...)
+	metrics.ReadLatency.Observe(ctx, float64(readLatency), labels...)
+	metrics.WriteLatency.Observe(ctx, float64(writeLatency), labels...)
 
 	return nil
 }
 
-func (mw *MetricsWrapper) initSpaceMetrics(prefix, metaID string, labels []kv.KeyValue) (*SpaceMetrics, error) {
+func (mw *MetricsWrapper) initSpaceMetrics(prefix, metaID string, labels []attribute.KeyValue) (*SpaceMetrics, error) {
 
-	unboundLogicalProvisioned, err := mw.Meter.NewFloat64UpDownCounter(prefix + "logical_provisioned_megabytes")
+	logicalProvisioned, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "logical_provisioned_megabytes")
 	if err != nil {
 		return nil, err
 	}
-	logicalProvisioned := unboundLogicalProvisioned.Bind(labels...)
 
-	unboundLogicalUsed, err := mw.Meter.NewFloat64UpDownCounter(prefix + "logical_used_megabytes")
+	logicalUsed, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "logical_used_megabytes")
 	if err != nil {
 		return nil, err
 	}
-	logicalUsed := unboundLogicalUsed.Bind(labels...)
 
 	metrics := &SpaceMetrics{
 		LogicalProvisioned: logicalProvisioned,
@@ -229,32 +222,32 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface
 	logicalProvisioned, logicalUsed int64) error {
 	var prefix string
 	var metaID string
-	var labels []kv.KeyValue
+	var labels []attribute.KeyValue
 	switch v := meta.(type) {
 	case *SpaceVolumeMeta:
 		switch v.Protocol {
 		case nfsProtocol:
 			prefix, metaID = "powerstore_filesystem_", v.ID
-			labels = []kv.KeyValue{
-				kv.String("FileSystemID", v.ID),
-				kv.String("ArrayID", v.ArrayID),
-				kv.String("PersistentVolumeName", v.PersistentVolumeName),
-				kv.String("StorageClass", v.StorageClass),
-				kv.String("Driver", v.Driver),
-				kv.String("Protocol", v.Protocol),
-				kv.String("PlotWithMean", "No"),
+			labels = []attribute.KeyValue{
+				attribute.String("FileSystemID", v.ID),
+				attribute.String("ArrayID", v.ArrayID),
+				attribute.String("PersistentVolumeName", v.PersistentVolumeName),
+				attribute.String("StorageClass", v.StorageClass),
+				attribute.String("Driver", v.Driver),
+				attribute.String("Protocol", v.Protocol),
+				attribute.String("PlotWithMean", "No"),
 			}
 		// volume metrics as default
 		default:
 			prefix, metaID = "powerstore_volume_", v.ID
-			labels = []kv.KeyValue{
-				kv.String("VolumeID", v.ID),
-				kv.String("ArrayID", v.ArrayID),
-				kv.String("PersistentVolumeName", v.PersistentVolumeName),
-				kv.String("StorageClass", v.StorageClass),
-				kv.String("Driver", v.Driver),
-				kv.String("Protocol", v.Protocol),
-				kv.String("PlotWithMean", "No"),
+			labels = []attribute.KeyValue{
+				attribute.String("VolumeID", v.ID),
+				attribute.String("ArrayID", v.ArrayID),
+				attribute.String("PersistentVolumeName", v.PersistentVolumeName),
+				attribute.String("StorageClass", v.StorageClass),
+				attribute.String("Driver", v.Driver),
+				attribute.String("Protocol", v.Protocol),
+				attribute.String("PlotWithMean", "No"),
 			}
 		}
 	default:
@@ -278,7 +271,7 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface
 			}
 			metricsMapValue = newMetrics
 		} else {
-			currentLabels := currentLabels.([]kv.KeyValue)
+			currentLabels := currentLabels.([]attribute.KeyValue)
 			updatedLabels := currentLabels
 			haveLabelsChanged := false
 			for i, current := range currentLabels {
@@ -302,24 +295,22 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface
 	}
 
 	metrics := metricsMapValue.(*SpaceMetrics)
-	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned))
-	metrics.LogicalUsed.Add(ctx, float64(logicalUsed))
+	metrics.LogicalProvisioned.Observe(ctx, float64(logicalProvisioned), labels...)
+	metrics.LogicalUsed.Observe(ctx, float64(logicalUsed), labels...)
 	return nil
 }
 
-func (mw *MetricsWrapper) initArraySpaceMetrics(prefix, metaID string, labels []kv.KeyValue) (*ArraySpaceMetrics, error) {
+func (mw *MetricsWrapper) initArraySpaceMetrics(prefix, metaID string, labels []attribute.KeyValue) (*ArraySpaceMetrics, error) {
 
-	unboundLogicalProvisioned, err := mw.Meter.NewFloat64UpDownCounter(prefix + "logical_provisioned_megabytes")
+	logicalProvisioned, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "logical_provisioned_megabytes")
 	if err != nil {
 		return nil, err
 	}
-	logicalProvisioned := unboundLogicalProvisioned.Bind(labels...)
 
-	unboundLogicalUsed, err := mw.Meter.NewFloat64UpDownCounter(prefix + "logical_used_megabytes")
+	logicalUsed, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "logical_used_megabytes")
 	if err != nil {
 		return nil, err
 	}
-	logicalUsed := unboundLogicalUsed.Bind(labels...)
 
 	metrics := &ArraySpaceMetrics{
 		LogicalProvisioned: logicalProvisioned,
@@ -337,13 +328,13 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID, 
 	logicalProvisioned, logicalUsed int64) error {
 	var prefix string
 	var metaID string
-	var labels []kv.KeyValue
+	var labels []attribute.KeyValue
 
 	prefix, metaID = "powerstore_array_", arrayID
-	labels = []kv.KeyValue{
-		kv.String("ArrayID", arrayID),
-		kv.String("Driver", driver),
-		kv.String("PlotWithMean", "No"),
+	labels = []attribute.KeyValue{
+		attribute.String("ArrayID", arrayID),
+		attribute.String("Driver", driver),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	metricsMapValue, ok := mw.ArraySpaceMetrics.Load(metaID)
@@ -363,7 +354,7 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID, 
 			}
 			metricsMapValue = newMetrics
 		} else {
-			currentLabels := currentLabels.([]kv.KeyValue)
+			currentLabels := currentLabels.([]attribute.KeyValue)
 			updatedLabels := currentLabels
 			haveLabelsChanged := false
 			for i, current := range currentLabels {
@@ -387,8 +378,8 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID, 
 	}
 
 	metrics := metricsMapValue.(*ArraySpaceMetrics)
-	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned))
-	metrics.LogicalUsed.Add(ctx, float64(logicalUsed))
+	metrics.LogicalProvisioned.Observe(ctx, float64(logicalProvisioned), labels...)
+	metrics.LogicalUsed.Observe(ctx, float64(logicalUsed), labels...)
 
 	return nil
 }
@@ -398,13 +389,13 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, st
 	logicalProvisioned, logicalUsed int64) error {
 	var prefix string
 	var metaID string
-	var labels []kv.KeyValue
+	var labels []attribute.KeyValue
 
 	prefix, metaID = "powerstore_storage_class_", storageclass
-	labels = []kv.KeyValue{
-		kv.String("StorageClass", storageclass),
-		kv.String("Driver", driver),
-		kv.String("PlotWithMean", "No"),
+	labels = []attribute.KeyValue{
+		attribute.String("StorageClass", storageclass),
+		attribute.String("Driver", driver),
+		attribute.String("PlotWithMean", "No"),
 	}
 
 	metricsMapValue, ok := mw.ArraySpaceMetrics.Load(metaID)
@@ -424,7 +415,7 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, st
 			}
 			metricsMapValue = newMetrics
 		} else {
-			currentLabels := currentLabels.([]kv.KeyValue)
+			currentLabels := currentLabels.([]attribute.KeyValue)
 			updatedLabels := currentLabels
 			haveLabelsChanged := false
 			for i, current := range currentLabels {
@@ -448,48 +439,42 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, st
 	}
 
 	metrics := metricsMapValue.(*ArraySpaceMetrics)
-	metrics.LogicalProvisioned.Add(ctx, float64(logicalProvisioned))
-	metrics.LogicalUsed.Add(ctx, float64(logicalUsed))
+	metrics.LogicalProvisioned.Observe(ctx, float64(logicalProvisioned), labels...)
+	metrics.LogicalUsed.Observe(ctx, float64(logicalUsed), labels...)
 
 	return nil
 }
 
-func (mw *MetricsWrapper) initFileSystemMetrics(prefix, metaID string, labels []kv.KeyValue) (*Metrics, error) {
-	unboundReadBW, err := mw.Meter.NewFloat64UpDownCounter(prefix + "read_bw_megabytes_per_second")
+func (mw *MetricsWrapper) initFileSystemMetrics(prefix, metaID string, labels []attribute.KeyValue) (*Metrics, error) {
+	readBW, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "read_bw_megabytes_per_second")
 	if err != nil {
 		return nil, err
 	}
-	readBW := unboundReadBW.Bind(labels...)
 
-	unboundWriteBW, err := mw.Meter.NewFloat64UpDownCounter(prefix + "write_bw_megabytes_per_second")
+	writeBW, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "write_bw_megabytes_per_second")
 	if err != nil {
 		return nil, err
 	}
-	writeBW := unboundWriteBW.Bind(labels...)
 
-	unboundReadIOPS, err := mw.Meter.NewFloat64UpDownCounter(prefix + "read_iops_per_second")
+	readIOPS, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "read_iops_per_second")
 	if err != nil {
 		return nil, err
 	}
-	readIOPS := unboundReadIOPS.Bind(labels...)
 
-	unboundWriteIOPS, err := mw.Meter.NewFloat64UpDownCounter(prefix + "write_iops_per_second")
+	writeIOPS, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "write_iops_per_second")
 	if err != nil {
 		return nil, err
 	}
-	writeIOPS := unboundWriteIOPS.Bind(labels...)
 
-	unboundReadLatency, err := mw.Meter.NewFloat64UpDownCounter(prefix + "read_latency_milliseconds")
+	readLatency, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "read_latency_milliseconds")
 	if err != nil {
 		return nil, err
 	}
-	readLatency := unboundReadLatency.Bind(labels...)
 
-	unboundWriteLatency, err := mw.Meter.NewFloat64UpDownCounter(prefix + "write_latency_milliseconds")
+	writeLatency, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "write_latency_milliseconds")
 	if err != nil {
 		return nil, err
 	}
-	writeLatency := unboundWriteLatency.Bind(labels...)
 
 	metrics := &Metrics{
 		ReadBW:       readBW,
@@ -515,16 +500,16 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(ctx context.Context, meta inte
 
 	var prefix string
 	var metaID string
-	var labels []kv.KeyValue
+	var labels []attribute.KeyValue
 	switch v := meta.(type) {
 	case *VolumeMeta:
 		prefix, metaID = "powerstore_filesystem_", v.ID
-		labels = []kv.KeyValue{
-			kv.String("FileSystemID", v.ID),
-			kv.String("ArrayID", v.ArrayID),
-			kv.String("PersistentVolumeName", v.PersistentVolumeName),
-			kv.String("StorageClass", v.StorageClass),
-			kv.String("PlotWithMean", "No"),
+		labels = []attribute.KeyValue{
+			attribute.String("FileSystemID", v.ID),
+			attribute.String("ArrayID", v.ArrayID),
+			attribute.String("PersistentVolumeName", v.PersistentVolumeName),
+			attribute.String("StorageClass", v.StorageClass),
+			attribute.String("PlotWithMean", "No"),
 		}
 	default:
 		return errors.New("unknown MetaData type")
@@ -547,7 +532,7 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(ctx context.Context, meta inte
 			}
 			metricsMapValue = newMetrics
 		} else {
-			currentLabels := currentLabels.([]kv.KeyValue)
+			currentLabels := currentLabels.([]attribute.KeyValue)
 			updatedLabels := currentLabels
 			haveLabelsChanged := false
 			for i, current := range currentLabels {
@@ -572,12 +557,12 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(ctx context.Context, meta inte
 
 	metrics := metricsMapValue.(*Metrics)
 
-	metrics.ReadBW.Add(ctx, float64(readBW))
-	metrics.WriteBW.Add(ctx, float64(writeBW))
-	metrics.ReadIOPS.Add(ctx, float64(readIOPS))
-	metrics.WriteIOPS.Add(ctx, float64(writeIOPS))
-	metrics.ReadLatency.Add(ctx, float64(readLatency))
-	metrics.WriteLatency.Add(ctx, float64(writeLatency))
+	metrics.ReadBW.Observe(ctx, float64(readBW), labels...)
+	metrics.WriteBW.Observe(ctx, float64(writeBW), labels...)
+	metrics.ReadIOPS.Observe(ctx, float64(readIOPS), labels...)
+	metrics.WriteIOPS.Observe(ctx, float64(writeIOPS), labels...)
+	metrics.ReadLatency.Observe(ctx, float64(readLatency), labels...)
+	metrics.WriteLatency.Observe(ctx, float64(writeLatency), labels...)
 
 	return nil
 }

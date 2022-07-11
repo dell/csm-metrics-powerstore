@@ -44,7 +44,7 @@ type Service interface {
 }
 
 // PowerStoreClient contains operations for accessing the PowerStore API
-//go:generate mockgen -destination=mocks/powerstore_client.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/service PowerStoreClient
+//go:generate mockgen -destination=mocks/powerstore_client_mocks.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/service PowerStoreClient
 type PowerStoreClient interface {
 	PerformanceMetricsByVolume(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByVolumeResponse, error)
 	SpaceMetricsByVolume(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.SpaceMetricsByVolumeResponse, error)
