@@ -14,10 +14,12 @@ import (
 
 // VolumeMeta is the details of a volume in an SDC
 type VolumeMeta struct {
-	ID                   string
-	PersistentVolumeName string
-	ArrayID              string
-	StorageClass         string
+	ID                        string
+	PersistentVolumeName      string
+	PersistentVolumeClaimName string
+	Namespace                 string
+	ArrayID                   string
+	StorageClass              string
 }
 
 // SpaceVolumeMeta is the details of a volume in an SDC

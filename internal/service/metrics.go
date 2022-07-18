@@ -136,6 +136,8 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 			attribute.String("VolumeID", v.ID),
 			attribute.String("ArrayID", v.ArrayID),
 			attribute.String("PersistentVolumeName", v.PersistentVolumeName),
+			attribute.String("PersistentVolumeClaimName", v.PersistentVolumeClaimName),
+			attribute.String("Namespace", v.Namespace),
 			attribute.String("PlotWithMean", "No"),
 		}
 	default:
@@ -508,6 +510,8 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(ctx context.Context, meta inte
 			attribute.String("FileSystemID", v.ID),
 			attribute.String("ArrayID", v.ArrayID),
 			attribute.String("PersistentVolumeName", v.PersistentVolumeName),
+			attribute.String("PersistentVolumeClaimName", v.PersistentVolumeClaimName),
+			attribute.String("Namespace", v.Namespace),
 			attribute.String("StorageClass", v.StorageClass),
 			attribute.String("PlotWithMean", "No"),
 		}
