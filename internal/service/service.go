@@ -181,9 +181,11 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 				}
 
 				volumeMeta := &VolumeMeta{
-					ID:                   volumeID,
-					PersistentVolumeName: volume.PersistentVolume,
-					ArrayID:              arrayID,
+					ID:                        volumeID,
+					PersistentVolumeName:      volume.PersistentVolume,
+					PersistentVolumeClaimName: volume.VolumeClaimName,
+					Namespace:                 volume.Namespace,
+					ArrayID:                   arrayID,
 				}
 
 				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)
@@ -795,10 +797,12 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 				}
 
 				volumeMeta := &VolumeMeta{
-					ID:                   volumeID,
-					PersistentVolumeName: volume.PersistentVolume,
-					ArrayID:              arrayID,
-					StorageClass:         volume.StorageClass,
+					ID:                        volumeID,
+					PersistentVolumeName:      volume.PersistentVolume,
+					PersistentVolumeClaimName: volume.VolumeClaimName,
+					Namespace:                 volume.Namespace,
+					ArrayID:                   arrayID,
+					StorageClass:              volume.StorageClass,
 				}
 
 				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)

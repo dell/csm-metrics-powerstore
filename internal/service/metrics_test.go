@@ -772,16 +772,25 @@ func Test_StorageClassSpace_Metrics_Record(t *testing.T) {
 }
 func Test_Volume_Metrics_Label_Update(t *testing.T) {
 	metaFirst := &service.VolumeMeta{
-		ID: "123",
+		ID:                        "123",
+		PersistentVolumeName:      "pvol0",
+		PersistentVolumeClaimName: "pvc0",
+		Namespace:                 "namespace0",
 	}
 
 	metaSecond := &service.VolumeMeta{
-		ID: "123",
+		ID:                        "123",
+		PersistentVolumeName:      "pvol0",
+		PersistentVolumeClaimName: "pvc0",
+		Namespace:                 "namespace0",
 	}
 
 	expectedLables := []attribute.KeyValue{
 		attribute.String("VolumeID", metaSecond.ID),
 		attribute.String("PlotWithMean", "No"),
+		attribute.String("PersistentVolumeName", metaSecond.PersistentVolumeName),
+		attribute.String("PersistentVolumeClaimName", metaSecond.PersistentVolumeClaimName),
+		attribute.String("Namespace", metaSecond.Namespace),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -1120,16 +1129,25 @@ func Test_StrorageClass_Space_Metrics_Label_Update(t *testing.T) {
 
 func Test_FileSystem_Metrics_Label_Update(t *testing.T) {
 	metaFirst := &service.VolumeMeta{
-		ID: "123",
+		ID:                        "123",
+		PersistentVolumeName:      "pvol0",
+		PersistentVolumeClaimName: "pvc0",
+		Namespace:                 "namespace0",
 	}
 
 	metaSecond := &service.VolumeMeta{
-		ID: "123",
+		ID:                        "123",
+		PersistentVolumeName:      "pvol0",
+		PersistentVolumeClaimName: "pvc0",
+		Namespace:                 "namespace0",
 	}
 
 	expectedLables := []attribute.KeyValue{
 		attribute.String("FileSystemID", metaSecond.ID),
 		attribute.String("PlotWithMean", "No"),
+		attribute.String("PersistentVolumeName", metaSecond.PersistentVolumeName),
+		attribute.String("PersistentVolumeClaimName", metaSecond.PersistentVolumeClaimName),
+		attribute.String("Namespace", metaSecond.Namespace),
 	}
 
 	ctrl := gomock.NewController(t)
