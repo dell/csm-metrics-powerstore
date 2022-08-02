@@ -355,12 +355,14 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 				protocol := volumeProperties[2]
 
 				spaceMeta := &SpaceVolumeMeta{
-					ID:                   volumeID,
-					PersistentVolumeName: volume.PersistentVolume,
-					ArrayID:              arrayID,
-					StorageClass:         volume.StorageClass,
-					Driver:               volume.Driver,
-					Protocol:             protocol,
+					ID:                        volumeID,
+					PersistentVolumeName:      volume.PersistentVolume,
+					PersistentVolumeClaimName: volume.VolumeClaimName,
+					Namespace:                 volume.Namespace,
+					ArrayID:                   arrayID,
+					StorageClass:              volume.StorageClass,
+					Driver:                    volume.Driver,
+					Protocol:                  protocol,
 				}
 
 				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)
