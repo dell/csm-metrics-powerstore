@@ -884,6 +884,9 @@ func Test_Space_Metrics_Label_Update(t *testing.T) {
 
 	expectedLables := []attribute.KeyValue{
 		attribute.String("VolumeID", metaSecond.ID),
+		attribute.String("PersistentVolumeName", metaSecond.PersistentVolumeName),
+		attribute.String("PersistentVolumeClaimName", metaSecond.PersistentVolumeClaimName),
+		attribute.String("Namespace", metaSecond.Namespace),
 		attribute.String("PlotWithMean", "No"),
 	}
 

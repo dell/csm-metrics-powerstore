@@ -24,12 +24,14 @@ type VolumeMeta struct {
 
 // SpaceVolumeMeta is the details of a volume in an SDC
 type SpaceVolumeMeta struct {
-	ID                   string
-	PersistentVolumeName string
-	ArrayID              string
-	StorageClass         string
-	Driver               string
-	Protocol             string
+	ID                        string
+	PersistentVolumeName      string
+	PersistentVolumeClaimName string
+	Namespace                 string
+	ArrayID                   string
+	StorageClass              string
+	Driver                    string
+	Protocol                  string
 }
 
 // TransportType differentiates different SCSI transport protocols (FC, iSCSI, Auto, None)
