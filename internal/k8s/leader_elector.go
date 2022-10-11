@@ -23,6 +23,7 @@ import (
 )
 
 // LeaderElectorGetter is an interface for initialize and check elected leader
+//
 //go:generate mockgen -destination=mocks/leader_elector_getter_mocks.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/k8s LeaderElectorGetter
 type LeaderElectorGetter interface {
 	InitLeaderElection(string, string) error

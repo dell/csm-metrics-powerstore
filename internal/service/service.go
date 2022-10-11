@@ -35,6 +35,7 @@ const (
 )
 
 // Service contains operations that would be used to interact with a PowerStore system
+//
 //go:generate mockgen -destination=mocks/service_mocks.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/service Service
 type Service interface {
 	ExportVolumeStatistics(context.Context)
@@ -44,6 +45,7 @@ type Service interface {
 }
 
 // PowerStoreClient contains operations for accessing the PowerStore API
+//
 //go:generate mockgen -destination=mocks/powerstore_client_mocks.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/service PowerStoreClient
 type PowerStoreClient interface {
 	PerformanceMetricsByVolume(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByVolumeResponse, error)
@@ -63,12 +65,14 @@ type PowerStoreService struct {
 }
 
 // VolumeFinder is used to find volume information in kubernetes
+//
 //go:generate mockgen -destination=mocks/volume_finder_mocks.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/service VolumeFinder
 type VolumeFinder interface {
 	GetPersistentVolumes(context.Context) ([]k8s.VolumeInfo, error)
 }
 
 // LeaderElector will elect a leader
+//
 //go:generate mockgen -destination=mocks/leader_elector_mocks.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/service LeaderElector
 type LeaderElector interface {
 	InitLeaderElection(string, string) error
