@@ -1,4 +1,4 @@
-FROM scratch
+FROM registry.access.redhat.com/ubi9/ubi-micro
 LABEL vendor="Dell Inc." \
       name="csm-metrics-powerstore" \
       summary="Dell Container Storage Modules (CSM) for Observability - Metrics for PowerStore" \
