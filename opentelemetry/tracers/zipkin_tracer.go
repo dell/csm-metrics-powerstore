@@ -18,7 +18,7 @@ package tracer
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"go.opentelemetry.io/otel"
@@ -36,7 +36,7 @@ func InitTracing(uri string, prob float64) (trace.TracerProvider, error) {
 	}
 	exporter, err := zipkin.New(
 		uri,
-		zipkin.WithLogger(stdLog.New(ioutil.Discard, "", stdLog.LstdFlags)),
+		zipkin.WithLogger(stdLog.New(io.Discard, "", stdLog.LstdFlags)),
 	)
 	if err != nil {
 		return nil, err
