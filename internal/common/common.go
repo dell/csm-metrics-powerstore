@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -48,7 +48,7 @@ func GetPowerStoreArrays(filePath string, logger *logrus.Logger) (map[string]*se
 		Arrays []*service.PowerStoreArray `yaml:"arrays"`
 	}
 
-	data, err := ioutil.ReadFile(filepath.Clean(filePath))
+	data, err := os.ReadFile(filepath.Clean(filePath))
 	if err != nil {
 		logger.WithError(err).Errorf("cannot read file %s", filePath)
 		return nil, nil, nil, err
