@@ -135,7 +135,6 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 	readIOPS, writeIOPS,
 	readLatency, writeLatency float32,
 ) error {
-
 	var prefix string
 	var metaID string
 	var labels []attribute.KeyValue
@@ -207,7 +206,6 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 }
 
 func (mw *MetricsWrapper) initSpaceMetrics(prefix, metaID string, labels []attribute.KeyValue) (*SpaceMetrics, error) {
-
 	logicalProvisioned, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "logical_provisioned_megabytes")
 	if err != nil {
 		return nil, err
@@ -231,7 +229,8 @@ func (mw *MetricsWrapper) initSpaceMetrics(prefix, metaID string, labels []attri
 
 // RecordSpaceMetrics will publish space metrics data for a given instance
 func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface{},
-	logicalProvisioned, logicalUsed int64) error {
+	logicalProvisioned, logicalUsed int64,
+) error {
 	var prefix string
 	var metaID string
 	var labels []attribute.KeyValue
@@ -317,7 +316,6 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface
 }
 
 func (mw *MetricsWrapper) initArraySpaceMetrics(prefix, metaID string, labels []attribute.KeyValue) (*ArraySpaceMetrics, error) {
-
 	logicalProvisioned, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "logical_provisioned_megabytes")
 	if err != nil {
 		return nil, err
@@ -341,7 +339,8 @@ func (mw *MetricsWrapper) initArraySpaceMetrics(prefix, metaID string, labels []
 
 // RecordArraySpaceMetrics will publish space metrics data for a given instance
 func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID, driver string,
-	logicalProvisioned, logicalUsed int64) error {
+	logicalProvisioned, logicalUsed int64,
+) error {
 	var prefix string
 	var metaID string
 	var labels []attribute.KeyValue
@@ -402,7 +401,8 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID, 
 
 // RecordStorageClassSpaceMetrics will publish space metrics for storage class
 func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, storageclass, driver string,
-	logicalProvisioned, logicalUsed int64) error {
+	logicalProvisioned, logicalUsed int64,
+) error {
 	var prefix string
 	var metaID string
 	var labels []attribute.KeyValue
@@ -513,7 +513,6 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(ctx context.Context, meta inte
 	readIOPS, writeIOPS,
 	readLatency, writeLatency float32,
 ) error {
-
 	var prefix string
 	var metaID string
 	var labels []attribute.KeyValue

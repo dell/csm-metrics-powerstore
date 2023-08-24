@@ -778,6 +778,7 @@ func Test_StorageClassSpace_Metrics_Record(t *testing.T) {
 		})
 	}
 }
+
 func Test_Volume_Metrics_Label_Update(t *testing.T) {
 	metaFirst := &service.VolumeMeta{
 		ID:                        "123",
@@ -1019,7 +1020,6 @@ func Test_Filesystem_Metrics_Label_Update(t *testing.T) {
 }
 
 func Test_ArraySpace_Metrics_Label_Update(t *testing.T) {
-
 	array1 := "123"
 	array2 := "123"
 
@@ -1079,7 +1079,6 @@ func Test_ArraySpace_Metrics_Label_Update(t *testing.T) {
 }
 
 func Test_StrorageClass_Space_Metrics_Label_Update(t *testing.T) {
-
 	array1 := "123"
 	array2 := "123"
 

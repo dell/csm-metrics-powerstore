@@ -133,7 +133,7 @@ func (s *PowerStoreService) ExportVolumeStatistics(ctx context.Context) {
 
 	for range s.pushVolumeMetrics(ctx, s.gatherVolumeMetrics(ctx, s.volumeServer(ctx, pvs))) {
 		// consume the channel until it is empty and closed
-	}
+	} // revive:disable-line:empty-block
 }
 
 // volumeServer will return a channel of volumes that can provide statistics about each volume
@@ -246,7 +246,6 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 					readIOPS: readIOPS, writeIOPS: writeIOPS,
 					readLatency: readLatency, writeLatency: writeLatency,
 				}
-
 			}(volume)
 		}
 
@@ -302,7 +301,7 @@ func (s *PowerStoreService) pushVolumeMetrics(ctx context.Context, volumeMetrics
 	return ch
 }
 
-func (s *PowerStoreService) getPowerStoreClient(ctx context.Context, arrayIP string) (PowerStoreClient, error) {
+func (s *PowerStoreService) getPowerStoreClient(_ context.Context, arrayIP string) (PowerStoreClient, error) {
 	if goPowerStoreClient, ok := s.PowerStoreClients[arrayIP]; ok {
 		return goPowerStoreClient, nil
 	}
@@ -504,7 +503,7 @@ func (s *PowerStoreService) ExportSpaceVolumeMetrics(ctx context.Context) {
 
 	for range s.pushSpaceVolumeMetrics(ctx, s.gatherSpaceVolumeMetrics(ctx, s.volumeServer(ctx, pvs))) {
 		// consume the channel until it is empty and closed
-	}
+	} // revive:disable-line:empty-block
 }
 
 // gatherArraySpaceMetrics will return a channel of array space metrics based on the input of volumes
@@ -737,7 +736,7 @@ func (s *PowerStoreService) ExportArraySpaceMetrics(ctx context.Context) {
 
 	for range s.pushArraySpaceMetrics(ctx, s.gatherArraySpaceMetrics(ctx, s.volumeServer(ctx, pvs))) {
 		// consume the channel until it is empty and closed
-	}
+	} // revive:disable-line:empty-block
 }
 
 // ExportFileSystemStatistics records I/O statistics for the given list of Volumes
@@ -766,7 +765,7 @@ func (s *PowerStoreService) ExportFileSystemStatistics(ctx context.Context) {
 
 	for range s.pushFileSystemMetrics(ctx, s.gatherFileSystemMetrics(ctx, s.volumeServer(ctx, pvs))) {
 		// consume the channel until it is empty and closed
-	}
+	} // revive:disable-line:empty-block
 }
 
 // gatherFileSystemMetrics will return a channel of filesystem metrics based on the input of volumes
@@ -865,7 +864,6 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 					readIOPS: readIOPS, writeIOPS: writeIOPS,
 					readLatency: readLatency, writeLatency: writeLatency,
 				}
-
 			}(volume)
 		}
 

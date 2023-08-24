@@ -42,10 +42,8 @@ const (
 	DefaultNameSpace = "karavi"
 )
 
-var (
-	// ConfigValidatorFunc is used to override config validation in testing
-	ConfigValidatorFunc func(*Config) error = ValidateConfig
-)
+// ConfigValidatorFunc is used to override config validation in testing
+var ConfigValidatorFunc = ValidateConfig
 
 // Config holds data that will be used by the service
 type Config struct {
@@ -104,7 +102,7 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	//set initial tick intervals
+	// set initial tick intervals
 	VolumeTickInterval := config.VolumeTickInterval
 	volumeTicker := time.NewTicker(VolumeTickInterval)
 	SpaceTickInterval := config.SpaceTickInterval
@@ -181,7 +179,7 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			return nil
 		}
 
-		//check if tick interval config settings have changed
+		// check if tick interval config settings have changed
 		if VolumeTickInterval != config.VolumeTickInterval {
 			VolumeTickInterval = config.VolumeTickInterval
 			volumeTicker = time.NewTicker(VolumeTickInterval)

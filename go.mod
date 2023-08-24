@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/dell/gocsi v1.7.0
-	github.com/dell/gopowerstore v1.11.0
+	github.com/dell/gopowerstore v1.12.1-0.20230810192103-bc95a9a4b424
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/golang/mock v1.6.0
 	github.com/onsi/gomega v1.18.0 // indirect
