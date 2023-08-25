@@ -59,7 +59,6 @@ func Test_K8sPersistentVolumeFinder(t *testing.T) {
 
 	tests := map[string]func(t *testing.T) (k8s.VolumeFinder, []checkFn, *gomock.Controller){
 		"success selecting the matching driver name with multiple volumes": func(*testing.T) (k8s.VolumeFinder, []checkFn, *gomock.Controller) {
-
 			ctrl := gomock.NewController(t)
 			api := mocks.NewMockVolumeGetter(ctrl)
 
@@ -148,7 +147,6 @@ func Test_K8sPersistentVolumeFinder(t *testing.T) {
 			})), ctrl
 		},
 		"success selecting multiple volumes matching multiple driver names": func(*testing.T) (k8s.VolumeFinder, []checkFn, *gomock.Controller) {
-
 			ctrl := gomock.NewController(t)
 			api := mocks.NewMockVolumeGetter(ctrl)
 
@@ -346,5 +344,4 @@ func Test_K8sPersistentVolumeFinder(t *testing.T) {
 			ctrl.Finish()
 		})
 	}
-
 }

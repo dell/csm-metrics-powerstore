@@ -21,12 +21,11 @@ import (
 	"expvar"
 	"fmt"
 	"net/http"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
-
-	_ "net/http/pprof"
 
 	"github.com/dell/csm-metrics-powerstore/internal/common"
 	"github.com/dell/csm-metrics-powerstore/internal/entrypoint"
@@ -35,8 +34,6 @@ import (
 	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
 	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
 	"github.com/sirupsen/logrus"
-
-	"os"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric/global"
@@ -55,7 +52,6 @@ const (
 )
 
 func main() {
-
 	logger := logrus.New()
 
 	viper.SetConfigFile(defaultConfigFile)
@@ -196,7 +192,8 @@ func updateTracing(logger *logrus.Logger) {
 		logger.WithError(err).Error("initializing tracer")
 	}
 	if tp != nil {
-		logger.WithFields(logrus.Fields{"uri": zipkinURI,
+		logger.WithFields(logrus.Fields{
+			"uri":          zipkinURI,
 			"service_name": zipkinServiceName,
 			"probablity":   zipkinProbability,
 		}).Infof("setting zipkin tracing")

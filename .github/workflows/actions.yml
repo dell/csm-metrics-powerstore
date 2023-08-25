@@ -61,10 +61,10 @@ jobs:
     name: Image Scanner
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.20+
+      - name: Set up Go 1.21+
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.20
+          go-version: ^1.21
         id: go
       - name: Checkout the code
         uses: actions/checkout@v2
@@ -74,10 +74,7 @@ jobs:
         run:  go mod download
       - name: Build csm-metrics-powerstore Docker Image
         run: make clean build docker  
-      - name: Image scanner
-        uses: Azure/container-scan@v0
+      - name: Run Trivy action
+        uses: aquasecurity/trivy-action@master
         with:
-          image-name: csm-metrics-powerstore
-          severity-threshold: HIGH
-        env:
-          DOCKLE_HOST: "unix:///var/run/docker.sock"
+          image-ref: csm-metrics-powerstore

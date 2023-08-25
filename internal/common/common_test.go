@@ -27,9 +27,7 @@ import (
 )
 
 func Test_Run(t *testing.T) {
-
 	tests := map[string]func(t *testing.T) (filePath string, env map[string]string, expectError bool){
-
 		"success": func(*testing.T) (string, map[string]string, bool) {
 			return "testdata/sample-config.yaml", map[string]string{common.EnvThrottlingRateLimit: "123"}, false
 		},
@@ -49,7 +47,6 @@ func Test_Run(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-
 			logger := logrus.New()
 			filePath, envs, expectError := test(t)
 
@@ -70,7 +67,6 @@ func Test_Run(t *testing.T) {
 				assert.NotNil(t, defaultArray)
 				assert.Nil(t, err)
 			}
-
 		})
 	}
 }
