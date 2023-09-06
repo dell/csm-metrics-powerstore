@@ -84,10 +84,10 @@ github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ3
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/dell/gocsi v1.7.0 h1:fMQO2zwAXCaIsUoPCcnnuPMwfQMoaI1/0aqkQVndlxU=
-github.com/dell/gocsi v1.7.0/go.mod h1:X/8Ll8qqKAKCenmd1gPJMUvUmgY8cK0LiS8Pck12UaU=
-github.com/dell/gopowerstore v1.12.1-0.20230810192103-bc95a9a4b424 h1:LGyAqiIJxCDY9einFYbymkyHCbr8JsVQ4yUrkVaV/yg=
-github.com/dell/gopowerstore v1.12.1-0.20230810192103-bc95a9a4b424/go.mod h1:d5OP8ZaRcZ65GTkUuZHLGa0IFgRdA3vF4i6JccfHBYE=
+github.com/dell/gocsi v1.8.0 h1:0qsC/Ts6QeAWBBVaQvFrZYBXdoR7bmjrDUb3QpcMfHM=
+github.com/dell/gocsi v1.8.0/go.mod h1:X/8Ll8qqKAKCenmd1gPJMUvUmgY8cK0LiS8Pck12UaU=
+github.com/dell/gopowerstore v1.13.0 h1:KEATpl95GhGzO94zeo3+J7gxOrbLt55GZASHFYRVH5s=
+github.com/dell/gopowerstore v1.13.0/go.mod h1:MJLVe9FLxhb/dXv8RuKtHwqGAAmRuAIMFqNOTK3ZMz0=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815/go.mod h1:WwZ+bS3ebgob9U8Nd0kOddGdZWjyMGR8Wziv+TBNwSE=
 github.com/eapache/go-resiliency v1.2.0/go.mod h1:kFI+JgMyC7bLPUVY133qvEBtVayf5mFgVsvEsIPBvNs=
 github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21/go.mod h1:+020luEh2TKB4/GOp8oxxtq0Daoen/Cii55CzbTV6DU=
