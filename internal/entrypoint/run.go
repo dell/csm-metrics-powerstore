@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync"
 	"time"
 
 	pstoreServices "github.com/dell/csm-metrics-powerstore/internal/service"
@@ -116,6 +117,8 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 		select {
 		case <-volumeTicker.C:
 			ctx, span := tracer.GetTracer(ctx, "volume-metrics")
+			wg := new(sync.WaitGroup)
+
 			if !config.LeaderElector.IsLeader() {
 				logger.Info("not leader pod to collect metrics")
 				span.End()
@@ -126,9 +129,15 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 				span.End()
 				continue
 			}
-			powerStoreSvc.ExportVolumeStatistics(ctx)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				powerStoreSvc.ExportVolumeStatistics(ctx)
+
+			}()
 			span.End()
 		case <-spaceTicker.C:
+			wg := new(sync.WaitGroup)
 			ctx, span := tracer.GetTracer(ctx, "volume-space-metrics")
 			if !config.LeaderElector.IsLeader() {
 				logger.Info("not leader pod to collect metrics")
@@ -140,9 +149,15 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 				span.End()
 				continue
 			}
-			powerStoreSvc.ExportSpaceVolumeMetrics(ctx)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				powerStoreSvc.ExportSpaceVolumeMetrics(ctx)
+
+			}()
 			span.End()
 		case <-arrayTicker.C:
+			wg := new(sync.WaitGroup)
 			ctx, span := tracer.GetTracer(ctx, "array-space-metrics")
 			if !config.LeaderElector.IsLeader() {
 				logger.Info("not leader pod to collect metrics")
@@ -154,9 +169,15 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 				span.End()
 				continue
 			}
-			powerStoreSvc.ExportArraySpaceMetrics(ctx)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				powerStoreSvc.ExportArraySpaceMetrics(ctx)
+
+			}()
 			span.End()
 		case <-filesystemTicker.C:
+			wg := new(sync.WaitGroup)
 			ctx, span := tracer.GetTracer(ctx, "filesystem-metrics")
 			if !config.LeaderElector.IsLeader() {
 				logger.Info("not leader pod to collect metrics")
@@ -168,7 +189,12 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 				span.End()
 				continue
 			}
-			powerStoreSvc.ExportFileSystemStatistics(ctx)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				powerStoreSvc.ExportFileSystemStatistics(ctx)
+
+			}()
 			span.End()
 		case err := <-errCh:
 			if err == nil {
