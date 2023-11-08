@@ -30,8 +30,9 @@ test:
 	go test -count=1 -cover -race -timeout 30s -short ./...
 
 .PHONY: docker
-docker:
-	SERVICE=cmd/metrics-powerstore docker build -t csm-metrics-powerstore -f Dockerfile cmd/metrics-powerstore/
+docker: download-csm-common
+	$(eval include csm-common.mk)
+	SERVICE=cmd/metrics-powerstore docker build -t csm-metrics-powerstore -f Dockerfile --build-arg BASEIMAGE=$(DEFAULT_BASEIMAGE) cmd/metrics-powerstore/
 
 .PHONY: push
 push:
@@ -44,3 +45,7 @@ tag:
 .PHONY: check
 check:
 	./scripts/check.sh ./cmd/... ./opentelemetry/... ./internal/...
+
+.PHONY: download-csm-common
+download-csm-common:
+	curl -O -L https://raw.githubusercontent.com/dell/csm/main/config/csm-common.mk
