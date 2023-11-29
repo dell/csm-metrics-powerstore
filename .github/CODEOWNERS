@@ -6,25 +6,27 @@
 # These are the default owners for the code and will
 # be requested for review when someone opens a pull request.
 #
-# Sean Gallacher (gallacher)
-# Trevor Dawe (tdawe)
+# Aaron Tye (atye)
 # Alexander Hoppe (hoppea2)
 # Alik Saring (alikdell)
-# Aaron Tye (atye)
-# Florian Coulombel (coulof)
-# Shayna Finocchiaro (shaynafinocchiaro)
-# Sharmila Ramamoorthy (sharmilarama)
-# Evgeny Uglov (EvgenyUglov)
-# Bowen Jiang (bjiang27)
-# Tao He (taohe1012)
-# Peter Cao (P-Cao)
-# Yiming Bao (baoy1)
-# Yian Zong  (YianZong)
-# Forrest Xia (forrestxia)
-# Don Khan (donatwork)
-# Harsha Yalamanchili (harshaatdell)
 # AnandatDell (anandrajak1)
+# Bowen Jiang (bjiang27)
+# Chiman Jain (chimanjain)
+# Don Khan (donatwork)
+# Evgeny Uglov (EvgenyUglov)
+# Florian Coulombel (coulof)
+# Harish H  (HarishH-DELL)
+# Harsha Yalamanchili (harshaatdell)
+# Nitesh Rewatkar (nitesh3108)
+# Rajendra Indukuri (rajendraindukuri)
+# Sean Gallacher (gallacher)
+# Shefali Malhotra (shefali-malhotra)
+# Sharmila Ramamoorthy (sharmilarama)
+# Shayna Finocchiaro (shaynafinocchiaro)
+# Spandita Panigrahi (panigs7)
+# Trevor Dawe (tdawe)
 
 
 # for all files:
-* @gallacher @tdawe @alikdell @atye @hoppea2 @coulof @shaynafinocchiaro @sharmilarama @EvgenyUglov @bjiang27 @taohe1012 @P-Cao @baoy1 @YianZong @forrestxia @donatwork @harshaatdell @anandrajak1
+* @atye @hoppea2 @alikdell @anandrajak1 @bjiang27 @chimanjain @donatwork @EvgenyUglov @coulof @HarishH-DELL @harshaatdell @nitesh3108 @rajendraindukuri @gallacher @shefali-malhotra @sharmilarama @shaynafinocchiaro @panigs7 @tdawe
+
