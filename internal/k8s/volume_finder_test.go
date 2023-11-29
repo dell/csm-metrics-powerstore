@@ -366,16 +366,24 @@ func Test_K8sPersistentVolumeFinder(t *testing.T) {
 					},
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "persistent-volume-name",
+							Name:              "persistent-volume-name2",
 							CreationTimestamp: metav1.Time{Time: t1},
 						},
 						Spec: corev1.PersistentVolumeSpec{
 							Capacity: map[corev1.ResourceName]resource.Quantity{
 								v1.ResourceStorage: resource.MustParse("16Gi"),
 							},
-							PersistentVolumeSource: corev1.PersistentVolumeSource{},
-							ClaimRef:               nil,
-							StorageClassName:       "storage-class-name",
+							PersistentVolumeSource: corev1.PersistentVolumeSource{
+								CSI: &corev1.CSIPersistentVolumeSource{
+									Driver: "csi-powerstore.dellemc.com",
+									VolumeAttributes: map[string]string{
+										"arrayIP": "127.0.0.1",
+									},
+									VolumeHandle: "storage-system-volume-id/127.0.0.1/protocol",
+								},
+							},
+							ClaimRef:         nil,
+							StorageClassName: "storage-class-name",
 						},
 						Status: corev1.PersistentVolumeStatus{
 							Phase: "Available",
