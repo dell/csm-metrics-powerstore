@@ -32,7 +32,7 @@ test:
 .PHONY: docker
 docker: download-csm-common
 	$(eval include csm-common.mk)
-	SERVICE=cmd/metrics-powerstore docker build -t csm-metrics-powerstore -f Dockerfile --build-arg BASEIMAGE=$(DEFAULT_BASEIMAGE) cmd/metrics-powerstore/
+	docker build -t csm-metrics-powerstore -f Dockerfile --build-arg BASEIMAGE=$(DEFAULT_BASEIMAGE) .
 
 .PHONY: push
 push:
