@@ -62,12 +62,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go latest
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
         id: go
       - name: Checkout the code
         uses: actions/checkout@v4
       - name: Install Mockgen
-        run: go get github.com/golang/mock/mockgen@v1.4.4
+        run: go get github.com/golang/mock/mockgen@v1.6.0
       - name: Get dependencies
         run:  go mod download
       - name: Build csm-metrics-powerstore Docker Image
