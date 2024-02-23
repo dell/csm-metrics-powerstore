@@ -1,6 +1,6 @@
 module github.com/dell/csm-metrics-powerstore
 
-go 1.21
+go 1.22
 
 require (
 	github.com/dell/gocsi v1.9.0
