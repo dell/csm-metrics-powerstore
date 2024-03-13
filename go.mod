@@ -13,7 +13,7 @@ require (
 	github.com/stretchr/testify v1.7.1
 	go.opentelemetry.io/otel v1.7.0
 	google.golang.org/grpc v1.56.3
-	google.golang.org/protobuf v1.30.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.23.3
 	k8s.io/apimachinery v0.23.3
