@@ -1,9 +1,9 @@
 name: Workflow
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 jobs:
   code-check:
     name: Check Go formatting, linting, vetting
@@ -64,21 +64,21 @@ jobs:
       - name: Set up Go latest
         uses: actions/setup-go@v5
         with:
-          go-version: 'stable'
+          go-version: "stable"
         id: go
       - name: Checkout the code
         uses: actions/checkout@v4
       - name: Install Mockgen
         run: go get github.com/golang/mock/mockgen@v1.6.0
       - name: Get dependencies
-        run:  go mod download
+        run: go mod download
       - name: Build csm-metrics-powerstore Docker Image
         run: |
-         chmod +x ./scripts/build_ubi_micro.sh
-         make build-base-image
-         podman build -t docker.io/csm-metrics-powerstore -f ./Dockerfile --build-arg GOIMAGE=golang:latest --build-arg BASEIMAGE="localhost/mpst-ubimicro"
-         podman save docker.io/library/csm-metrics-powerstore -o /tmp/csm-metrics-powerstore.tar
-         docker load -i /tmp/csm-metrics-powerstore.tar
+          chmod +x ./scripts/build_ubi_micro.sh
+          make build-base-image
+          podman build -t docker.io/csm-metrics-powerstore -f ./Dockerfile --build-arg GOIMAGE=golang:latest --build-arg BASEIMAGE="localhost/mpst-ubimicro"
+          podman save docker.io/library/csm-metrics-powerstore -o /tmp/csm-metrics-powerstore.tar
+          docker load -i /tmp/csm-metrics-powerstore.tar
       - name: Run Trivy action
         uses: aquasecurity/trivy-action@master
         with:
