@@ -290,7 +290,7 @@ func (s *PowerStoreService) pushVolumeMetrics(ctx context.Context, volumeMetrics
 				if err != nil {
 					s.Logger.WithError(err).WithField("volume_id", metrics.volumeMeta.ID).Error("recording statistics for volume")
 				} else {
-					ch <- fmt.Sprintf(metrics.volumeMeta.ID)
+					ch <- metrics.volumeMeta.ID
 				}
 			}(metrics)
 		}
@@ -466,7 +466,7 @@ func (s *PowerStoreService) pushSpaceVolumeMetrics(ctx context.Context, volumeSp
 				if err != nil {
 					s.Logger.WithError(err).WithField("id", metrics.spaceMeta.ID).Error("recording statistics for volume")
 				} else {
-					ch <- fmt.Sprintf(metrics.spaceMeta.ID)
+					ch <- metrics.spaceMeta.ID
 				}
 			}(metrics)
 		}
