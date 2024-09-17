@@ -290,7 +290,7 @@ func (s *PowerStoreService) pushVolumeMetrics(ctx context.Context, volumeMetrics
 				if err != nil {
 					s.Logger.WithError(err).WithField("volume_id", metrics.volumeMeta.ID).Error("recording statistics for volume")
 				} else {
-					ch <- fmt.Sprintf(metrics.volumeMeta.ID)
+					ch <- metrics.volumeMeta.ID
 				}
 			}(metrics)
 		}
@@ -466,7 +466,7 @@ func (s *PowerStoreService) pushSpaceVolumeMetrics(ctx context.Context, volumeSp
 				if err != nil {
 					s.Logger.WithError(err).WithField("id", metrics.spaceMeta.ID).Error("recording statistics for volume")
 				} else {
-					ch <- fmt.Sprintf(metrics.spaceMeta.ID)
+					ch <- metrics.spaceMeta.ID
 				}
 			}(metrics)
 		}
@@ -681,7 +681,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 				if err != nil {
 					s.Logger.WithError(err).WithField("array_id", metrics.arrayID).Error("recording statistics for array")
 				} else {
-					ch <- fmt.Sprintf(metrics.arrayID)
+					ch <- metrics.arrayID
 				}
 			}(metrics)
 		}
@@ -699,7 +699,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 				if err != nil {
 					s.Logger.WithError(err).WithField("storage_class", metrics.storageclass).Error("recording statistics for storage class")
 				} else {
-					ch <- fmt.Sprintf(metrics.storageclass)
+					ch <- metrics.storageclass
 				}
 			}(metrics)
 		}
@@ -908,7 +908,7 @@ func (s *PowerStoreService) pushFileSystemMetrics(ctx context.Context, volumeMet
 				if err != nil {
 					s.Logger.WithError(err).WithField("volume_id", metrics.volumeMeta.ID).Error("recording statistics for volume")
 				} else {
-					ch <- fmt.Sprintf(metrics.volumeMeta.ID)
+					ch <- metrics.volumeMeta.ID
 				}
 			}(metrics)
 		}
