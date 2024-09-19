@@ -31,8 +31,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ Service = (*PowerStoreService)(nil)
-
 const (
 	// DefaultMaxPowerStoreConnections is the number of workers that can query powerstore at a time
 	DefaultMaxPowerStoreConnections = 10
@@ -41,6 +39,35 @@ const (
 	scsiProtocol                   = "scsi"
 	nfsProtocol                    = "nfs"
 )
+
+var _ Service = (*PowerStoreService)(nil)
+
+func (s *PowerStoreService) getPowerStoreClient(_ context.Context, arrayIP string) (PowerStoreClient, error) {
+	if goPowerStoreClient, ok := s.PowerStoreClients[arrayIP]; ok {
+		return goPowerStoreClient, nil
+	}
+	return nil, fmt.Errorf("unable to find client")
+}
+
+func toMegabytes(bytes float32) float32 {
+	return bytes / 1024 / 1024
+}
+
+func toMegabytesInt64(bytes int64) int64 {
+	return bytes / 1024 / 1024
+}
+
+func toMilliseconds(microseconds float32) float32 {
+	return microseconds / 1000
+}
+
+// timeSince will log the amount of time spent in a given function
+func (s *PowerStoreService) timeSince(start time.Time, fName string) {
+	s.Logger.WithFields(logrus.Fields{
+		"duration": fmt.Sprintf("%v", time.Since(start)),
+		"function": fName,
+	}).Info("function duration")
+}
 
 // Service contains operations that would be used to interact with a PowerStore system
 //
@@ -299,33 +326,6 @@ func (s *PowerStoreService) pushVolumeMetrics(ctx context.Context, volumeMetrics
 	}()
 
 	return ch
-}
-
-func (s *PowerStoreService) getPowerStoreClient(_ context.Context, arrayIP string) (PowerStoreClient, error) {
-	if goPowerStoreClient, ok := s.PowerStoreClients[arrayIP]; ok {
-		return goPowerStoreClient, nil
-	}
-	return nil, fmt.Errorf("unable to find client")
-}
-
-func toMegabytes(bytes float32) float32 {
-	return bytes / 1024 / 1024
-}
-
-func toMegabytesInt64(bytes int64) int64 {
-	return bytes / 1024 / 1024
-}
-
-func toMilliseconds(microseconds float32) float32 {
-	return microseconds / 1000
-}
-
-// timeSince will log the amount of time spent in a given function
-func (s *PowerStoreService) timeSince(start time.Time, fName string) {
-	s.Logger.WithFields(logrus.Fields{
-		"duration": fmt.Sprintf("%v", time.Since(start)),
-		"function": fName,
-	}).Info("function duration")
 }
 
 // gatherSpaceVolumeMetrics will return a channel of space volume metrics based on the input of volumes
