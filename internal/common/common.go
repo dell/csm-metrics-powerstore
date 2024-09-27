@@ -90,7 +90,7 @@ func GetPowerStoreArrays(filePath string, logger *logrus.Logger) (map[string]*se
 			if err != nil {
 				logger.Errorf("can't get throttling rate limit, using default")
 			} else {
-				clientOptions.SetRateLimit(uint64(rateLimit)) // #nosec G115 -- This is a false positive
+				clientOptions.SetRateLimit(rateLimit) // #nosec G115 -- This is a false positive
 			}
 		}
 
