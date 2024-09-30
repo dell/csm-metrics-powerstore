@@ -279,6 +279,9 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 
 				if len(replicationMetrics) > 0 {
 					//write logic to populate fields like synchronization BW and remaining data
+					latestRepMetrics := replicationMetrics[len(replicationMetrics)-1]
+					syncBW = toMegabytes(latestRepMetrics.SynchronizationBandwidth)
+					remainingData = toMegabytes(latestRepMetrics.DataRemaining)
 					//syncBW := toMegabytes(1024)
 				}
 
