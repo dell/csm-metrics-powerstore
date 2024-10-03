@@ -124,7 +124,7 @@ type VolumeMetricsRecord struct {
 	readBW, writeBW,
 	readIOPS, writeIOPS,
 	readLatency, writeLatency,
-	synchronizationBW, remainingData float32
+	synchronizationBW, mirrorBW, remainingData float32
 }
 
 // VolumeSpaceMetricsRecord used for holding output of the Volume space metrics query results
@@ -250,7 +250,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 					return
 				}
 
-				var readBW, writeBW, readIOPS, writeIOPS, readLatency, writeLatency, syncBW, remainingData float32
+				var readBW, writeBW, readIOPS, writeIOPS, readLatency, writeLatency, syncBW, mirrorBW, remainingData float32
 
 				s.Logger.WithFields(logrus.Fields{
 					"volume_performance_metrics": len(metrics),
@@ -281,6 +281,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 					//write logic to populate fields like synchronization BW and remaining data
 					latestRepMetrics := replicationMetrics[len(replicationMetrics)-1]
 					syncBW = toMegabytes(latestRepMetrics.SynchronizationBandwidth)
+					mirrorBW = toMegabytes(latestRepMetrics.MirrorBandwidth)
 					remainingData = toMegabytes(latestRepMetrics.DataRemaining)
 					//syncBW := toMegabytes(1024)
 				}
@@ -294,6 +295,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 					"read_latency":             readLatency,
 					"write_latency":            writeLatency,
 					"syncronization_bandwidth": syncBW,
+					"mirror_bandwidth":         mirrorBW,
 					"remaining_data":           remainingData,
 				}).Debug("volume metrics")
 
@@ -302,7 +304,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 					readBW:     readBW, writeBW: writeBW,
 					readIOPS: readIOPS, writeIOPS: writeIOPS,
 					readLatency: readLatency, writeLatency: writeLatency,
-					synchronizationBW: syncBW, remainingData: remainingData,
+					synchronizationBW: syncBW, mirrorBW: mirrorBW, remainingData: remainingData,
 				}
 			}(volume)
 		}
@@ -315,7 +317,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 				readBW:     0, writeBW: 0,
 				readIOPS: 0, writeIOPS: 0,
 				readLatency: 0, writeLatency: 0,
-				synchronizationBW: 0, remainingData: 0,
+				synchronizationBW: 0, mirrorBW: 0, remainingData: 0,
 			}
 		}
 		wg.Wait()
@@ -345,7 +347,7 @@ func (s *PowerStoreService) pushVolumeMetrics(ctx context.Context, volumeMetrics
 					metrics.readBW, metrics.writeBW,
 					metrics.readIOPS, metrics.writeIOPS,
 					metrics.readLatency, metrics.writeLatency,
-					metrics.synchronizationBW, metrics.remainingData,
+					metrics.synchronizationBW, metrics.mirrorBW, metrics.remainingData,
 				)
 				if err != nil {
 					s.Logger.WithError(err).WithField("volume_id", metrics.volumeMeta.ID).Error("recording statistics for volume")
@@ -863,7 +865,7 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 					return
 				}
 
-				var readBW, writeBW, readIOPS, writeIOPS, readLatency, writeLatency, syncBW, remainingData float32
+				var readBW, writeBW, readIOPS, writeIOPS, readLatency, writeLatency, syncBW, mirrorBW, remainingData float32
 
 				s.Logger.WithFields(logrus.Fields{
 					"filesystem_performance_metrics": len(metrics),
@@ -892,8 +894,11 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 				}).Debug("volume replication metrics returned for volume")
 
 				if len(replicationMetrics) > 0 {
-					//TODO
 					//write logic to populate fields like synchronization BW and remaining data
+					latestRepMetrics := replicationMetrics[len(replicationMetrics)-1]
+					syncBW = toMegabytes(latestRepMetrics.SynchronizationBandwidth)
+					mirrorBW = toMegabytes(latestRepMetrics.MirrorBandwidth)
+					remainingData = toMegabytes(latestRepMetrics.DataRemaining)
 					//syncBW := toMegabytes(1024)
 				}
 
@@ -906,6 +911,7 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 					"read_latency":             readLatency,
 					"write_latency":            writeLatency,
 					"syncronization_bandwidth": syncBW,
+					"mirror_bandwidth":         mirrorBW,
 					"remaining_data":           remainingData,
 				}).Debug("volume metrics")
 
@@ -914,7 +920,7 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 					readBW:     readBW, writeBW: writeBW,
 					readIOPS: readIOPS, writeIOPS: writeIOPS,
 					readLatency: readLatency, writeLatency: writeLatency,
-					synchronizationBW: syncBW, remainingData: remainingData,
+					synchronizationBW: syncBW, mirrorBW: mirrorBW, remainingData: remainingData,
 				}
 			}(volume)
 		}
@@ -927,7 +933,7 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 				readBW:     0, writeBW: 0,
 				readIOPS: 0, writeIOPS: 0,
 				readLatency: 0, writeLatency: 0,
-				synchronizationBW: 0, remainingData: 0,
+				synchronizationBW: 0, mirrorBW: 0, remainingData: 0,
 			}
 		}
 		wg.Wait()
@@ -957,7 +963,7 @@ func (s *PowerStoreService) pushFileSystemMetrics(ctx context.Context, volumeMet
 					metrics.readBW, metrics.writeBW,
 					metrics.readIOPS, metrics.writeIOPS,
 					metrics.readLatency, metrics.writeLatency,
-					metrics.synchronizationBW, metrics.remainingData,
+					metrics.synchronizationBW, metrics.mirrorBW, metrics.remainingData,
 				)
 				if err != nil {
 					s.Logger.WithError(err).WithField("volume_id", metrics.volumeMeta.ID).Error("recording statistics for volume")
