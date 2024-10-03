@@ -77,7 +77,6 @@ type Service interface {
 	ExportSpaceVolumeMetrics(context.Context)
 	ExportArraySpaceMetrics(context.Context)
 	ExportFileSystemStatistics(context.Context)
-	ExportVolumeReplicationMetrics(context.Context)
 }
 
 // PowerStoreClient contains operations for accessing the PowerStore API
