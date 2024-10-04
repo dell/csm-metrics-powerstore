@@ -36,7 +36,7 @@ const (
 	DefaultMaxPowerStoreConnections = 10
 	// ExpectedVolumeHandleProperties is the number of properties that the VolumeHandle contains
 	ExpectedVolumeHandleProperties      = 3
-	ExpectedVolumeHandleMetroProperties = 5
+	ExpectedVolumeHandleMetroProperties = 4
 	scsiProtocol                        = "scsi"
 	nfsProtocol                         = "nfs"
 )
@@ -223,7 +223,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 				arrayID := volumeProperties[1]
 				protocol := volumeProperties[2]
 
-				// if protocol is 'metro' then get the protocol from the volume handle
+				// if protocol is 'metro' then get the protocol from the volume handle:
 				if len(volumeProperties) == ExpectedVolumeHandleMetroProperties {
 					protocol = strings.Split(volumeProperties[2], ":")[0]
 				}
