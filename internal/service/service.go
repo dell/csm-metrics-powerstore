@@ -197,6 +197,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, s.MaxPowerStoreConnections)
 
+	var volumeID, arrayID, protocol string
 	go func() {
 		ctx, span := tracer.GetTracer(ctx, "gatherVolumeMetrics")
 		defer span.End()
@@ -214,18 +215,17 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 
 				// VolumeHandle is of the format "volume-id/array-ip/protocol"
 				volumeProperties := strings.Split(volume.VolumeHandle, "/")
-				if len(volumeProperties) != ExpectedVolumeHandleProperties || len(volumeProperties) != ExpectedVolumeHandleMetroProperties {
+				if len(volumeProperties) == ExpectedVolumeHandleProperties {
+					volumeID = volumeProperties[0]
+					arrayID = volumeProperties[1]
+					protocol = volumeProperties[2]
+				} else if len(volumeProperties) == ExpectedVolumeHandleMetroProperties {
+					volumeID = volumeProperties[0]
+					arrayID = volumeProperties[1]
+					protocol = strings.Split(volumeProperties[2], ":")[0]
+				} else {
 					s.Logger.WithField("volume_handle", volume.VolumeHandle).Warn("unable to get Volume ID and Array IP from volume handle")
 					return
-				}
-
-				volumeID := volumeProperties[0]
-				arrayID := volumeProperties[1]
-				protocol := volumeProperties[2]
-
-				// if protocol is 'metro' then get the protocol from the volume handle:
-				if len(volumeProperties) == ExpectedVolumeHandleMetroProperties {
-					protocol = strings.Split(volumeProperties[2], ":")[0]
 				}
 
 				// skip Persistent Volumes that don't have a protocol of 'scsi', such as nfs file systems
