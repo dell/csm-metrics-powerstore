@@ -35,9 +35,10 @@ const (
 	// DefaultMaxPowerStoreConnections is the number of workers that can query powerstore at a time
 	DefaultMaxPowerStoreConnections = 10
 	// ExpectedVolumeHandleProperties is the number of properties that the VolumeHandle contains
-	ExpectedVolumeHandleProperties = 3
-	scsiProtocol                   = "scsi"
-	nfsProtocol                    = "nfs"
+	ExpectedVolumeHandleProperties      = 3
+	ExpectedVolumeHandleMetroProperties = 5
+	scsiProtocol                        = "scsi"
+	nfsProtocol                         = "nfs"
 )
 
 var _ Service = (*PowerStoreService)(nil)
@@ -213,7 +214,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 
 				// VolumeHandle is of the format "volume-id/array-ip/protocol"
 				volumeProperties := strings.Split(volume.VolumeHandle, "/")
-				if len(volumeProperties) != ExpectedVolumeHandleProperties {
+				if len(volumeProperties) != ExpectedVolumeHandleProperties || len(volumeProperties) != ExpectedVolumeHandleMetroProperties {
 					s.Logger.WithField("volume_handle", volume.VolumeHandle).Warn("unable to get Volume ID and Array IP from volume handle")
 					return
 				}
@@ -221,6 +222,11 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 				volumeID := volumeProperties[0]
 				arrayID := volumeProperties[1]
 				protocol := volumeProperties[2]
+
+				// if protocol is 'metro' then get the protocol from the volume handle
+				if len(volumeProperties) == ExpectedVolumeHandleMetroProperties {
+					protocol = strings.Split(volumeProperties[2], ":")[0]
+				}
 
 				// skip Persistent Volumes that don't have a protocol of 'scsi', such as nfs file systems
 				if !strings.EqualFold(protocol, scsiProtocol) {
