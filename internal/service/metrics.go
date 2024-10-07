@@ -520,7 +520,7 @@ func (mw *MetricsWrapper) initFileSystemMetrics(prefix, metaID string, labels []
 		return nil, err
 	}
 
-	mirrorBW, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "syncronization_bw_megabytes_per_second")
+	mirrorBW, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "mirror_bw_megabytes_per_second")
 	if err != nil {
 		return nil, err
 	}
