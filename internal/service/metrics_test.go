@@ -883,11 +883,11 @@ func Test_Volume_Metrics_Label_Update(t *testing.T) {
 	}
 
 	t.Run("success: volume metric labels updated", func(t *testing.T) {
-		err := mw.Record(context.Background(), metaFirst, 1, 2, 3, 4, 5, 6, 7 ,8,)
+		err := mw.Record(context.Background(), metaFirst, 1, 2, 3, 4, 5, 6, 7 ,8,9 )
 		if err != nil {
 			t.Errorf("expected nil error (record #1), got %v", err)
 		}
-		err = mw.Record(context.Background(), metaSecond, 1, 2, 3, 4, 5, 6, 7, 8)
+		err = mw.Record(context.Background(), metaSecond, 1, 2, 3, 4, 5, 6, 7, 8,9 )
 		if err != nil {
 			t.Errorf("expected nil error (record #2), got %v", err)
 		}
