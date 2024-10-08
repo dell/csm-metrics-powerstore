@@ -75,6 +75,21 @@ func (m *MockPowerStoreClient) PerformanceMetricsByFileSystem(arg0 context.Conte
 	return ret0, ret1
 }
 
+//VolumeMirrorTransferRate mock base method.
+func (m *MockPowerStoreClient) VolumeMirrorTransferRate(arg0 context.Context, arg1 string, arg2 gopowerstore.MetricsIntervalEnum)([]gopowerstore.VolumeMirrorTransferRateResponse, error)  {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VolumeMirrorTransferRate", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]gopowerstore.VolumeMirrorTransferRateResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+//VolumeMirrorTransferRate indicates and expected call of VolumeMirrorTransferRate
+func (mr *MockPowerStoreClientMockRecorder) VolumeMirrorTransferRate(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VolumeMirrorTransferRate", reflect.TypeOf((*MockPowerStoreClient)(nil).VolumeMirrorTransferRate), arg0, arg1, arg2)
+}
+
 // PerformanceMetricsByFileSystem indicates an expected call of PerformanceMetricsByFileSystem.
 func (mr *MockPowerStoreClientMockRecorder) PerformanceMetricsByFileSystem(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
