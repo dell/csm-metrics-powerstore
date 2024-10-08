@@ -19,8 +19,6 @@ package service_test
 import (
 	"context"
 	"errors"
-	"go.etcd.io/etcd/client/v3/mirror"
-	v1 "k8s.io/api/core/v1"
 	"testing"
 
 	"github.com/dell/csm-metrics-powerstore/internal/service"
@@ -92,13 +90,18 @@ func Test_Metrics_Record(t *testing.T) {
 				}
 
 				syncBW, err := otMeter.AsyncFloat64().UpDownCounter(prefix + "syncronization_bw_megabytes_per_second")
-				if err != nil { t.Fatal(err)}
-
+				if err != nil {
+					t.Fatal(err)
+				}
 				mirrorBW, err := otMeter.AsyncFloat64().UpDownCounter(prefix + "mirror_bw_megabytes_per_second")
-				if err != nil { t.Fatal(err)}
+				if err != nil {
+					t.Fatal(err)
+				}
 
-				dataRemaining, err := otMeter.AsyncFloat64().UpDownCounter(prefix + "data_remaining_bytes")
-				if err != nil { t.Fatal(err)}
+				dataRemaining, err := otMeter.AsyncFloat64().UpDownCounter(prefix + "data_remaining_megabytes")
+				if err != nil {
+					t.Fatal(err)
+				}
 
 				meter.EXPECT().AsyncFloat64().Return(provider).Times(9)
 				provider.EXPECT().UpDownCounter(gomock.Any()).Return(readBW, nil)
@@ -362,7 +365,7 @@ func Test_Metrics_Record(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			mws, checks := tc(t)
 			for i := range mws {
-				err := mws[i].Record(context.Background(), metas[i], 1, 2, 3, 4, 5, 6, 7, 8,9 )
+				err := mws[i].Record(context.Background(), metas[i], 1, 2, 3, 4, 5, 6, 7, 8, 9)
 				for _, check := range checks {
 					check(t, err)
 				}
@@ -424,13 +427,19 @@ func Test_Metrics_Record_Meta(t *testing.T) {
 				}
 
 				syncBW, err := otMeter.AsyncFloat64().UpDownCounter(prefix + "syncronization_bw_megabytes_per_second")
-				if err != nil { t.Fatal(err)}
+				if err != nil {
+					t.Fatal(err)
+				}
 
 				mirrorBW, err := otMeter.AsyncFloat64().UpDownCounter(prefix + "mirror_bw_megabytes_per_second")
-				if err != nil { t.Fatal(err)}
+				if err != nil {
+					t.Fatal(err)
+				}
 
-				dataRemaining, err := otMeter.AsyncFloat64().UpDownCounter(prefix + "data_remaining_bytes")
-				if err != nil { t.Fatal(err)}
+				dataRemaining, err := otMeter.AsyncFloat64().UpDownCounter(prefix + "data_remaining_megabytes")
+				if err != nil {
+					t.Fatal(err)
+				}
 
 				meter.EXPECT().AsyncFloat64().Return(provider).Times(9)
 				provider.EXPECT().UpDownCounter(gomock.Any()).Return(readBW, nil)
@@ -460,7 +469,7 @@ func Test_Metrics_Record_Meta(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			mws, checks := tc(t)
 			for i := range mws {
-				err := mws[i].Record(context.Background(), metas[i], 1, 2, 3, 4, 5, 6, 7 ,8,9)
+				err := mws[i].Record(context.Background(), metas[i], 1, 2, 3, 4, 5, 6, 7, 8, 9)
 				for _, check := range checks {
 					check(t, err)
 				}
@@ -863,10 +872,14 @@ func Test_Volume_Metrics_Label_Update(t *testing.T) {
 	}
 
 	syncBW, err := otMeter.AsyncFloat64().UpDownCounter("syncronization_bw_megabytes_per_second")
-	if err != nil { t.Fatal(err)}
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	dataRemaining, err := otMeter.AsyncFloat64().UpDownCounter("data_remaining_bytes")
-	if err != nil { t.Fatal(err)}
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	meter.EXPECT().AsyncFloat64().Return(provider).Times(6)
 	provider.EXPECT().UpDownCounter(gomock.Any()).Return(readBW, nil)
@@ -883,11 +896,11 @@ func Test_Volume_Metrics_Label_Update(t *testing.T) {
 	}
 
 	t.Run("success: volume metric labels updated", func(t *testing.T) {
-		err := mw.Record(context.Background(), metaFirst, 1, 2, 3, 4, 5, 6, 7 ,8,9 )
+		err := mw.Record(context.Background(), metaFirst, 1, 2, 3, 4, 5, 6, 7, 8, 9)
 		if err != nil {
 			t.Errorf("expected nil error (record #1), got %v", err)
 		}
-		err = mw.Record(context.Background(), metaSecond, 1, 2, 3, 4, 5, 6, 7, 8,9 )
+		err = mw.Record(context.Background(), metaSecond, 1, 2, 3, 4, 5, 6, 7, 8, 9)
 		if err != nil {
 			t.Errorf("expected nil error (record #2), got %v", err)
 		}
@@ -1229,10 +1242,14 @@ func Test_FileSystem_Metrics_Label_Update(t *testing.T) {
 	}
 
 	syncBW, err := otMeter.AsyncFloat64().UpDownCounter("syncronization_bw_megabytes_per_second")
-	if err != nil { t.Fatal(err)}
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	dataRemaining, err := otMeter.AsyncFloat64().UpDownCounter("data_remaining_bytes")
-	if err != nil { t.Fatal(err)}
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	meter.EXPECT().AsyncFloat64().Return(provider).Times(6)
 	provider.EXPECT().UpDownCounter(gomock.Any()).Return(readBW, nil)
@@ -1249,7 +1266,7 @@ func Test_FileSystem_Metrics_Label_Update(t *testing.T) {
 	}
 
 	t.Run("success: filesystem metric labels updated", func(t *testing.T) {
-		err := mw.RecordFileSystemMetrics(context.Background(), metaFirst, 1, 2, 3, 4, 5, 6,7, 8)
+		err := mw.RecordFileSystemMetrics(context.Background(), metaFirst, 1, 2, 3, 4, 5, 6, 7, 8)
 		if err != nil {
 			t.Errorf("expected nil error (record #1), got %v", err)
 		}
@@ -1336,10 +1353,14 @@ func Test_Record_FileSystem_Metrics(t *testing.T) {
 				}
 
 				syncBW, err := otMeter.AsyncFloat64().UpDownCounter("syncronization_bw_megabytes_per_second")
-				if err != nil { t.Fatal(err)}
+				if err != nil {
+					t.Fatal(err)
+				}
 
 				dataRemaining, err := otMeter.AsyncFloat64().UpDownCounter("data_remaining_bytes")
-				if err != nil { t.Fatal(err)}
+				if err != nil {
+					t.Fatal(err)
+				}
 
 				meter.EXPECT().AsyncFloat64().Return(provider).Times(8)
 				provider.EXPECT().UpDownCounter(gomock.Any()).Return(readBW, nil)
@@ -1600,7 +1621,7 @@ func Test_Record_FileSystem_Metrics(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			mws, checks := tc(t)
 			for i := range mws {
-				err := mws[i].RecordFileSystemMetrics(context.Background(), metas[i], 1, 2, 3, 4, 5, 6,7, 8 )
+				err := mws[i].RecordFileSystemMetrics(context.Background(), metas[i], 1, 2, 3, 4, 5, 6, 7, 8)
 				for _, check := range checks {
 					check(t, err)
 				}
