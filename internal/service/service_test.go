@@ -730,14 +730,6 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 					PersistentVolume: "pv-1",
 					VolumeHandle:     "volume-1/127.0.0.1/nfs",
 				},
-				/*{
-					PersistentVolume: "pv-2",
-					VolumeHandle:     "volume-2/127.0.0.1/nfs",
-				},
-				{
-					PersistentVolume: "pv-3",
-					VolumeHandle:     "volume-2/127.0.0.1/nfs",
-				},*/
 			}, nil).Times(1)
 
 			clients := make(map[string]service.PowerStoreClient)

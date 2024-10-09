@@ -131,11 +131,6 @@ type VolumeSpaceMetricsRecord struct {
 	logicalProvisioned, logicalUsed int64
 }
 
-// VolumeReplicationMetricsRecord used for holding output of the Volume replication metrics query results
-type VolumeReplicationMetricsRecord struct {
-	synchronizationBW, remainingData int64
-}
-
 // ArraySpaceMetricsRecord used for holding output of the Volume space metrics query results
 type ArraySpaceMetricsRecord struct {
 	arrayID, storageclass, driver   string
@@ -836,6 +831,7 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 					volumeID = volumeProperties[0]
 					arrayID = volumeProperties[1]
 					protocol = volumeProperties[2]
+                                // VolumeHandle is of the format "src-volume-id/array-ip/protocol:dest-volume-id/dest-array-ip"
 				} else if len(volumeProperties) == ExpectedVolumeHandleMetroProperties {
 					volumeID = volumeProperties[0]
 					arrayID = volumeProperties[1]
