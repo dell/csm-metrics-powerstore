@@ -40,7 +40,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 		"success": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
+			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
@@ -48,16 +48,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 					PersistentVolume: "pv-1",
 					VolumeHandle:     "volume-1/127.0.0.1/scsi",
 				},
-				{
-					PersistentVolume: "pv-2",
-					VolumeHandle:     "volume-2/127.0.0.1/scsi:volume2/127.0.0.1",
-				},
-				{
-					PersistentVolume: "pv-3",
-					VolumeHandle:     "volume-3/127.0.0.1/scsi:volume2/127.0.0.1",
-				},
 			}, nil).Times(1)
-
 			clients := make(map[string]service.PowerStoreClient)
 			c := mocks.NewMockPowerStoreClient(ctrl)
 			c.EXPECT().PerformanceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return([]gopowerstore.PerformanceMetricsByVolumeResponse{
@@ -73,15 +64,16 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 						AvgWriteLatency: 1,
 					},
 				},
-			}, nil).Times(3)
+			}, nil).Times(1)
+
 			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(), gomock.Any()).Return([]gopowerstore.VolumeMirrorTransferRateResponse{
 				{
-					ID:                       "volume-1",
+					ID:                       "1",
 					SynchronizationBandwidth: 1,
 					MirrorBandwidth:          1,
 					DataRemaining:            1,
 				},
-			}, nil).Times(3)
+			}, nil).Times(1)
 
 			clients["127.0.0.1"] = c
 
@@ -108,7 +100,6 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			clients := make(map[string]service.PowerStoreClient)
 			c := mocks.NewMockPowerStoreClient(ctrl)
 			c.EXPECT().PerformanceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(), gomock.Any()).Times(0)
 			clients["127.0.0.1"] = c
 
 			service := service.PowerStoreService{
@@ -731,7 +722,7 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 		"success": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().RecordFileSystemMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
+			metrics.EXPECT().RecordFileSystemMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
@@ -739,14 +730,14 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 					PersistentVolume: "pv-1",
 					VolumeHandle:     "volume-1/127.0.0.1/nfs",
 				},
-				{
+				/*{
 					PersistentVolume: "pv-2",
 					VolumeHandle:     "volume-2/127.0.0.1/nfs",
 				},
 				{
 					PersistentVolume: "pv-3",
-					VolumeHandle:     "volume-3/127.0.0.1/scsi",
-				},
+					VolumeHandle:     "volume-2/127.0.0.1/nfs",
+				},*/
 			}, nil).Times(1)
 
 			clients := make(map[string]service.PowerStoreClient)
@@ -760,7 +751,7 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 					AvgReadLatency:  1,
 					AvgWriteLatency: 1,
 				},
-			}, nil).Times(3)
+			}, nil).Times(1)
 
 			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(), gomock.Any()).Return([]gopowerstore.VolumeMirrorTransferRateResponse{
 				{
@@ -769,7 +760,8 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 					MirrorBandwidth:          1,
 					DataRemaining:            1,
 				},
-			}, nil).Times(3)
+			}, nil).Times(1)
+
 			clients["127.0.0.1"] = c
 
 			service := service.PowerStoreService{

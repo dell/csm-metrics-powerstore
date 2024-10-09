@@ -93,12 +93,13 @@ func Test_Metrics_Record(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				mirrorBW, err := otMeter.AsyncFloat64().UpDownCounter(prefix + "mirror_bw_megabytes_per_second")
 				if err != nil {
 					t.Fatal(err)
 				}
 
-				dataRemaining, err := otMeter.AsyncFloat64().UpDownCounter(prefix + "data_remaining_megabytes")
+				dataRemaining, err := otMeter.AsyncFloat64().UpDownCounter(prefix + "data_remaining_bytes")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -111,8 +112,9 @@ func Test_Metrics_Record(t *testing.T) {
 				provider.EXPECT().UpDownCounter(gomock.Any()).Return(readLatency, nil)
 				provider.EXPECT().UpDownCounter(gomock.Any()).Return(writeLatency, nil)
 				provider.EXPECT().UpDownCounter(gomock.Any()).Return(syncBW, nil)
-				provider.EXPECT().UpDownCounter(gomock.Any()).Return(dataRemaining, nil)
 				provider.EXPECT().UpDownCounter(gomock.Any()).Return(mirrorBW, nil)
+				provider.EXPECT().UpDownCounter(gomock.Any()).Return(dataRemaining, nil)
+
 				return &service.MetricsWrapper{
 					Meter: meter,
 				}
@@ -436,7 +438,7 @@ func Test_Metrics_Record_Meta(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				dataRemaining, err := otMeter.AsyncFloat64().UpDownCounter(prefix + "data_remaining_megabytes")
+				dataRemaining, err := otMeter.AsyncFloat64().UpDownCounter(prefix + "data_remaining_bytes")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -1261,6 +1263,7 @@ func Test_FileSystem_Metrics_Label_Update(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 
 	meter.EXPECT().AsyncFloat64().Return(provider).Times(9)
 	provider.EXPECT().UpDownCounter(gomock.Any()).Return(readBW, nil)

@@ -126,6 +126,7 @@ func (mw *MetricsWrapper) initMetrics(prefix, metaID string, labels []attribute.
 	if err != nil {
 		return nil, err
 	}
+
 	dataRemaining, err := mw.Meter.AsyncFloat64().UpDownCounter(prefix + "data_remaining_bytes")
 	if err != nil {
 		return nil, err

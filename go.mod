@@ -1,14 +1,12 @@
 module github.com/dell/csm-metrics-powerstore
 
-replace github.com/dell/gopowerstore => ./gopowerstore
-
 go 1.23
 
 toolchain go1.23.1
 
 require (
 	github.com/dell/gocsi v1.11.0
-	github.com/dell/gopowerstore v1.15.2-0.20240925141718-82897478ca7f
+	github.com/dell/gopowerstore v1.15.2-0.20241008144633-6990d1b86e5b
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/golang/mock v1.6.0
 	github.com/sirupsen/logrus v1.9.3
