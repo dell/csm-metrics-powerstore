@@ -36,6 +36,7 @@ const (
 	DefaultMaxPowerStoreConnections = 10
 	// ExpectedVolumeHandleProperties is the number of properties that the VolumeHandle contains
 	ExpectedVolumeHandleProperties      = 3
+	// ExpectedVolumeHandleMetroProperties is the number of properties that the VolumeHandle of metro volumes contains
 	ExpectedVolumeHandleMetroProperties = 4
 	scsiProtocol                        = "scsi"
 	nfsProtocol                         = "nfs"
