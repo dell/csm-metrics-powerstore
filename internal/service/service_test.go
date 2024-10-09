@@ -50,11 +50,11 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 				},
 				{
 					PersistentVolume: "pv-2",
-					VolumeHandle:     "volume-2/127.0.0.1/scsi",
+					VolumeHandle:     "volume-2/127.0.0.1/scsi:volume2/127.0.0.1",
 				},
 				{
 					PersistentVolume: "pv-3",
-					VolumeHandle:     "volume-2/127.0.0.1/scsi",
+					VolumeHandle:     "volume-3/127.0.0.1/scsi:volume2/127.0.0.1",
 				},
 			}, nil).Times(1)
 
@@ -74,15 +74,12 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 					},
 				},
 			}, nil).Times(3)
-			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(), gomock.Any(), gomock.Any()).Return([]gopowerstore.VolumeMirrorTransferRateResponse{
+			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(), gomock.Any()).Return([]gopowerstore.VolumeMirrorTransferRateResponse{
 				{
-					VolumeMirrorTransferRateResponse: gopowerstore.VolumeMirrorTransferRateResponse{
-						ID:                       "1",
-						Timestamp:                2024 - 10 - 03,
-						SynchronizationBandwidth: 1,
-						MirrorBandwidth:          1,
-						DataRemaining:            1,
-					},
+					ID:                       "volume-1",
+					SynchronizationBandwidth: 1,
+					MirrorBandwidth:          1,
+					DataRemaining:            1,
 				},
 			}, nil).Times(3)
 
@@ -111,6 +108,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			clients := make(map[string]service.PowerStoreClient)
 			c := mocks.NewMockPowerStoreClient(ctrl)
 			c.EXPECT().PerformanceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(), gomock.Any()).Times(0)
 			clients["127.0.0.1"] = c
 
 			service := service.PowerStoreService{
@@ -733,7 +731,7 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 		"success": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().RecordFileSystemMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),  gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
+			metrics.EXPECT().RecordFileSystemMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
@@ -747,7 +745,7 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 				},
 				{
 					PersistentVolume: "pv-3",
-					VolumeHandle:     "volume-2/127.0.0.1/nfs",
+					VolumeHandle:     "volume-3/127.0.0.1/scsi",
 				},
 			}, nil).Times(1)
 
@@ -761,6 +759,15 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 					WriteIops:       1,
 					AvgReadLatency:  1,
 					AvgWriteLatency: 1,
+				},
+			}, nil).Times(3)
+
+			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(), gomock.Any()).Return([]gopowerstore.VolumeMirrorTransferRateResponse{
+				{
+					ID:                       "1",
+					SynchronizationBandwidth: 1,
+					MirrorBandwidth:          1,
+					DataRemaining:            1,
 				},
 			}, nil).Times(3)
 			clients["127.0.0.1"] = c
@@ -875,7 +882,7 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 		"metrics not pushed if volume finder returns error": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
-			metrics.EXPECT().RecordFileSystemMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),  gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			metrics.EXPECT().RecordFileSystemMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 			volFinder := mocks.NewMockVolumeFinder(ctrl)
 			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return(nil, errors.New("error")).Times(1)
@@ -926,7 +933,7 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 				VolumeFinder:      volFinder,
 				PowerStoreClients: clients,
 			}
-			metrics.EXPECT().RecordFileSystemMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),  gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+			metrics.EXPECT().RecordFileSystemMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 			return service, ctrl
 		},
 	}

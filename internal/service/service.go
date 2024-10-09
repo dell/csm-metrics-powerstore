@@ -87,10 +87,8 @@ type PowerStoreClient interface {
 	PerformanceMetricsByVolume(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByVolumeResponse, error)
 	SpaceMetricsByVolume(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.SpaceMetricsByVolumeResponse, error)
 	PerformanceMetricsByFileSystem(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByFileSystemResponse, error)
-	//	GetReplicationSessionByLocalResourceID(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.ReplicationSession, error)
 	GetFS(context.Context, string) (gopowerstore.FileSystem, error)
-	//TODO: Add GetVolumeMirrorTransferRate
-	VolumeMirrorTransferRate(ctx context.Context, id string, sec gopowerstore.MetricsIntervalEnum) ([]gopowerstore.VolumeMirrorTransferRateResponse, error)
+	VolumeMirrorTransferRate(ctx context.Context, id string) ([]gopowerstore.VolumeMirrorTransferRateResponse, error)
 }
 
 // PowerStoreService represents the service for getting metrics data for a PowerStore system
@@ -274,7 +272,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 				}
 
 				//Read the replication parameter
-				replicationMetrics, err := goPowerStoreClient.VolumeMirrorTransferRate(ctx, volumeID, gopowerstore.TwentySec)
+				replicationMetrics, err := goPowerStoreClient.VolumeMirrorTransferRate(ctx, volumeID)
 
 				s.Logger.WithFields(logrus.Fields{
 					"volume_replication_metrics": len(replicationMetrics),
@@ -283,12 +281,10 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 				}).Debug("volume replication metrics returned for volume")
 
 				if len(replicationMetrics) > 0 {
-					//write logic to populate fields like synchronization BW and remaining data
 					latestRepMetrics := replicationMetrics[len(replicationMetrics)-1]
 					syncBW = toMegabytes(latestRepMetrics.SynchronizationBandwidth)
 					mirrorBW = toMegabytes(latestRepMetrics.MirrorBandwidth)
 					remainingData = toMegabytes(latestRepMetrics.DataRemaining)
-					//syncBW := toMegabytes(1024)
 				}
 
 				s.Logger.WithFields(logrus.Fields{
@@ -817,6 +813,8 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, s.MaxPowerStoreConnections)
 
+	var volumeID, arrayID, protocol string
+
 	go func() {
 		ctx, span := tracer.GetTracer(ctx, "gatherFileSystemMetrics")
 		defer span.End()
@@ -834,14 +832,18 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 
 				// VolumeHandle is of the format "volume-id/array-ip/protocol"
 				volumeProperties := strings.Split(volume.VolumeHandle, "/")
-				if len(volumeProperties) != ExpectedVolumeHandleProperties {
+				if len(volumeProperties) == ExpectedVolumeHandleProperties {
+					volumeID = volumeProperties[0]
+					arrayID = volumeProperties[1]
+					protocol = volumeProperties[2]
+				} else if len(volumeProperties) == ExpectedVolumeHandleMetroProperties {
+					volumeID = volumeProperties[0]
+					arrayID = volumeProperties[1]
+					protocol = strings.Split(volumeProperties[2], ":")[0]
+				} else {
 					s.Logger.WithField("volume_handle", volume.VolumeHandle).Warn("unable to get Volume ID and Array IP from volume handle")
 					return
 				}
-
-				volumeID := volumeProperties[0]
-				arrayID := volumeProperties[1]
-				protocol := volumeProperties[2]
 
 				// skip Persistent Volumes that don't have a protocol of 'nfs'
 				if !strings.EqualFold(protocol, nfsProtocol) {
@@ -889,8 +891,7 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 				}
 
 				//Read the replication parameter
-				//Confirm if we need this param at file system level as well
-				replicationMetrics, err := goPowerStoreClient.VolumeMirrorTransferRate(ctx, volumeID, gopowerstore.TwentySec)
+				replicationMetrics, err := goPowerStoreClient.VolumeMirrorTransferRate(ctx, volumeID)
 
 				s.Logger.WithFields(logrus.Fields{
 					"volume_replication_metrics": len(replicationMetrics),
@@ -899,12 +900,10 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 				}).Debug("volume replication metrics returned for volume")
 
 				if len(replicationMetrics) > 0 {
-					//write logic to populate fields like synchronization BW and remaining data
 					latestRepMetrics := replicationMetrics[len(replicationMetrics)-1]
 					syncBW = toMegabytes(latestRepMetrics.SynchronizationBandwidth)
 					mirrorBW = toMegabytes(latestRepMetrics.MirrorBandwidth)
 					remainingData = toMegabytes(latestRepMetrics.DataRemaining)
-					//syncBW := toMegabytes(1024)
 				}
 
 				s.Logger.WithFields(logrus.Fields{
