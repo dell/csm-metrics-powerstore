@@ -58,6 +58,10 @@ tag:
 check:
 	./scripts/check.sh ./cmd/... ./opentelemetry/... ./internal/...
 
+.PHONY: format
+format:
+	@gofmt -w -s .
+
 .PHONY: download-csm-common
 download-csm-common:
 	curl -O -L https://raw.githubusercontent.com/dell/csm/main/config/csm-common.mk

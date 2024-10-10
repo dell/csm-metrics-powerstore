@@ -1264,7 +1264,6 @@ func Test_FileSystem_Metrics_Label_Update(t *testing.T) {
 		t.Fatal(err)
 	}
 
-
 	meter.EXPECT().AsyncFloat64().Return(provider).Times(9)
 	provider.EXPECT().UpDownCounter(gomock.Any()).Return(readBW, nil)
 	provider.EXPECT().UpDownCounter(gomock.Any()).Return(writeBW, nil)

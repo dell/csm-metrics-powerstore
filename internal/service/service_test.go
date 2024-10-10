@@ -837,7 +837,7 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 			clients := make(map[string]service.PowerStoreClient)
 			c := mocks.NewMockPowerStoreClient(ctrl)
 			c.EXPECT().PerformanceMetricsByFileSystem(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(),gomock.Any()).Times(1)
+			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(), gomock.Any()).Times(1)
 			clients["127.0.0.1"] = c
 
 			service := service.PowerStoreService{

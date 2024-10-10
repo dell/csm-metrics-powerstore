@@ -35,7 +35,7 @@ const (
 	// DefaultMaxPowerStoreConnections is the number of workers that can query powerstore at a time
 	DefaultMaxPowerStoreConnections = 10
 	// ExpectedVolumeHandleProperties is the number of properties that the VolumeHandle contains
-	ExpectedVolumeHandleProperties      = 3
+	ExpectedVolumeHandleProperties = 3
 	// ExpectedVolumeHandleMetroProperties is the number of properties that the VolumeHandle of metro volumes contains
 	ExpectedVolumeHandleMetroProperties = 4
 	scsiProtocol                        = "scsi"
@@ -832,7 +832,7 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 					volumeID = volumeProperties[0]
 					arrayID = volumeProperties[1]
 					protocol = volumeProperties[2]
-                                // VolumeHandle is of the format "src-volume-id/array-ip/protocol:dest-volume-id/dest-array-ip"
+					// VolumeHandle is of the format "src-volume-id/array-ip/protocol:dest-volume-id/dest-array-ip"
 				} else if len(volumeProperties) == ExpectedVolumeHandleMetroProperties {
 					volumeID = volumeProperties[0]
 					arrayID = volumeProperties[1]
