@@ -52,17 +52,17 @@ func (m *MockMetricsRecorder) EXPECT() *MockMetricsRecorderMockRecorder {
 }
 
 // Record mocks base method.
-func (m *MockMetricsRecorder) Record(arg0 context.Context, arg1 interface{}, arg2, arg3, arg4, arg5, arg6, arg7 float32) error {
+func (m *MockMetricsRecorder) Record(arg0 context.Context, arg1 interface{}, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10 float32) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Record", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	ret := m.ctrl.Call(m, "Record", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Record indicates an expected call of Record.
-func (mr *MockMetricsRecorderMockRecorder) Record(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 interface{}) *gomock.Call {
+func (mr *MockMetricsRecorderMockRecorder) Record(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Record", reflect.TypeOf((*MockMetricsRecorder)(nil).Record), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Record", reflect.TypeOf((*MockMetricsRecorder)(nil).Record), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
 }
 
 // RecordArraySpaceMetrics mocks base method.
@@ -80,17 +80,17 @@ func (mr *MockMetricsRecorderMockRecorder) RecordArraySpaceMetrics(arg0, arg1, a
 }
 
 // RecordFileSystemMetrics mocks base method.
-func (m *MockMetricsRecorder) RecordFileSystemMetrics(arg0 context.Context, arg1 interface{}, arg2, arg3, arg4, arg5, arg6, arg7 float32) error {
+func (m *MockMetricsRecorder) RecordFileSystemMetrics(arg0 context.Context, arg1 interface{}, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10 float32) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RecordFileSystemMetrics", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	ret := m.ctrl.Call(m, "RecordFileSystemMetrics", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RecordFileSystemMetrics indicates an expected call of RecordFileSystemMetrics.
-func (mr *MockMetricsRecorderMockRecorder) RecordFileSystemMetrics(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 interface{}) *gomock.Call {
+func (mr *MockMetricsRecorderMockRecorder) RecordFileSystemMetrics(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordFileSystemMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordFileSystemMetrics), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordFileSystemMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordFileSystemMetrics), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
 }
 
 // RecordSpaceMetrics mocks base method.
