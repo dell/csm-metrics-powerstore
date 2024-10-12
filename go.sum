@@ -66,8 +66,8 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dell/gocsi v1.11.0 h1:P84VOPd1V55JQjx4tfd/6QOlVQRQkYUqmGqbzPKeyUQ=
 github.com/dell/gocsi v1.11.0/go.mod h1:LzGAsEIjBxVXJuabzsG3/MsdCOczxDE1IWOBxzXIUhw=
-github.com/dell/gopowerstore v1.15.2-0.20241008144633-6990d1b86e5b h1:wVpvFdhc4FIl7w73fm9aTGtE3iTfoO5Ag7/WQUNdHUU=
-github.com/dell/gopowerstore v1.15.2-0.20241008144633-6990d1b86e5b/go.mod h1:EQEsDdulHtvpDIe2tMCW/2swr1enisuzW4Zmw6c2SKc=
+github.com/dell/gopowerstore v1.15.2-0.20241011144707-92570cd3324d h1:/0Fx88rsVEab9k0+t+iRQ861wD3aRvurFtCfhY+Gwco=
+github.com/dell/gopowerstore v1.15.2-0.20241011144707-92570cd3324d/go.mod h1:EQEsDdulHtvpDIe2tMCW/2swr1enisuzW4Zmw6c2SKc=
 github.com/eapache/go-resiliency v1.2.0/go.mod h1:kFI+JgMyC7bLPUVY133qvEBtVayf5mFgVsvEsIPBvNs=
 github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21/go.mod h1:+020luEh2TKB4/GOp8oxxtq0Daoen/Cii55CzbTV6DU=
 github.com/eapache/queue v1.1.0/go.mod h1:6eCeP0CKFpHLu8blIFXhExK/dRa7WDZfr6jVFPTqq+I=
