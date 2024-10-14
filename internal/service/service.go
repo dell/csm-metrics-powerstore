@@ -243,7 +243,6 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 				}
 
 				metrics, err := goPowerStoreClient.PerformanceMetricsByVolume(ctx, volumeID, gopowerstore.TwentySec)
-
 				if err != nil {
 					s.Logger.WithError(err).WithField("volume_id", volumeMeta.ID).Error("getting performance metrics for volume")
 					return
@@ -267,7 +266,7 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 					writeLatency = toMilliseconds(latestMetric.AvgWriteLatency)
 				}
 
-				//Read the replication parameter
+				// Read the replication parameter
 				replicationMetrics, err := goPowerStoreClient.VolumeMirrorTransferRate(ctx, volumeID)
 
 				s.Logger.WithFields(logrus.Fields{
@@ -887,7 +886,7 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 					writeLatency = toMilliseconds(latestMetric.AvgWriteLatency)
 				}
 
-				//Read the replication parameter
+				// Read the replication parameter
 				replicationMetrics, err := goPowerStoreClient.VolumeMirrorTransferRate(ctx, volumeID)
 
 				s.Logger.WithFields(logrus.Fields{
