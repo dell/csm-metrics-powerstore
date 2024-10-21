@@ -2,7 +2,7 @@ module github.com/dell/csm-metrics-powerstore
 
 go 1.23
 
-toolchain go1.23.1
+toolchain go1.23.2
 
 require (
 	github.com/dell/gocsi v1.11.0
