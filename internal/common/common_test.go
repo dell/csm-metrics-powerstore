@@ -43,6 +43,9 @@ func Test_Run(t *testing.T) {
 		"no global id": func(*testing.T) (string, map[string]string, bool) {
 			return "testdata/no-global-id.yaml", nil, true
 		},
+		"empty arrays": func(*testing.T) (string, map[string]string, bool) {
+			return "testdata/empty-array.yaml",map[string]string{common.EnvThrottlingRateLimit: "abc"}, false
+		},
 	}
 
 	for name, test := range tests {
@@ -55,6 +58,12 @@ func Test_Run(t *testing.T) {
 			}
 
 			arrays, mapper, defaultArray, err := common.GetPowerStoreArrays(filePath, logger)
+
+			if name == "empty arrays" {
+				assert.Equal(t, 0, len(arrays)) // Expect empty arrays
+				assert.Nil(t, defaultArray)    // No default array
+				return
+			}
 
 			if expectError {
 				assert.Nil(t, arrays)
