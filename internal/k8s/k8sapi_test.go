@@ -136,4 +136,21 @@ func Test_NewForConfigError(t *testing.T) {
 	if err != nil {
 		assert.Equal(t, expected, err.Error())
 	}
+	mockClientset := &kubernetes.Clientset{}
+	k8s.NewConfigFn = func(_ *rest.Config) (*kubernetes.Clientset, error) {
+		return mockClientset, nil
+	}
+
+	err = k8s.ConnectFn(k8sapi)
+	assert.NoError(t, err, "ConnectFn should succeed with no error")
+	assert.Equal(t, mockClientset, k8sapi.Client, "Client should be initialized with the mock clientset")
+}
+
+func Test_NewConfigFn(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		config := &rest.Config{}
+		clientset, err := k8s.NewConfigFn(config)
+		assert.NoError(t, err, "NewConfigFn should succeed")
+		assert.NotNil(t, clientset, "Clientset should not be nil")
+	})
 }

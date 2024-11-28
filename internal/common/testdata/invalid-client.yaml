@@ -1,0 +1,6 @@
+arrays:
+  - endpoint: "https://invalid_endpoint"
+    globalID: "array1"
+    username: "user"
+    password: "password"
+    skipCertificateValidation: true

@@ -43,6 +43,15 @@ func Test_Run(t *testing.T) {
 		"no global id": func(*testing.T) (string, map[string]string, bool) {
 			return "testdata/no-global-id.yaml", nil, true
 		},
+		"empty arrays": func(*testing.T) (string, map[string]string, bool) {
+			return "testdata/empty-array.yaml", map[string]string{common.EnvThrottlingRateLimit: "abc"}, false
+		},
+		"nil array entry": func(*testing.T) (string, map[string]string, bool) {
+			return "testdata/nil-array.yaml", nil, true
+		},
+		"invalid client creation": func(*testing.T) (string, map[string]string, bool) {
+			return "testdata/invalid-client.yaml", nil, true
+		},
 	}
 
 	for name, test := range tests {
@@ -56,16 +65,29 @@ func Test_Run(t *testing.T) {
 
 			arrays, mapper, defaultArray, err := common.GetPowerStoreArrays(filePath, logger)
 
-			if expectError {
-				assert.Nil(t, arrays)
-				assert.Nil(t, mapper)
+			switch name {
+			case "empty arrays":
+				assert.Equal(t, 0, len(arrays))
 				assert.Nil(t, defaultArray)
-				assert.NotNil(t, err)
-			} else {
-				assert.NotNil(t, arrays)
-				assert.NotNil(t, mapper)
-				assert.NotNil(t, defaultArray)
+			case "nil array entry":
+				assert.Empty(t, arrays)
+				assert.Empty(t, mapper)
+				assert.Nil(t, defaultArray)
 				assert.Nil(t, err)
+				return
+			// Other cases...
+			default:
+				if expectError {
+					assert.Nil(t, arrays)
+					assert.Nil(t, mapper)
+					assert.Nil(t, defaultArray)
+					assert.NotNil(t, err)
+				} else {
+					assert.NotNil(t, arrays)
+					assert.NotNil(t, mapper)
+					assert.NotNil(t, defaultArray)
+					assert.Nil(t, err)
+				}
 			}
 		})
 	}

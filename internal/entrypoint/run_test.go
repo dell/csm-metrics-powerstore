@@ -275,3 +275,27 @@ func Test_Run(t *testing.T) {
 func noCheckConfig(_ *entrypoint.Config) error {
 	return nil
 }
+
+func Test_ValidateConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *entrypoint.Config
+		wantErr bool
+	}{
+		{"valid config", &entrypoint.Config{VolumeTickInterval: 10 * time.Second, SpaceTickInterval: 10 * time.Second, ArrayTickInterval: 10 * time.Second, FileSystemTickInterval: 10 * time.Second}, false},
+		{"nil config", nil, true},
+		{"invalid volume tick interval", &entrypoint.Config{VolumeTickInterval: 1 * time.Second}, true},
+		{"invalid space tick interval", &entrypoint.Config{SpaceTickInterval: 1 * time.Second}, true},
+		{"invalid array tick interval", &entrypoint.Config{ArrayTickInterval: 1 * time.Second}, true},
+		{"invalid filesystem tick interval", &entrypoint.Config{FileSystemTickInterval: 1 * time.Second}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := entrypoint.ValidateConfig(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
