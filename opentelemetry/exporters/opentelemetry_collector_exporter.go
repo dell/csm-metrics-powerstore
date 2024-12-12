@@ -20,9 +20,8 @@ import (
 	"context"
 	"time"
 
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	"go.opentelemetry.io/otel/metric/global"
 	controller "go.opentelemetry.io/otel/sdk/metric/controller/basic"
 	"go.opentelemetry.io/otel/sdk/metric/processor/basic"
 	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
@@ -31,7 +30,7 @@ import (
 // OtlCollectorExporter is the exporter for the OpenTelemetry Collector
 type OtlCollectorExporter struct {
 	CollectorAddr string
-	exporter      *otlpmetric.Exporter
+	exporter      *otlpmetricgrpc.Exporter
 	controller    *controller.Controller
 }
 
@@ -67,7 +66,7 @@ func (c *OtlCollectorExporter) StopExporter() error {
 	return nil
 }
 
-func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (*otlpmetric.Exporter, *controller.Controller, error) {
+func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (*otlpmetricgrpc.Exporter, *controller.Controller, error) {
 	exporter, err := otlpmetricgrpc.New(context.Background(), opts...)
 	if err != nil {
 		return nil, nil, err
@@ -94,7 +93,7 @@ func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (
 		return nil, nil, err
 	}
 
-	global.SetMeterProvider(ctrl)
+	otel.SetMeterProvider(ctrl)
 
 	return exporter, ctrl, nil
 }
