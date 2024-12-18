@@ -18,21 +18,16 @@ package otlexporters
 
 import (
 	"context"
-	"time"
-
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	"go.opentelemetry.io/otel/metric/global"
-	controller "go.opentelemetry.io/otel/sdk/metric/controller/basic"
-	"go.opentelemetry.io/otel/sdk/metric/processor/basic"
-	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
+	metrics "go.opentelemetry.io/otel/sdk/metric"
 )
 
 // OtlCollectorExporter is the exporter for the OpenTelemetry Collector
 type OtlCollectorExporter struct {
 	CollectorAddr string
-	exporter      *otlpmetric.Exporter
-	controller    *controller.Controller
+	exporter      *otlpmetricgrpc.Exporter
+	controller    *metrics.MeterProvider
 }
 
 const (
@@ -59,7 +54,7 @@ func (c *OtlCollectorExporter) StopExporter() error {
 		return err
 	}
 
-	err = c.controller.Stop(context.Background())
+	err = c.controller.Shutdown(context.Background())
 	if err != nil {
 		return err
 	}
@@ -67,13 +62,13 @@ func (c *OtlCollectorExporter) StopExporter() error {
 	return nil
 }
 
-func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (*otlpmetric.Exporter, *controller.Controller, error) {
+func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (*otlpmetricgrpc.Exporter, *metrics.MeterProvider, error) {
 	exporter, err := otlpmetricgrpc.New(context.Background(), opts...)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	processor := basic.New(
+	/*processor := basic.New(
 		simple.NewWithHistogramDistribution(),
 		exporter,
 	)
@@ -88,13 +83,17 @@ func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (
 		controller.WithExporter(exporter),
 		controller.WithCollectPeriod(5*time.Second),
 	)
+	*/
+	reader := metrics.NewManualReader()
+	//TODO collect period should be configurable
+	ctrl := metrics.NewMeterProvider(metrics.WithReader(reader))
 
-	err = ctrl.Start(context.Background())
+	//err = metrics.NewMeterProvider( metrics.WithResource(c.controller.Resource())context.Background())
 	if err != nil {
 		return nil, nil, err
 	}
 
-	global.SetMeterProvider(ctrl)
+	otel.SetMeterProvider(ctrl)
 
 	return exporter, ctrl, nil
 }
