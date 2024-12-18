@@ -35,11 +35,9 @@ import (
 	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
 	"github.com/sirupsen/logrus"
 
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/metric/global"
-
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/otel"
 )
 
 const (
@@ -113,7 +111,7 @@ func main() {
 
 	powerStoreSvc := &service.PowerStoreService{
 		MetricsWrapper: &service.MetricsWrapper{
-			Meter: global.Meter("powerstore"),
+			Meter: otel.GetMeterProvider().Meter("powerstore"),
 		},
 		Logger:       logger,
 		VolumeFinder: volumeFinder,

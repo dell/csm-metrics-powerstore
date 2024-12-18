@@ -47,7 +47,7 @@ type MetricsRecorder interface {
 
 // Float64UpDownCounterCreater creates a Float64UpDownCounter InstrumentProvider
 //
-//go:generate mockgen -destination=mocks/instrument_provider_mocks.go -package=mocks go.opentelemetry.io/otel/metric/instrument/asyncfloat64 InstrumentProvider
+//go:generate mockgen -destination=mocks/instrument_provider_mocks.go -package=mocks go.opentelemetry.io/otel/metric Float64ObservableUpDownCounter
 type Float64UpDownCounterCreater interface {
 	// AsyncFloat64() asyncfloat64.InstrumentProvider
 	metric.Float64ObservableUpDownCounter
