@@ -19,10 +19,13 @@ package service
 import (
 	"context"
 	"errors"
-	"sync"
-
 	"go.opentelemetry.io/otel/attribute"
+<<<<<<< HEAD
 	"go.opentelemetry.io/otel/metric/instrument/asyncfloat64"
+=======
+	"go.opentelemetry.io/otel/metric"
+	"sync"
+>>>>>>> 75165cf (metrics update)
 )
 
 // MetricsRecorder supports recording I/O metrics
@@ -49,12 +52,18 @@ type MetricsRecorder interface {
 //
 //go:generate mockgen -destination=mocks/instrument_provider_mocks.go -package=mocks go.opentelemetry.io/otel/metric/instrument/asyncfloat64 InstrumentProvider
 type Float64UpDownCounterCreater interface {
-	AsyncFloat64() asyncfloat64.InstrumentProvider
+	//AsyncFloat64() asyncfloat64.InstrumentProvider
+	metric.Float64ObservableUpDownCounter
 }
 
 // MetricsWrapper contains data used for pushing metrics data
 type MetricsWrapper struct {
+<<<<<<< HEAD
 	Meter             Float64UpDownCounterCreater
+=======
+	Meter             metric.Meter
+	MetricObserver    metric.Observer
+>>>>>>> 75165cf (metrics update)
 	Metrics           sync.Map
 	Labels            sync.Map
 	SpaceMetrics      sync.Map
@@ -216,15 +225,25 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 
 	metrics := metricsMapValue.(*Metrics)
 
-	metrics.ReadBW.Observe(ctx, float64(readBW), labels...)
-	metrics.WriteBW.Observe(ctx, float64(writeBW), labels...)
-	metrics.ReadIOPS.Observe(ctx, float64(readIOPS), labels...)
-	metrics.WriteIOPS.Observe(ctx, float64(writeIOPS), labels...)
-	metrics.ReadLatency.Observe(ctx, float64(readLatency), labels...)
-	metrics.WriteLatency.Observe(ctx, float64(writeLatency), labels...)
-	metrics.SyncronizationBW.Observe(ctx, float64(syncronizationBW), labels...)
-	metrics.MirrorBW.Observe(ctx, float64(mirrorBW), labels...)
-	metrics.DataRemaining.Observe(ctx, float64(dataRemaining), labels...)
+	mw.MetricObserver.ObserveFloat64(metrics.ReadBW, float64(readBW))
+	mw.MetricObserver.ObserveFloat64(metrics.WriteBW, float64(readBW))
+	mw.MetricObserver.ObserveFloat64(metrics.ReadIOPS, float64(readIOPS))
+	mw.MetricObserver.ObserveFloat64(metrics.WriteIOPS, float64(readIOPS))
+	mw.MetricObserver.ObserveFloat64(metrics.ReadLatency, float64(readLatency))
+	mw.MetricObserver.ObserveFloat64(metrics.WriteLatency, float64(writeLatency))
+	mw.MetricObserver.ObserveFloat64(metrics.SyncronizationBW, float64(syncronizationBW))
+	mw.MetricObserver.ObserveFloat64(metrics.MirrorBW, float64(mirrorBW))
+	mw.MetricObserver.ObserveFloat64(metrics.DataRemaining, float64(dataRemaining))
+
+	//metrics.ReadBW.Observe(ctx, float64(readBW), labels...) // metrics.ReadBW
+	//metrics.WriteBW.Observe(ctx, float64(writeBW), labels...)
+	//metrics.ReadIOPS.Observe(ctx, float64(readIOPS), labels...)
+	//metrics.WriteIOPS.Observe(ctx, float64(writeIOPS), labels...)
+	//metrics.ReadLatency.Observe(ctx, float64(readLatency), labels...)
+	//metrics.WriteLatency.Observe(ctx, float64(writeLatency), labels...)
+	//metrics.SyncronizationBW.Observe(ctx, float64(syncronizationBW), labels...)
+	//metrics.MirrorBW.Observe(ctx, float64(mirrorBW), labels...)
+	//metrics.DataRemaining.Observe(ctx, float64(dataRemaining), labels...)
 
 	return nil
 }
@@ -334,8 +353,11 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface
 	}
 
 	metrics := metricsMapValue.(*SpaceMetrics)
-	metrics.LogicalProvisioned.Observe(ctx, float64(logicalProvisioned), labels...)
-	metrics.LogicalUsed.Observe(ctx, float64(logicalUsed), labels...)
+
+	mw.MetricObserver.ObserveFloat64(metrics.LogicalProvisioned, float64(logicalProvisioned))
+	mw.MetricObserver.ObserveFloat64(metrics.LogicalUsed, float64(logicalUsed))
+	//metrics.LogicalProvisioned.Observe(ctx, float64(logicalProvisioned), labels...)
+	//metrics.LogicalUsed.Observe(ctx, float64(logicalUsed), labels...)
 	return nil
 }
 
@@ -417,8 +439,11 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID, 
 	}
 
 	metrics := metricsMapValue.(*ArraySpaceMetrics)
-	metrics.LogicalProvisioned.Observe(ctx, float64(logicalProvisioned), labels...)
-	metrics.LogicalUsed.Observe(ctx, float64(logicalUsed), labels...)
+
+	mw.MetricObserver.ObserveFloat64(metrics.LogicalProvisioned, float64(logicalProvisioned))
+	mw.MetricObserver.ObserveFloat64(metrics.LogicalUsed, float64(logicalUsed))
+	//metrics.LogicalProvisioned.Observe(ctx, float64(logicalProvisioned), labels...)
+	//metrics.LogicalUsed.Observe(ctx, float64(logicalUsed), labels...)
 
 	return nil
 }
@@ -479,8 +504,11 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, st
 	}
 
 	metrics := metricsMapValue.(*ArraySpaceMetrics)
-	metrics.LogicalProvisioned.Observe(ctx, float64(logicalProvisioned), labels...)
-	metrics.LogicalUsed.Observe(ctx, float64(logicalUsed), labels...)
+
+	mw.MetricObserver.ObserveFloat64(metrics.LogicalProvisioned, float64(logicalProvisioned))
+	mw.MetricObserver.ObserveFloat64(metrics.LogicalUsed, float64(logicalUsed))
+	//metrics.LogicalProvisioned.Observe(ctx, float64(logicalProvisioned), labels...)
+	//metrics.LogicalUsed.Observe(ctx, float64(logicalUsed), labels...)
 
 	return nil
 }
@@ -616,15 +644,25 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(ctx context.Context, meta inte
 
 	metrics := metricsMapValue.(*Metrics)
 
-	metrics.ReadBW.Observe(ctx, float64(readBW), labels...)
-	metrics.WriteBW.Observe(ctx, float64(writeBW), labels...)
-	metrics.ReadIOPS.Observe(ctx, float64(readIOPS), labels...)
-	metrics.WriteIOPS.Observe(ctx, float64(writeIOPS), labels...)
-	metrics.ReadLatency.Observe(ctx, float64(readLatency), labels...)
-	metrics.WriteLatency.Observe(ctx, float64(writeLatency), labels...)
-	metrics.DataRemaining.Observe(ctx, float64(dataRemaining), labels...)
-	metrics.SyncronizationBW.Observe(ctx, float64(syncBW), labels...)
-	metrics.MirrorBW.Observe(ctx, float64(mirrorBW), labels...)
+	mw.MetricObserver.ObserveFloat64(metrics.ReadBW, float64(readBW))
+	mw.MetricObserver.ObserveFloat64(metrics.WriteBW, float64(writeBW))
+	mw.MetricObserver.ObserveFloat64(metrics.ReadIOPS, float64(readIOPS))
+	mw.MetricObserver.ObserveFloat64(metrics.WriteIOPS, float64(writeIOPS))
+	mw.MetricObserver.ObserveFloat64(metrics.ReadLatency, float64(readLatency))
+	mw.MetricObserver.ObserveFloat64(metrics.WriteLatency, float64(writeLatency))
+	mw.MetricObserver.ObserveFloat64(metrics.SyncronizationBW, float64(syncBW))
+	mw.MetricObserver.ObserveFloat64(metrics.MirrorBW, float64(mirrorBW))
+	mw.MetricObserver.ObserveFloat64(metrics.DataRemaining, float64(dataRemaining))
+
+	//metrics.ReadBW.Observe(ctx, float64(readBW), labels...)
+	//metrics.WriteBW.Observe(ctx, float64(writeBW), labels...)
+	//metrics.ReadIOPS.Observe(ctx, float64(readIOPS), labels...)
+	//metrics.WriteIOPS.Observe(ctx, float64(writeIOPS), labels...)
+	//metrics.ReadLatency.Observe(ctx, float64(readLatency), labels...)
+	//metrics.WriteLatency.Observe(ctx, float64(writeLatency), labels...)
+	//metrics.DataRemaining.Observe(ctx, float64(dataRemaining), labels...)
+	//metrics.SyncronizationBW.Observe(ctx, float64(syncBW), labels...)
+	//metrics.MirrorBW.Observe(ctx, float64(mirrorBW), labels...)
 
 	return nil
 }
