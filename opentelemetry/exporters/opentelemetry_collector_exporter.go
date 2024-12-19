@@ -21,6 +21,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	metrics "go.opentelemetry.io/otel/sdk/metric"
+	"time"
 )
 
 // OtlCollectorExporter is the exporter for the OpenTelemetry Collector
@@ -84,11 +85,15 @@ func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (
 		controller.WithCollectPeriod(5*time.Second),
 	)
 	*/
-	reader := metrics.NewManualReader()
-	//TODO collect period should be configurable
-	ctrl := metrics.NewMeterProvider(metrics.WithReader(reader))
+	//reader := metrics.NewManualReader()
+	ctrl := metrics.NewMeterProvider(metrics.WithReader(metrics.NewPeriodicReader(exporter, metrics.WithInterval(5*time.Second))))
+	defer func() {
+		if err := ctrl.Shutdown(context.Background()); err != nil {
+			panic(err)
+		}
+	}()
 
-	//err = metrics.NewMeterProvider( metrics.WithResource(c.controller.Resource())context.Background())
+	//	err = metrics.NewMeterProvider(metrics.WithResource(c.controller.MeterProvider()), metrics.WithReader(reader)).ForceFlush(context.Background())
 	if err != nil {
 		return nil, nil, err
 	}
