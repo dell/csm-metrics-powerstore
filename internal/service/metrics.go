@@ -220,40 +220,26 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 	metrics := metricsMapValue.(*Metrics)
 	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.ReadBW, float64(readBW), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.ReadBW)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.WriteBW, float64(writeBW), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.WriteBW)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.ReadIOPS, float64(readIOPS), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.ReadIOPS)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.WriteIOPS, float64(writeIOPS), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.WriteIOPS)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.ReadLatency, float64(readLatency), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.ReadLatency)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.WriteLatency, float64(writeLatency), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.WriteLatency)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.SyncronizationBW, float64(syncronizationBW), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.SyncronizationBW)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.MirrorBW, float64(mirrorBW), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.MirrorBW)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.DataRemaining, float64(dataRemaining), metric.ObserveOption(metric.WithAttributes(labels...)))
 		return nil
-	}, metrics.DataRemaining)
+	},
+		metrics.ReadBW,
+		metrics.WriteBW,
+		metrics.ReadIOPS,
+		metrics.WriteIOPS,
+		metrics.ReadLatency,
+		metrics.WriteLatency,
+		metrics.SyncronizationBW,
+		metrics.MirrorBW,
+		metrics.DataRemaining,
+	)
 
 	// metrics.ReadBW.Observe(ctx, float64(readBW), labels...)
 	// metrics.WriteBW.Observe(ctx, float64(writeBW), labels...)
@@ -376,12 +362,13 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface
 
 	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.LogicalProvisioned, float64(logicalProvisioned), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.LogicalProvisioned)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.LogicalUsed, float64(logicalUsed), metric.ObserveOption(metric.WithAttributes(labels...)))
 		return nil
-	}, metrics.LogicalUsed)
+	},
+		metrics.LogicalProvisioned,
+		metrics.LogicalUsed,
+	)
+
 	// metrics.LogicalProvisioned.Observe(ctx, float64(logicalProvisioned), labels...)
 	// metrics.LogicalUsed.Observe(ctx, float64(logicalUsed), labels...)
 	return nil
@@ -467,12 +454,12 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID, 
 	metrics := metricsMapValue.(*ArraySpaceMetrics)
 	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.LogicalProvisioned, float64(logicalProvisioned), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.LogicalProvisioned)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.LogicalUsed, float64(logicalUsed), metric.ObserveOption(metric.WithAttributes(labels...)))
 		return nil
-	}, metrics.LogicalUsed)
+	},
+		metrics.LogicalProvisioned,
+		metrics.LogicalUsed,
+	)
 
 	// metrics.LogicalProvisioned.Observe(ctx, float64(logicalProvisioned), labels...)
 	// metrics.LogicalUsed.Observe(ctx, float64(logicalUsed), labels...)
@@ -538,12 +525,12 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, st
 	metrics := metricsMapValue.(*ArraySpaceMetrics)
 	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.LogicalProvisioned, float64(logicalProvisioned), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.LogicalProvisioned)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.LogicalUsed, float64(logicalUsed), metric.ObserveOption(metric.WithAttributes(labels...)))
 		return nil
-	}, metrics.LogicalUsed)
+	},
+		metrics.LogicalProvisioned,
+		metrics.LogicalUsed,
+	)
 	// metrics.LogicalProvisioned.Observe(ctx, float64(logicalProvisioned), labels...)
 	// metrics.LogicalUsed.Observe(ctx, float64(logicalUsed), labels...)
 
@@ -683,44 +670,26 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(ctx context.Context, meta inte
 
 	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.ReadBW, float64(readBW), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.ReadBW)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.WriteBW, float64(writeBW), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.WriteBW)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.ReadIOPS, float64(readIOPS), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.ReadIOPS)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.WriteIOPS, float64(writeIOPS), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.WriteIOPS)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
-		obs.ObserveFloat64(metrics.WriteIOPS, float64(writeIOPS), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.WriteIOPS)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.ReadLatency, float64(readLatency), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.ReadLatency)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.WriteLatency, float64(writeLatency), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.WriteLatency)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.SyncronizationBW, float64(syncBW), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.SyncronizationBW)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.MirrorBW, float64(mirrorBW), metric.ObserveOption(metric.WithAttributes(labels...)))
-		return nil
-	}, metrics.MirrorBW)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.DataRemaining, float64(dataRemaining), metric.ObserveOption(metric.WithAttributes(labels...)))
 		return nil
-	}, metrics.DataRemaining)
+	},
+		metrics.ReadBW,
+		metrics.WriteBW,
+		metrics.ReadIOPS,
+		metrics.WriteIOPS,
+		metrics.ReadLatency,
+		metrics.WriteLatency,
+		metrics.SyncronizationBW,
+		metrics.MirrorBW,
+		metrics.DataRemaining,
+	)
 
 	// metrics.ReadBW.Observe(ctx, float64(readBW), labels...)
 	// metrics.WriteBW.Observe(ctx, float64(writeBW), labels...)
