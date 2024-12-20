@@ -87,11 +87,11 @@ func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (
 	*/
 	//reader := metrics.NewManualReader()
 	ctrl := metrics.NewMeterProvider(metrics.WithReader(metrics.NewPeriodicReader(exporter, metrics.WithInterval(5*time.Second))))
-	defer func() {
-		if err := ctrl.Shutdown(context.Background()); err != nil {
-			panic(err)
-		}
-	}()
+	//defer func() {
+	//	if err := ctrl.Shutdown(context.Background()); err != nil {
+	//		panic(err)
+	//	}
+	//}()
 
 	//	err = metrics.NewMeterProvider(metrics.WithResource(c.controller.MeterProvider()), metrics.WithReader(reader)).ForceFlush(context.Background())
 	if err != nil {

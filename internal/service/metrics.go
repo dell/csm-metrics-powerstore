@@ -218,7 +218,8 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 	}
 
 	metrics := metricsMapValue.(*Metrics)
-	mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
+
+	_, _ = mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.ReadBW, float64(readBW), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.WriteBW, float64(writeBW), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.ReadIOPS, float64(readIOPS), metric.ObserveOption(metric.WithAttributes(labels...)))
@@ -228,6 +229,7 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 		obs.ObserveFloat64(metrics.SyncronizationBW, float64(syncronizationBW), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.MirrorBW, float64(mirrorBW), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.DataRemaining, float64(dataRemaining), metric.ObserveOption(metric.WithAttributes(labels...)))
+
 		return nil
 	},
 		metrics.ReadBW,
@@ -240,16 +242,6 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 		metrics.MirrorBW,
 		metrics.DataRemaining,
 	)
-
-	// metrics.ReadBW.Observe(ctx, float64(readBW), labels...)
-	// metrics.WriteBW.Observe(ctx, float64(writeBW), labels...)
-	// metrics.ReadIOPS.Observe(ctx, float64(readIOPS), labels...)
-	// metrics.WriteIOPS.Observe(ctx, float64(writeIOPS), labels...)
-	// metrics.ReadLatency.Observe(ctx, float64(readLatency), labels...)
-	// metrics.WriteLatency.Observe(ctx, float64(writeLatency), labels...)
-	// metrics.SyncronizationBW.Observe(ctx, float64(syncronizationBW), labels...)
-	// metrics.MirrorBW.Observe(ctx, float64(mirrorBW), labels...)
-	// metrics.DataRemaining.Observe(ctx, float64(dataRemaining), labels...)
 
 	return nil
 }
