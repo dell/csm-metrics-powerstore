@@ -18,17 +18,18 @@ package otlexporters
 
 import (
 	"context"
+	"time"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	metrics "go.opentelemetry.io/otel/sdk/metric"
-	"time"
+	"go.opentelemetry.io/otel/sdk/metric"
 )
 
 // OtlCollectorExporter is the exporter for the OpenTelemetry Collector
 type OtlCollectorExporter struct {
 	CollectorAddr string
 	exporter      *otlpmetricgrpc.Exporter
-	controller    *metrics.MeterProvider
+	controller    *metric.MeterProvider
 }
 
 const (
@@ -63,7 +64,7 @@ func (c *OtlCollectorExporter) StopExporter() error {
 	return nil
 }
 
-func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (*otlpmetricgrpc.Exporter, *metrics.MeterProvider, error) {
+func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (*otlpmetricgrpc.Exporter, *metric.MeterProvider, error) {
 	exporter, err := otlpmetricgrpc.New(context.Background(), opts...)
 	if err != nil {
 		return nil, nil, err
@@ -85,20 +86,20 @@ func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (
 		controller.WithCollectPeriod(5*time.Second),
 	)
 	*/
-	//reader := metrics.NewManualReader()
-	ctrl := metrics.NewMeterProvider(metrics.WithReader(metrics.NewPeriodicReader(exporter, metrics.WithInterval(5*time.Second))))
+	//reader := metric.NewManualReader()
+	meterProvider := metric.NewMeterProvider(metric.WithReader(metric.NewPeriodicReader(exporter, metric.WithInterval(5*time.Second))))
 	//defer func() {
 	//	if err := ctrl.Shutdown(context.Background()); err != nil {
 	//		panic(err)
 	//	}
 	//}()
 
-	//	err = metrics.NewMeterProvider(metrics.WithResource(c.controller.MeterProvider()), metrics.WithReader(reader)).ForceFlush(context.Background())
+	//	err = metric.NewMeterProvider(metric.WithResource(c.controller.MeterProvider()), metric.WithReader(reader)).ForceFlush(context.Background())
 	if err != nil {
 		return nil, nil, err
 	}
 
-	otel.SetMeterProvider(ctrl)
+	otel.SetMeterProvider(meterProvider)
 
-	return exporter, ctrl, nil
+	return exporter, meterProvider, nil
 }

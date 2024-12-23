@@ -28,7 +28,7 @@ import (
 
 // MetricsRecorder supports recording I/O metrics
 //
-//go:generate mockgen -destination=mocks/metrics_mocks.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/service MetricsRecorder,Float64UpDownCounterCreater
+//go:generate mockgen -destination=mocks/metrics_mocks.go -package=mocks github.com/dell/csm-metrics-powerstore/internal/service MetricsRecorder,MeterCreater
 type MetricsRecorder interface {
 	Record(ctx context.Context, meta interface{},
 		readBW, writeBW,
@@ -46,18 +46,18 @@ type MetricsRecorder interface {
 		readLatency, writeLatency, syncronizationBW, mirrorBW, dataRemaining float32) error
 }
 
-// Float64UpDownCounterCreater creates a Float64UpDownCounter InstrumentProvider
+// MeterCreater interface is used to create and provide Meter instances, which are used to report measurements.
 //
-//go:generate mockgen -destination=mocks/instrument_provider_mocks.go -package=mocks go.opentelemetry.io/otel/metric Float64ObservableUpDownCounter
-type Float64UpDownCounterCreater interface {
+//go:generate mockgen -destination=mocks/meter_mocks.go -package=mocks go.opentelemetry.io/otel/metric Meter
+type MeterCreater interface {
 	// AsyncFloat64() asyncfloat64.InstrumentProvider
-	metric.Float64ObservableUpDownCounter
+	MeterProvider() metric.Meter
+	// metric.Float64ObservableUpDownCounter
 }
 
 // MetricsWrapper contains data used for pushing metrics data
 type MetricsWrapper struct {
-	Meter metric.Meter
-	// MetricObserver    metric.Observer
+	Meter             metric.Meter
 	Metrics           sync.Map
 	Labels            sync.Map
 	SpaceMetrics      sync.Map

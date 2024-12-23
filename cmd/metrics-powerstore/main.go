@@ -111,7 +111,7 @@ func main() {
 
 	powerStoreSvc := &service.PowerStoreService{
 		MetricsWrapper: &service.MetricsWrapper{
-			Meter: otel.GetMeterProvider().Meter("powerstore"),
+			Meter: otel.Meter("powerstore"),
 		},
 		Logger:       logger,
 		VolumeFinder: volumeFinder,
