@@ -158,15 +158,9 @@ func (mw *MetricsWrapper) Record(_ context.Context, meta interface{},
 		}
 		metricsMapValue = newMetrics
 	} else {
-		// If Metrics for this MetricsWrapper exist, then check if any labels have changed and update them
+		// If Metrics for this MetricsWrapper exist, then update the labels
 		currentLabels, ok := mw.Labels.Load(metaID)
-		if !ok {
-			newMetrics, err := mw.initMetrics(prefix, metaID, labels)
-			if err != nil {
-				return err
-			}
-			metricsMapValue = newMetrics
-		} else {
+		if ok {
 			currentLabels := currentLabels.([]attribute.KeyValue)
 			updatedLabels := currentLabels
 			haveLabelsChanged := false
@@ -285,15 +279,9 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(_ context.Context, meta interface{}
 		}
 		metricsMapValue = newMetrics
 	} else {
-		// If Metrics for this MetricsWrapper exist, then check if any labels have changed and update them
+		// If Metrics for this MetricsWrapper exist, then update the labels
 		currentLabels, ok := mw.Labels.Load(metaID)
-		if !ok {
-			newMetrics, err := mw.initSpaceMetrics(prefix, metaID, labels)
-			if err != nil {
-				return err
-			}
-			metricsMapValue = newMetrics
-		} else {
+		if ok {
 			currentLabels := currentLabels.([]attribute.KeyValue)
 			updatedLabels := currentLabels
 			haveLabelsChanged := false
@@ -370,15 +358,9 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(_ context.Context, arrayID, dr
 		}
 		metricsMapValue = newMetrics
 	} else {
-		// If Metrics for this MetricsWrapper exist, then check if any labels have changed and update them
+		// If Metrics for this MetricsWrapper exist, then update the labels
 		currentLabels, ok := mw.Labels.Load(metaID)
-		if !ok {
-			newMetrics, err := mw.initArraySpaceMetrics(prefix, metaID, labels)
-			if err != nil {
-				return err
-			}
-			metricsMapValue = newMetrics
-		} else {
+		if ok {
 			currentLabels := currentLabels.([]attribute.KeyValue)
 			updatedLabels := currentLabels
 			haveLabelsChanged := false
@@ -438,15 +420,9 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(_ context.Context, stor
 		}
 		metricsMapValue = newMetrics
 	} else {
-		// If Metrics for this MetricsWrapper exist, then check if any labels have changed and update them
+		// If Metrics for this MetricsWrapper exist, then update the labels
 		currentLabels, ok := mw.Labels.Load(metaID)
-		if !ok {
-			newMetrics, err := mw.initArraySpaceMetrics(prefix, metaID, labels)
-			if err != nil {
-				return err
-			}
-			metricsMapValue = newMetrics
-		} else {
+		if ok {
 			currentLabels := currentLabels.([]attribute.KeyValue)
 			updatedLabels := currentLabels
 			haveLabelsChanged := false
@@ -553,15 +529,9 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(_ context.Context, meta interf
 		}
 		metricsMapValue = newMetrics
 	} else {
-		// If Metrics for this MetricsWrapper exist, then check if any labels have changed and update them
+		// If Metrics for this MetricsWrapper exist, then update the labels
 		currentLabels, ok := mw.Labels.Load(metaID)
-		if !ok {
-			newMetrics, err := mw.initFileSystemMetrics(prefix, metaID, labels)
-			if err != nil {
-				return err
-			}
-			metricsMapValue = newMetrics
-		} else {
+		if ok {
 			currentLabels := currentLabels.([]attribute.KeyValue)
 			updatedLabels := currentLabels
 			haveLabelsChanged := false
