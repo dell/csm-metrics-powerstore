@@ -95,9 +95,9 @@ func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (
 	//}()
 
 	//	err = metric.NewMeterProvider(metric.WithResource(c.controller.MeterProvider()), metric.WithReader(reader)).ForceFlush(context.Background())
-	if err != nil {
-		return nil, nil, err
-	}
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
 
 	otel.SetMeterProvider(meterProvider)
 
