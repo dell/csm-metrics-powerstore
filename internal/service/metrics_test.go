@@ -434,6 +434,11 @@ func TestMetricsWrapper_RecordFileSystemMetrics(t *testing.T) {
 			ID: "123",
 		},
 	}
+	spaceMetas := []interface{}{
+		&service.SpaceVolumeMeta{
+			ID: "123",
+		},
+	}
 	type args struct {
 		ctx           context.Context
 		meta          interface{}
@@ -471,6 +476,24 @@ func TestMetricsWrapper_RecordFileSystemMetrics(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "fail",
+			mw:   mw,
+			args: args{
+				ctx:           context.Background(),
+				meta:          spaceMetas[0],
+				readBW:        1,
+				writeBW:       2,
+				readIOPS:      3,
+				writeIOPS:     4,
+				readLatency:   5,
+				writeLatency:  6,
+				syncBW:        7,
+				mirrorBW:      8,
+				dataRemaining: 9,
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -479,4 +502,98 @@ func TestMetricsWrapper_RecordFileSystemMetrics(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMetricsWrapper_RecordFileSystemMetrics_Label_Update(t *testing.T) {
+	mw := &service.MetricsWrapper{
+		Meter: otel.Meter("powerstore-test"),
+	}
+	metaFirst := &service.VolumeMeta{
+		ID:                        "123",
+		PersistentVolumeName:      "pvol0",
+		PersistentVolumeClaimName: "pvc0",
+		Namespace:                 "namespace0",
+	}
+
+	metaSecond := &service.VolumeMeta{
+		ID:                        "123",
+		PersistentVolumeName:      "pvol0",
+		PersistentVolumeClaimName: "pvc0",
+		Namespace:                 "namespace0",
+	}
+
+	metaThird := &service.VolumeMeta{
+		ID:                        "123",
+		PersistentVolumeName:      "pvol1",
+		PersistentVolumeClaimName: "pvc1",
+		Namespace:                 "namespace0",
+	}
+
+	expectedLables := []attribute.KeyValue{
+		attribute.String("FileSystemID", metaSecond.ID),
+		attribute.String("PlotWithMean", "No"),
+		attribute.String("PersistentVolumeName", metaSecond.PersistentVolumeName),
+		attribute.String("PersistentVolumeClaimName", metaSecond.PersistentVolumeClaimName),
+		attribute.String("Namespace", metaSecond.Namespace),
+	}
+
+	expectedLablesUpdate := []attribute.KeyValue{
+		attribute.String("FileSystemID", metaThird.ID),
+		attribute.String("PlotWithMean", "No"),
+		attribute.String("PersistentVolumeName", metaThird.PersistentVolumeName),
+		attribute.String("PersistentVolumeClaimName", metaThird.PersistentVolumeClaimName),
+		attribute.String("Namespace", metaThird.Namespace),
+	}
+
+	t.Run("success: filesystem metric labels updated", func(t *testing.T) {
+		err := mw.RecordFileSystemMetrics(context.Background(), metaFirst, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+		if err != nil {
+			t.Errorf("expected nil error (record #1), got %v", err)
+		}
+		err = mw.RecordFileSystemMetrics(context.Background(), metaSecond, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+		if err != nil {
+			t.Errorf("expected nil error (record #2), got %v", err)
+		}
+
+		newLabels, ok := mw.Labels.Load(metaSecond.ID)
+		if !ok {
+			t.Errorf("expected labels to exist for %v, but did not find them", metaSecond.ID)
+		}
+		labels := newLabels.([]attribute.KeyValue)
+		for _, l := range labels {
+			for _, e := range expectedLables {
+				if l.Key == e.Key {
+					if l.Value.AsString() != e.Value.AsString() {
+						t.Errorf("expected label %v to be updated to %v, but the value was %v", e.Key, e.Value.AsString(), l.Value.AsString())
+					}
+				}
+			}
+		}
+	})
+
+	t.Run("success: filesystem metric labels with PV and PVC namesupdated", func(t *testing.T) {
+		err := mw.RecordFileSystemMetrics(context.Background(), metaFirst, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+		if err != nil {
+			t.Errorf("expected nil error (record #1), got %v", err)
+		}
+		err = mw.RecordFileSystemMetrics(context.Background(), metaThird, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+		if err != nil {
+			t.Errorf("expected nil error (record #2), got %v", err)
+		}
+
+		newLabels, ok := mw.Labels.Load(metaThird.ID)
+		if !ok {
+			t.Errorf("expected labels to exist for %v, but did not find them", metaThird.ID)
+		}
+		labels := newLabels.([]attribute.KeyValue)
+		for _, l := range labels {
+			for _, e := range expectedLablesUpdate {
+				if l.Key == e.Key {
+					if l.Value.AsString() != e.Value.AsString() {
+						t.Errorf("expected label %v to be updated to %v, but the value was %v", e.Key, e.Value.AsString(), l.Value.AsString())
+					}
+				}
+			}
+		}
+	})
 }
