@@ -127,7 +127,7 @@ func (mw *MetricsWrapper) initMetrics(prefix, metaID string, labels []attribute.
 }
 
 // Record will publish metrics data for a given instance
-func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
+func (mw *MetricsWrapper) Record(_ context.Context, meta interface{},
 	readBW, writeBW,
 	readIOPS, writeIOPS,
 	readLatency, writeLatency, syncronizationBW, mirrorBW, dataRemaining float32,
@@ -236,7 +236,7 @@ func (mw *MetricsWrapper) initSpaceMetrics(prefix, metaID string, labels []attri
 }
 
 // RecordSpaceMetrics will publish space metrics data for a given instance
-func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface{},
+func (mw *MetricsWrapper) RecordSpaceMetrics(_ context.Context, meta interface{},
 	logicalProvisioned, logicalUsed int64,
 ) error {
 	var prefix string
@@ -319,7 +319,7 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface
 
 	metrics := metricsMapValue.(*SpaceMetrics)
 
-	_, _ = mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
+	_, _ = mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.LogicalProvisioned, float64(logicalProvisioned), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.LogicalUsed, float64(logicalUsed), metric.ObserveOption(metric.WithAttributes(labels...)))
 		return nil
@@ -348,7 +348,7 @@ func (mw *MetricsWrapper) initArraySpaceMetrics(prefix, metaID string, labels []
 }
 
 // RecordArraySpaceMetrics will publish space metrics data for a given instance
-func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID, driver string,
+func (mw *MetricsWrapper) RecordArraySpaceMetrics(_ context.Context, arrayID, driver string,
 	logicalProvisioned, logicalUsed int64,
 ) error {
 	var prefix string
@@ -403,7 +403,7 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID, 
 	}
 
 	metrics := metricsMapValue.(*ArraySpaceMetrics)
-	_, _ = mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
+	_, _ = mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.LogicalProvisioned, float64(logicalProvisioned), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.LogicalUsed, float64(logicalUsed), metric.ObserveOption(metric.WithAttributes(labels...)))
 		return nil
@@ -416,7 +416,7 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(ctx context.Context, arrayID, 
 }
 
 // RecordStorageClassSpaceMetrics will publish space metrics for storage class
-func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, storageclass, driver string,
+func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(_ context.Context, storageclass, driver string,
 	logicalProvisioned, logicalUsed int64,
 ) error {
 	var prefix string
@@ -471,7 +471,7 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, st
 	}
 
 	metrics := metricsMapValue.(*ArraySpaceMetrics)
-	_, _ = mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
+	_, _ = mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.LogicalProvisioned, float64(logicalProvisioned), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.LogicalUsed, float64(logicalUsed), metric.ObserveOption(metric.WithAttributes(labels...)))
 		return nil
@@ -521,7 +521,7 @@ func (mw *MetricsWrapper) initFileSystemMetrics(prefix, metaID string, labels []
 }
 
 // RecordFileSystemMetrics will publish filesystem metrics data for a given instance
-func (mw *MetricsWrapper) RecordFileSystemMetrics(ctx context.Context, meta interface{},
+func (mw *MetricsWrapper) RecordFileSystemMetrics(_ context.Context, meta interface{},
 	readBW, writeBW,
 	readIOPS, writeIOPS,
 	readLatency, writeLatency, syncBW, mirrorBW, dataRemaining float32,
@@ -587,7 +587,7 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(ctx context.Context, meta inte
 
 	metrics := metricsMapValue.(*Metrics)
 
-	_, _ = mw.Meter.RegisterCallback(func(ctx context.Context, obs metric.Observer) error {
+	_, _ = mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.ReadBW, float64(readBW), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.WriteBW, float64(writeBW), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.ReadIOPS, float64(readIOPS), metric.ObserveOption(metric.WithAttributes(labels...)))
