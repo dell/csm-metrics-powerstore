@@ -403,6 +403,76 @@ func TestMetricsWrapper_RecordArraySpaceMetrics(t *testing.T) {
 	}
 }
 
+func TestMetricsWrapper_RecordArraySpaceMetrics_Label_Update(t *testing.T) {
+	mw := &service.MetricsWrapper{
+		Meter: otel.Meter("powerstore-test"),
+	}
+
+	array1 := "123"
+	array2 := "123"
+	array3 := "125"
+
+	expectedLables := []attribute.KeyValue{
+		attribute.String("ArrayID", array2),
+		attribute.String("PlotWithMean", "No"),
+	}
+	expectedLablesUpdate := []attribute.KeyValue{
+		attribute.String("ArrayID", array3),
+		attribute.String("PlotWithMean", "No"),
+	}
+	t.Run("success: volume metric labels updated", func(t *testing.T) {
+		err := mw.RecordArraySpaceMetrics(context.Background(), array1, "driver", 1, 2)
+		if err != nil {
+			t.Errorf("expected nil error (record #1), got %v", err)
+		}
+		err = mw.RecordArraySpaceMetrics(context.Background(), array2, "driver", 1, 2)
+		if err != nil {
+			t.Errorf("expected nil error (record #2), got %v", err)
+		}
+
+		newLabels, ok := mw.Labels.Load(array2)
+		if !ok {
+			t.Errorf("expected labels to exist for %v, but did not find them", array2)
+		}
+		labels := newLabels.([]attribute.KeyValue)
+		for _, l := range labels {
+			for _, e := range expectedLables {
+				if l.Key == e.Key {
+					if l.Value.AsString() != e.Value.AsString() {
+						t.Errorf("expected label %v to be updated to %v, but the value was %v", e.Key, e.Value.AsString(), l.Value.AsString())
+					}
+				}
+			}
+		}
+	})
+
+	t.Run("success: volume metric labels updated", func(t *testing.T) {
+		err := mw.RecordArraySpaceMetrics(context.Background(), array1, "driver", 1, 2)
+		if err != nil {
+			t.Errorf("expected nil error (record #1), got %v", err)
+		}
+		err = mw.RecordArraySpaceMetrics(context.Background(), array3, "driver", 1, 2)
+		if err != nil {
+			t.Errorf("expected nil error (record #2), got %v", err)
+		}
+
+		newLabels, ok := mw.Labels.Load(array3)
+		if !ok {
+			t.Errorf("expected labels to exist for %v, but did not find them", array3)
+		}
+		labels := newLabels.([]attribute.KeyValue)
+		for _, l := range labels {
+			for _, e := range expectedLablesUpdate {
+				if l.Key == e.Key {
+					if l.Value.AsString() != e.Value.AsString() {
+						t.Errorf("expected label %v to be updated to %v, but the value was %v", e.Key, e.Value.AsString(), l.Value.AsString())
+					}
+				}
+			}
+		}
+	})
+}
+
 func TestMetricsWrapper_RecordStorageClassSpaceMetrics(t *testing.T) {
 	mw := &service.MetricsWrapper{
 		Meter: otel.Meter("powerstore-test"),
