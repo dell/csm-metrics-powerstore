@@ -204,6 +204,12 @@ func TestMetricsWrapper_RecordSpaceMetrics(t *testing.T) {
 			ID: "123",
 		},
 	}
+	spaceMetasNFS := []interface{}{
+		&service.SpaceVolumeMeta{
+			ID:       "123",
+			Protocol: "nfs",
+		},
+	}
 	volumeMetas := []interface{}{
 		&service.VolumeMeta{
 			ID: "123",
@@ -227,6 +233,17 @@ func TestMetricsWrapper_RecordSpaceMetrics(t *testing.T) {
 			args: args{
 				ctx:                context.Background(),
 				meta:               spaceMetas[0],
+				logicalProvisioned: 1,
+				logicalUsed:        2,
+			},
+			wantErr: false,
+		},
+		{
+			name: "success nfs",
+			mw:   mw,
+			args: args{
+				ctx:                context.Background(),
+				meta:               spaceMetasNFS[0],
 				logicalProvisioned: 1,
 				logicalUsed:        2,
 			},
