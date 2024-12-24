@@ -90,50 +90,23 @@ type Metrics struct {
 }
 
 func (mw *MetricsWrapper) initMetrics(prefix, metaID string, labels []attribute.KeyValue) (*Metrics, error) {
-	readBW, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "read_bw_megabytes_per_second")
-	if err != nil {
-		return nil, err
-	}
+	readBW, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "read_bw_megabytes_per_second")
 
-	writeBW, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "write_bw_megabytes_per_second")
-	if err != nil {
-		return nil, err
-	}
+	writeBW, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "write_bw_megabytes_per_second")
 
-	readIOPS, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "read_iops_per_second")
-	if err != nil {
-		return nil, err
-	}
+	readIOPS, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "read_iops_per_second")
 
-	writeIOPS, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "write_iops_per_second")
-	if err != nil {
-		return nil, err
-	}
+	writeIOPS, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "write_iops_per_second")
 
-	readLatency, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "read_latency_milliseconds")
-	if err != nil {
-		return nil, err
-	}
+	readLatency, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "read_latency_milliseconds")
 
-	writeLatency, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "write_latency_milliseconds")
-	if err != nil {
-		return nil, err
-	}
+	writeLatency, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "write_latency_milliseconds")
 
-	syncBW, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "syncronization_bw_megabytes_per_second")
-	if err != nil {
-		return nil, err
-	}
+	syncBW, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "syncronization_bw_megabytes_per_second")
 
-	mirrorBW, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "mirror_bw_megabytes_per_second")
-	if err != nil {
-		return nil, err
-	}
+	mirrorBW, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "mirror_bw_megabytes_per_second")
 
-	dataRemaining, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "data_remaining_bytes")
-	if err != nil {
-		return nil, err
-	}
+	dataRemaining, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "data_remaining_bytes")
 
 	metrics := &Metrics{
 		ReadBW:           readBW,
@@ -247,15 +220,9 @@ func (mw *MetricsWrapper) Record(ctx context.Context, meta interface{},
 }
 
 func (mw *MetricsWrapper) initSpaceMetrics(prefix, metaID string, labels []attribute.KeyValue) (*SpaceMetrics, error) {
-	logicalProvisioned, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "logical_provisioned_megabytes")
-	if err != nil {
-		return nil, err
-	}
+	logicalProvisioned, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "logical_provisioned_megabytes")
 
-	logicalUsed, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "logical_used_megabytes")
-	if err != nil {
-		return nil, err
-	}
+	logicalUsed, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "logical_used_megabytes")
 
 	metrics := &SpaceMetrics{
 		LogicalProvisioned: logicalProvisioned,
@@ -365,15 +332,9 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(ctx context.Context, meta interface
 }
 
 func (mw *MetricsWrapper) initArraySpaceMetrics(prefix, metaID string, labels []attribute.KeyValue) (*ArraySpaceMetrics, error) {
-	logicalProvisioned, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "logical_provisioned_megabytes")
-	if err != nil {
-		return nil, err
-	}
+	logicalProvisioned, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "logical_provisioned_megabytes")
 
-	logicalUsed, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "logical_used_megabytes")
-	if err != nil {
-		return nil, err
-	}
+	logicalUsed, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "logical_used_megabytes")
 
 	metrics := &ArraySpaceMetrics{
 		LogicalProvisioned: logicalProvisioned,
@@ -523,50 +484,23 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(ctx context.Context, st
 }
 
 func (mw *MetricsWrapper) initFileSystemMetrics(prefix, metaID string, labels []attribute.KeyValue) (*Metrics, error) {
-	readBW, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "read_bw_megabytes_per_second")
-	if err != nil {
-		return nil, err
-	}
+	readBW, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "read_bw_megabytes_per_second")
 
-	writeBW, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "write_bw_megabytes_per_second")
-	if err != nil {
-		return nil, err
-	}
+	writeBW, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "write_bw_megabytes_per_second")
 
-	readIOPS, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "read_iops_per_second")
-	if err != nil {
-		return nil, err
-	}
+	readIOPS, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "read_iops_per_second")
 
-	writeIOPS, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "write_iops_per_second")
-	if err != nil {
-		return nil, err
-	}
+	writeIOPS, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "write_iops_per_second")
 
-	readLatency, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "read_latency_milliseconds")
-	if err != nil {
-		return nil, err
-	}
+	readLatency, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "read_latency_milliseconds")
 
-	writeLatency, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "write_latency_milliseconds")
-	if err != nil {
-		return nil, err
-	}
+	writeLatency, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "write_latency_milliseconds")
 
-	syncBW, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "syncronization_bw_megabytes_per_second")
-	if err != nil {
-		return nil, err
-	}
+	syncBW, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "syncronization_bw_megabytes_per_second")
 
-	mirrorBW, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "mirror_bw_megabytes_per_second")
-	if err != nil {
-		return nil, err
-	}
+	mirrorBW, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "mirror_bw_megabytes_per_second")
 
-	dataRemaining, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "data_remaining_bytes")
-	if err != nil {
-		return nil, err
-	}
+	dataRemaining, _ := mw.Meter.Float64ObservableUpDownCounter(prefix + "data_remaining_bytes")
 
 	metrics := &Metrics{
 		ReadBW:           readBW,

@@ -70,34 +70,7 @@ func (c *OtlCollectorExporter) initOTLPExporter(opts ...otlpmetricgrpc.Option) (
 		return nil, nil, err
 	}
 
-	/*processor := basic.New(
-		simple.NewWithHistogramDistribution(),
-		exporter,
-	)
-
-	f := basic.NewFactory(
-		processor.AggregatorSelector,
-		processor.TemporalitySelector,
-	)
-
-	ctrl := controller.New(
-		f,
-		controller.WithExporter(exporter),
-		controller.WithCollectPeriod(5*time.Second),
-	)
-	*/
-	//reader := metric.NewManualReader()
 	meterProvider := metric.NewMeterProvider(metric.WithReader(metric.NewPeriodicReader(exporter, metric.WithInterval(5*time.Second))))
-	//defer func() {
-	//	if err := ctrl.Shutdown(context.Background()); err != nil {
-	//		panic(err)
-	//	}
-	//}()
-
-	//	err = metric.NewMeterProvider(metric.WithResource(c.controller.MeterProvider()), metric.WithReader(reader)).ForceFlush(context.Background())
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
 
 	otel.SetMeterProvider(meterProvider)
 
