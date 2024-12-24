@@ -22,6 +22,7 @@ import (
 
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 func TestMetricsWrapper_Record(t *testing.T) {
@@ -103,6 +104,97 @@ func TestMetricsWrapper_Record(t *testing.T) {
 	}
 }
 
+func TestMetricsWrapper_Record_Label_Update(t *testing.T) {
+	mw := &service.MetricsWrapper{
+		Meter: otel.Meter("powerstore-test"),
+	}
+	metaFirst := &service.VolumeMeta{
+		ID:                        "123",
+		PersistentVolumeName:      "pvol0",
+		PersistentVolumeClaimName: "pvc0",
+		Namespace:                 "namespace0",
+	}
+	metaSecond := &service.VolumeMeta{
+		ID:                        "123",
+		PersistentVolumeName:      "pvol0",
+		PersistentVolumeClaimName: "pvc0",
+		Namespace:                 "namespace0",
+	}
+	metaThird := &service.VolumeMeta{
+		ID:                        "123",
+		PersistentVolumeName:      "pvol1",
+		PersistentVolumeClaimName: "pvc1",
+		Namespace:                 "namespace0",
+	}
+
+	expectedLables := []attribute.KeyValue{
+		attribute.String("VolumeID", metaSecond.ID),
+		attribute.String("PlotWithMean", "No"),
+		attribute.String("PersistentVolumeName", metaSecond.PersistentVolumeName),
+		attribute.String("PersistentVolumeClaimName", metaSecond.PersistentVolumeClaimName),
+		attribute.String("Namespace", metaSecond.Namespace),
+	}
+	expectedLablesUpdate := []attribute.KeyValue{
+		attribute.String("VolumeID", metaThird.ID),
+		attribute.String("PlotWithMean", "No"),
+		attribute.String("PersistentVolumeName", metaThird.PersistentVolumeName),
+		attribute.String("PersistentVolumeClaimName", metaThird.PersistentVolumeClaimName),
+		attribute.String("Namespace", metaThird.Namespace),
+	}
+
+	t.Run("success: volume metric labels updated", func(t *testing.T) {
+		err := mw.Record(context.Background(), metaFirst, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+		if err != nil {
+			t.Errorf("expected nil error (record #1), got %v", err)
+		}
+		err = mw.Record(context.Background(), metaSecond, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+		if err != nil {
+			t.Errorf("expected nil error (record #2), got %v", err)
+		}
+
+		newLabels, ok := mw.Labels.Load(metaFirst.ID)
+		if !ok {
+			t.Errorf("expected labels to exist for %v, but did not find them", metaFirst.ID)
+		}
+		labels := newLabels.([]attribute.KeyValue)
+		for _, l := range labels {
+			for _, e := range expectedLables {
+				if l.Key == e.Key {
+					if l.Value.AsString() != e.Value.AsString() {
+						t.Errorf("expected label %v to be updated to %v, but the value was %v", e.Key, e.Value.AsString(), l.Value.AsString())
+					}
+				}
+			}
+		}
+	})
+
+	t.Run("success: volume metric labels updated with PV Name and PVC Update", func(t *testing.T) {
+		err := mw.Record(context.Background(), metaFirst, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+		if err != nil {
+			t.Errorf("expected nil error (record #1), got %v", err)
+		}
+		err = mw.Record(context.Background(), metaThird, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+		if err != nil {
+			t.Errorf("expected nil error (record #2), got %v", err)
+		}
+
+		newLabels, ok := mw.Labels.Load(metaThird.ID)
+		if !ok {
+			t.Errorf("expected labels to exist for %v, but did not find them", metaThird.ID)
+		}
+		labels := newLabels.([]attribute.KeyValue)
+		for _, l := range labels {
+			for _, e := range expectedLablesUpdate {
+				if l.Key == e.Key {
+					if l.Value.AsString() != e.Value.AsString() {
+						t.Errorf("expected label %v to be updated to %v, but the value was %v", e.Key, e.Value.AsString(), l.Value.AsString())
+					}
+				}
+			}
+		}
+	})
+}
+
 func TestMetricsWrapper_RecordSpaceMetrics(t *testing.T) {
 	mw := &service.MetricsWrapper{
 		Meter: otel.Meter("powerstore-test"),
@@ -159,6 +251,99 @@ func TestMetricsWrapper_RecordSpaceMetrics(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMetricsWrapper_RecordSpaceMetrics_Label_Update(t *testing.T) {
+	mw := &service.MetricsWrapper{
+		Meter: otel.Meter("powerstore-test"),
+	}
+	metaFirst := &service.SpaceVolumeMeta{
+		ID:           "123",
+		ArrayID:      "arr123",
+		StorageClass: "powerstore",
+		Protocol:     "scsi",
+	}
+
+	metaSecond := &service.SpaceVolumeMeta{
+		ID:           "123",
+		ArrayID:      "arr123",
+		StorageClass: "powerstore",
+		Protocol:     "scsi",
+	}
+
+	metaThird := &service.SpaceVolumeMeta{
+		ID:           "123",
+		ArrayID:      "arr125",
+		StorageClass: "powerstore",
+		Protocol:     "scsi",
+	}
+
+	expectedLables := []attribute.KeyValue{
+		attribute.String("VolumeID", metaSecond.ID),
+		attribute.String("PersistentVolumeName", metaSecond.PersistentVolumeName),
+		attribute.String("PersistentVolumeClaimName", metaSecond.PersistentVolumeClaimName),
+		attribute.String("Namespace", metaSecond.Namespace),
+		attribute.String("PlotWithMean", "No"),
+	}
+
+	expectedLablesUpdate := []attribute.KeyValue{
+		attribute.String("VolumeID", metaThird.ID),
+		attribute.String("PersistentVolumeName", metaThird.PersistentVolumeName),
+		attribute.String("PersistentVolumeClaimName", metaThird.PersistentVolumeClaimName),
+		attribute.String("Namespace", metaThird.Namespace),
+		attribute.String("PlotWithMean", "No"),
+	}
+	t.Run("success: volume metric labels updated", func(t *testing.T) {
+		err := mw.RecordSpaceMetrics(context.Background(), metaFirst, 1, 2)
+		if err != nil {
+			t.Errorf("expected nil error (record #1), got %v", err)
+		}
+		err = mw.RecordSpaceMetrics(context.Background(), metaSecond, 1, 2)
+		if err != nil {
+			t.Errorf("expected nil error (record #2), got %v", err)
+		}
+
+		newLabels, ok := mw.Labels.Load(metaFirst.ID)
+		if !ok {
+			t.Errorf("expected labels to exist for %v, but did not find them", metaFirst.ID)
+		}
+		labels := newLabels.([]attribute.KeyValue)
+		for _, l := range labels {
+			for _, e := range expectedLables {
+				if l.Key == e.Key {
+					if l.Value.AsString() != e.Value.AsString() {
+						t.Errorf("expected label %v to be updated to %v, but the value was %v", e.Key, e.Value.AsString(), l.Value.AsString())
+					}
+				}
+			}
+		}
+	})
+
+	t.Run("success: volume metric labels with ArrayID updated", func(t *testing.T) {
+		err := mw.RecordSpaceMetrics(context.Background(), metaFirst, 1, 2)
+		if err != nil {
+			t.Errorf("expected nil error (record #1), got %v", err)
+		}
+		err = mw.RecordSpaceMetrics(context.Background(), metaThird, 1, 2)
+		if err != nil {
+			t.Errorf("expected nil error (record #2), got %v", err)
+		}
+
+		newLabels, ok := mw.Labels.Load(metaThird.ID)
+		if !ok {
+			t.Errorf("expected labels to exist for %v, but did not find them", metaThird.ID)
+		}
+		labels := newLabels.([]attribute.KeyValue)
+		for _, l := range labels {
+			for _, e := range expectedLablesUpdate {
+				if l.Key == e.Key {
+					if l.Value.AsString() != e.Value.AsString() {
+						t.Errorf("expected label %v to be updated to %v, but the value was %v", e.Key, e.Value.AsString(), l.Value.AsString())
+					}
+				}
+			}
+		}
+	})
 }
 
 func TestMetricsWrapper_RecordArraySpaceMetrics(t *testing.T) {
