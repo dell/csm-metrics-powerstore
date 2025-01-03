@@ -1,5 +1,5 @@
 arrays:
-  - endpoint: "https://invalid_endpoint"
+  - endpoint: "https://dns_endpoint/api/rest"
     globalID: "array1"
     username: "user"
     password: "password"
