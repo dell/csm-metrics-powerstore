@@ -186,7 +186,8 @@ func (mw *MetricsWrapper) Record(_ context.Context, meta interface{},
 
 	metrics := metricsMapValue.(*Metrics)
 
-	_, _ = mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
+	done := make(chan struct{})
+	reg, err := mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.ReadBW, float64(readBW), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.WriteBW, float64(writeBW), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.ReadIOPS, float64(readIOPS), metric.ObserveOption(metric.WithAttributes(labels...)))
@@ -197,6 +198,9 @@ func (mw *MetricsWrapper) Record(_ context.Context, meta interface{},
 		obs.ObserveFloat64(metrics.MirrorBW, float64(mirrorBW), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.DataRemaining, float64(dataRemaining), metric.ObserveOption(metric.WithAttributes(labels...)))
 
+		go func() {
+			done <- struct{}{}
+		}()
 		return nil
 	},
 		metrics.ReadBW,
@@ -209,6 +213,12 @@ func (mw *MetricsWrapper) Record(_ context.Context, meta interface{},
 		metrics.MirrorBW,
 		metrics.DataRemaining,
 	)
+	if err != nil {
+		return err
+	}
+
+	<-done
+	_ = reg.Unregister()
 
 	return nil
 }
@@ -307,14 +317,25 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(_ context.Context, meta interface{}
 
 	metrics := metricsMapValue.(*SpaceMetrics)
 
-	_, _ = mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
+	done := make(chan struct{})
+	reg, err := mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.LogicalProvisioned, float64(logicalProvisioned), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.LogicalUsed, float64(logicalUsed), metric.ObserveOption(metric.WithAttributes(labels...)))
+
+		go func() {
+			done <- struct{}{}
+		}()
 		return nil
 	},
 		metrics.LogicalProvisioned,
 		metrics.LogicalUsed,
 	)
+	if err != nil {
+		return err
+	}
+
+	<-done
+	_ = reg.Unregister()
 
 	return nil
 }
@@ -385,14 +406,25 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(_ context.Context, arrayID, dr
 	}
 
 	metrics := metricsMapValue.(*ArraySpaceMetrics)
-	_, _ = mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
+
+	done := make(chan struct{})
+	reg, err := mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.LogicalProvisioned, float64(logicalProvisioned), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.LogicalUsed, float64(logicalUsed), metric.ObserveOption(metric.WithAttributes(labels...)))
+		go func() {
+			done <- struct{}{}
+		}()
 		return nil
 	},
 		metrics.LogicalProvisioned,
 		metrics.LogicalUsed,
 	)
+	if err != nil {
+		return err
+	}
+
+	<-done
+	_ = reg.Unregister()
 
 	return nil
 }
@@ -447,15 +479,25 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(_ context.Context, stor
 	}
 
 	metrics := metricsMapValue.(*ArraySpaceMetrics)
-	_, _ = mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
+
+	done := make(chan struct{})
+	reg, err := mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.LogicalProvisioned, float64(logicalProvisioned), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.LogicalUsed, float64(logicalUsed), metric.ObserveOption(metric.WithAttributes(labels...)))
+		go func() {
+			done <- struct{}{}
+		}()
 		return nil
 	},
 		metrics.LogicalProvisioned,
 		metrics.LogicalUsed,
 	)
+	if err != nil {
+		return err
+	}
 
+	<-done
+	_ = reg.Unregister()
 	return nil
 }
 
@@ -557,7 +599,8 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(_ context.Context, meta interf
 
 	metrics := metricsMapValue.(*Metrics)
 
-	_, _ = mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
+	done := make(chan struct{})
+	reg, err := mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
 		obs.ObserveFloat64(metrics.ReadBW, float64(readBW), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.WriteBW, float64(writeBW), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.ReadIOPS, float64(readIOPS), metric.ObserveOption(metric.WithAttributes(labels...)))
@@ -567,6 +610,9 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(_ context.Context, meta interf
 		obs.ObserveFloat64(metrics.SyncronizationBW, float64(syncBW), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.MirrorBW, float64(mirrorBW), metric.ObserveOption(metric.WithAttributes(labels...)))
 		obs.ObserveFloat64(metrics.DataRemaining, float64(dataRemaining), metric.ObserveOption(metric.WithAttributes(labels...)))
+		go func() {
+			done <- struct{}{}
+		}()
 		return nil
 	},
 		metrics.ReadBW,
@@ -579,6 +625,12 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(_ context.Context, meta interf
 		metrics.MirrorBW,
 		metrics.DataRemaining,
 	)
+	if err != nil {
+		return err
+	}
+
+	<-done
+	_ = reg.Unregister()
 
 	return nil
 }
