@@ -213,7 +213,6 @@ func (mw *MetricsWrapper) Record(_ context.Context, meta interface{},
 		metrics.MirrorBW,
 		metrics.DataRemaining,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -331,7 +330,6 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(_ context.Context, meta interface{}
 		metrics.LogicalProvisioned,
 		metrics.LogicalUsed,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -421,7 +419,6 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(_ context.Context, arrayID, dr
 		metrics.LogicalProvisioned,
 		metrics.LogicalUsed,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -495,7 +492,6 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(_ context.Context, stor
 		metrics.LogicalProvisioned,
 		metrics.LogicalUsed,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -629,7 +625,6 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(_ context.Context, meta interf
 		metrics.MirrorBW,
 		metrics.DataRemaining,
 	)
-
 	if err != nil {
 		return err
 	}
