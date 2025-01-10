@@ -5,8 +5,8 @@ go 1.23.0
 toolchain go1.23.2
 
 require (
-	github.com/dell/gocsi v1.12.0
-	github.com/dell/gopowerstore v1.16.0
+	github.com/dell/gocsi v1.13.0
+	github.com/dell/gopowerstore v1.17.0
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/golang/mock v1.6.0
 	github.com/sirupsen/logrus v1.9.3
