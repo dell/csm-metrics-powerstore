@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 
 	csictx "github.com/dell/gocsi/context"
 
@@ -101,13 +102,22 @@ func GetPowerStoreArrays(filePath string, logger *logrus.Logger) (map[string]*se
 				"unable to create PowerStore client: %s", err.Error())
 		}
 		array.Client = c
-
+		var ip string
 		ips := GetIPListFromString(array.Endpoint)
 		if ips == nil {
-			return nil, nil, nil, fmt.Errorf("can't get ips from endpoint: %s", array.Endpoint)
+			logger.Warnf("didn't found an IP from the provided endPoint, it could be a FQDN. Please make sure to enter a valid FQDN in https://abc.com/api/rest format")
+			sub := strings.Split(array.Endpoint, "/")
+			if len(sub) > 2 {
+				ip = sub[2]
+				if regexp.MustCompile(`^[0-9.]*$`).MatchString(sub[2]) {
+					return nil, nil, nil, fmt.Errorf("can't get ips from endpoint: %s", array.Endpoint)
+				}
+			} else {
+				return nil, nil, nil, fmt.Errorf("can't get ips from endpoint: %s", array.Endpoint)
+			}
+		} else {
+			ip = ips[0]
 		}
-
-		ip := ips[0]
 		array.IP = ip
 		logger.Infof("%s,%s,%s,%s,%t,%t,%s", array.Endpoint, array.GlobalID, array.Username, array.NasName, array.Insecure, array.IsDefault, array.BlockProtocol)
 		arrayMap[array.GlobalID] = array

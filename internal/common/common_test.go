@@ -49,8 +49,8 @@ func Test_Run(t *testing.T) {
 		"nil array entry": func(*testing.T) (string, map[string]string, bool) {
 			return "testdata/nil-array.yaml", nil, true
 		},
-		"invalid client creation": func(*testing.T) (string, map[string]string, bool) {
-			return "testdata/invalid-client.yaml", nil, true
+		"client with dns creation": func(*testing.T) (string, map[string]string, bool) {
+			return "testdata/client-dns.yaml", nil, false
 		},
 	}
 
