@@ -18,6 +18,7 @@ package service_test
 
 import (
 	"context"
+	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
 	"testing"
 
 	"github.com/dell/csm-metrics-powerstore/internal/service"
@@ -39,6 +40,13 @@ func TestMetricsWrapper_Record(t *testing.T) {
 			ID: "123",
 		},
 	}
+
+	exporter := &otlexporters.OtlCollectorExporter{}
+	err := exporter.InitExporter()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	type args struct {
 		ctx              context.Context
 		meta             interface{}
@@ -108,6 +116,13 @@ func TestMetricsWrapper_Record_Label_Update(t *testing.T) {
 	mw := &service.MetricsWrapper{
 		Meter: otel.Meter("powerstore-test"),
 	}
+
+	exporter := &otlexporters.OtlCollectorExporter{}
+	err := exporter.InitExporter()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	metaFirst := &service.VolumeMeta{
 		ID:                        "123",
 		PersistentVolumeName:      "pvol0",
@@ -215,6 +230,13 @@ func TestMetricsWrapper_RecordSpaceMetrics(t *testing.T) {
 			ID: "123",
 		},
 	}
+
+	exporter := &otlexporters.OtlCollectorExporter{}
+	err := exporter.InitExporter()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	type args struct {
 		ctx                context.Context
 		meta               interface{}
@@ -295,6 +317,12 @@ func TestMetricsWrapper_RecordSpaceMetrics_Label_Update(t *testing.T) {
 		Protocol:     "scsi",
 	}
 
+	exporter := &otlexporters.OtlCollectorExporter{}
+	err := exporter.InitExporter()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	expectedLables := []attribute.KeyValue{
 		attribute.String("VolumeID", metaSecond.ID),
 		attribute.String("PersistentVolumeName", metaSecond.PersistentVolumeName),
@@ -368,6 +396,12 @@ func TestMetricsWrapper_RecordArraySpaceMetrics(t *testing.T) {
 		Meter: otel.Meter("powerstore-test"),
 	}
 
+	exporter := &otlexporters.OtlCollectorExporter{}
+	err := exporter.InitExporter()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	type args struct {
 		ctx                context.Context
 		arrayID            string
@@ -406,6 +440,12 @@ func TestMetricsWrapper_RecordArraySpaceMetrics(t *testing.T) {
 func TestMetricsWrapper_RecordArraySpaceMetrics_Label_Update(t *testing.T) {
 	mw := &service.MetricsWrapper{
 		Meter: otel.Meter("powerstore-test"),
+	}
+
+	exporter := &otlexporters.OtlCollectorExporter{}
+	err := exporter.InitExporter()
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	array1 := "123"
@@ -477,6 +517,13 @@ func TestMetricsWrapper_RecordStorageClassSpaceMetrics(t *testing.T) {
 	mw := &service.MetricsWrapper{
 		Meter: otel.Meter("powerstore-test"),
 	}
+
+	exporter := &otlexporters.OtlCollectorExporter{}
+	err := exporter.InitExporter()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	type args struct {
 		ctx                context.Context
 		storageclass       string
@@ -515,6 +562,12 @@ func TestMetricsWrapper_RecordStorageClassSpaceMetrics(t *testing.T) {
 func TestMetricsWrapper_RecordStorageClassSpaceMetrics_Label_Update(t *testing.T) {
 	mw := &service.MetricsWrapper{
 		Meter: otel.Meter("powerstore-test"),
+	}
+
+	exporter := &otlexporters.OtlCollectorExporter{}
+	err := exporter.InitExporter()
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	array1 := "storageclass"
@@ -598,6 +651,13 @@ func TestMetricsWrapper_RecordFileSystemMetrics(t *testing.T) {
 			ID: "123",
 		},
 	}
+
+	exporter := &otlexporters.OtlCollectorExporter{}
+	err := exporter.InitExporter()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	type args struct {
 		ctx           context.Context
 		meta          interface{}
@@ -667,6 +727,13 @@ func TestMetricsWrapper_RecordFileSystemMetrics_Label_Update(t *testing.T) {
 	mw := &service.MetricsWrapper{
 		Meter: otel.Meter("powerstore-test"),
 	}
+
+	exporter := &otlexporters.OtlCollectorExporter{}
+	err := exporter.InitExporter()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	metaFirst := &service.VolumeMeta{
 		ID:                        "123",
 		PersistentVolumeName:      "pvol0",
