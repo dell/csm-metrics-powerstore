@@ -14,7 +14,7 @@ help:
 	@echo
 
 .PHONY: build
-build: 
+build:
 	@$(foreach svc,$(shell ls cmd), CGO_ENABLED=0 GOOS=linux go build -o ./cmd/${svc}/bin/service ./cmd/${svc}/;)
 
 .PHONY: clean
@@ -29,18 +29,10 @@ generate:
 test:
 	go test -count=1 -cover -race -timeout 30s -short ./...
 
-.PHONY: build-base-image
-build-base-image: download-csm-common
-	$(eval include csm-common.mk)
-	@echo "Building base image from $(DEFAULT_BASEIMAGE) and loading dependencies..."
-	./scripts/build_ubi_micro.sh $(DEFAULT_BASEIMAGE)
-	@echo "Base image build: SUCCESS"
-	$(eval BASEIMAGE=mpst-ubimicro:latest)
-
-# Pre-requisites: RHEL, buildah, podman
 .PHONY: podman
-podman: build-base-image
-	podman build $(NOCACHE) -t csm-metrics-powerstore -f Dockerfile --build-arg BASEIMAGE=$(BASEIMAGE) --build-arg GOIMAGE=$(DEFAULT_GOIMAGE) .
+podman: download-csm-common
+	$(eval include csm-common.mk)
+	podman build $(NOCACHE) -t csm-metrics-powerstore -f Dockerfile --build-arg BASEIMAGE=$(CSM_BASEIMAGE) --build-arg GOIMAGE=$(DEFAULT_GOIMAGE) .
 
 .PHONY: podman-no-cache
 podman-no-cache:

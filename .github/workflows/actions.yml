@@ -34,9 +34,7 @@ jobs:
         run: go mod download
       - name: Build csm-metrics-powerstore Docker Image
         run: |
-          chmod +x ./scripts/build_ubi_micro.sh
-          make build-base-image
-          podman build -t docker.io/csm-metrics-powerstore -f ./Dockerfile --build-arg GOIMAGE=golang:latest --build-arg BASEIMAGE="localhost/mpst-ubimicro"
+          podman build -t docker.io/csm-metrics-powerstore -f ./Dockerfile --build-arg GOIMAGE=golang:latest --build-arg BASEIMAGE="quay.io/dell/container-storage-modules/csm-base-image:nightly"
           podman save docker.io/library/csm-metrics-powerstore -o /tmp/csm-metrics-powerstore.tar
           docker load -i /tmp/csm-metrics-powerstore.tar
       - name: Run Trivy action
