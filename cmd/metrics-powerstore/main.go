@@ -296,12 +296,14 @@ func updateService(pstoreSvc *service.PowerStoreService, logger *logrus.Logger) 
 	maxPowerStoreConcurrentRequests := service.DefaultMaxPowerStoreConnections
 	maxPowerStoreConcurrentRequestsVar := viper.GetString("POWERSTORE_MAX_CONCURRENT_QUERIES")
 	if maxPowerStoreConcurrentRequestsVar != "" {
-		maxPowerStoreConcurrentRequests, err := strconv.Atoi(maxPowerStoreConcurrentRequestsVar)
+		maxConncurrentRequests, err := strconv.Atoi(maxPowerStoreConcurrentRequestsVar)
 		if err != nil {
 			logger.WithError(err).Fatal("POWERSTORE_MAX_CONCURRENT_QUERIES was not set to a valid number")
 		}
-		if maxPowerStoreConcurrentRequests <= 0 {
+		if maxConncurrentRequests <= 0 {
 			logger.WithError(err).Fatal("POWERSTORE_MAX_CONCURRENT_QUERIES value was invalid (<= 0)")
+		} else {
+			maxPowerStoreConcurrentRequests = maxConncurrentRequests
 		}
 	}
 	pstoreSvc.MaxPowerStoreConnections = maxPowerStoreConcurrentRequests
