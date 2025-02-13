@@ -50,9 +50,6 @@ func InitTracing(uri string, prob float64) (trace.TracerProvider, error) {
 			sdktrace.WithMaxExportBatchSize(sdktrace.DefaultMaxExportBatchSize),
 		),
 	)
-	if err != nil {
-		return nil, err
-	}
 	return tp, nil
 }
 
