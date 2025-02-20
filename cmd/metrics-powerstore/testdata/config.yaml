@@ -1,0 +1,4 @@
+  logLevel: INFO
+  logFormat: text
+  authorization:
+    enabled: false
