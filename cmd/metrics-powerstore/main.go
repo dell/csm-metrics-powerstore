@@ -51,55 +51,29 @@ const (
 
 func main() {
 	logger := logrus.New()
+	config := initializeConfig(logger)
+	exporter := &otlexporters.OtlCollectorExporter{}
+	powerStoreSvc := initializePowerStoreService(logger)
 
+	startConfigWatchers(logger, config, exporter, powerStoreSvc)
+	startHTTPServer(logger)
+
+	if err := entrypoint.Run(context.Background(), config, exporter, powerStoreSvc); err != nil {
+		logger.WithError(err).Fatal("running service")
+	}
+}
+
+func initializeConfig(logger *logrus.Logger) *entrypoint.Config {
 	viper.SetConfigFile(defaultConfigFile)
-
 	err := viper.ReadInConfig()
 	// if unable to read configuration file, proceed in case we use environment variables
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to read Config file: %v", err)
 	}
 
-	configFileListener := viper.New()
-	configFileListener.SetConfigFile(defaultStorageSystemConfigFile)
-
-	leaderElectorGetter := &k8s.LeaderElector{
-		API: &k8s.LeaderElector{},
-	}
-
-	updateLoggingSettings := func(logger *logrus.Logger) {
-		logFormat := viper.GetString("LOG_FORMAT")
-		if strings.EqualFold(logFormat, "json") {
-			logger.SetFormatter(&logrus.JSONFormatter{})
-		} else {
-			// use text formatter by default
-			logger.SetFormatter(&logrus.TextFormatter{})
-		}
-		logLevel := viper.GetString("LOG_LEVEL")
-		level, err := logrus.ParseLevel(logLevel)
-		if err != nil {
-			// use INFO level by default
-			level = logrus.InfoLevel
-		}
-		logger.SetLevel(level)
-	}
-
-	updateLoggingSettings(logger)
-
-	volumeFinder := &k8s.VolumeFinder{
-		API:    &k8s.API{},
-		Logger: logger,
-	}
-
-	updateProvisionerNames(volumeFinder, logger)
-
-	var collectorCertPath string
-	if tls := os.Getenv("TLS_ENABLED"); tls == "true" {
-		collectorCertPath = os.Getenv("COLLECTOR_CERT_PATH")
-		if len(strings.TrimSpace(collectorCertPath)) < 1 {
-			collectorCertPath = otlexporters.DefaultCollectorCertPath
-		}
-	}
+	leaderElectorGetter := &k8s.LeaderElector{API: &k8s.LeaderElector{}}
+	collectorCertPath := getCollectorCertPath()
+	exporter := &otlexporters.OtlCollectorExporter{}
 
 	config := &entrypoint.Config{
 		LeaderElector:     leaderElectorGetter,
@@ -107,24 +81,66 @@ func main() {
 		Logger:            logger,
 	}
 
-	exporter := &otlexporters.OtlCollectorExporter{}
-
-	powerStoreSvc := &service.PowerStoreService{
-		MetricsWrapper: &service.MetricsWrapper{
-			Meter: otel.Meter("powerstore"),
-		},
-		Logger:       logger,
-		VolumeFinder: volumeFinder,
-	}
-
-	updatePowerStoreConnection(powerStoreSvc, logger)
+	updateLoggingSettings(logger)
 	updateCollectorAddress(config, exporter, logger)
 	updateMetricsEnabled(config, logger)
 	updateTickIntervals(config, logger)
+
+	return config
+}
+
+var updateLoggingSettings = func(logger *logrus.Logger) {
+	logFormat := viper.GetString("LOG_FORMAT")
+	if strings.EqualFold(logFormat, "json") {
+		logger.SetFormatter(&logrus.JSONFormatter{})
+	} else {
+		// use text formatter by default
+		logger.SetFormatter(&logrus.TextFormatter{})
+	}
+	logLevel := viper.GetString("LOG_LEVEL")
+	level, err := logrus.ParseLevel(logLevel)
+	if err != nil {
+		// use INFO level by default
+		level = logrus.InfoLevel
+	}
+	logger.SetLevel(level)
+}
+
+func getCollectorCertPath() string {
+	if tls := os.Getenv("TLS_ENABLED"); tls == "true" {
+		collectorCertPath := os.Getenv("COLLECTOR_CERT_PATH")
+		if len(strings.TrimSpace(collectorCertPath)) < 1 {
+			return otlexporters.DefaultCollectorCertPath
+		}
+		fmt.Println("collectorCertPath", collectorCertPath)
+		return collectorCertPath
+	}
+	return ""
+}
+
+func initializePowerStoreService(logger *logrus.Logger) *service.PowerStoreService {
+	volumeFinder := &k8s.VolumeFinder{API: &k8s.API{}, Logger: logger}
+	updateProvisionerNames(volumeFinder, logger)
+
+	powerStoreSvc := &service.PowerStoreService{
+		MetricsWrapper: &service.MetricsWrapper{Meter: otel.Meter("powerstore")},
+		Logger:         logger,
+		VolumeFinder:   volumeFinder,
+	}
+
+	updatePowerStoreConnection(powerStoreSvc, logger)
 	updateService(powerStoreSvc, logger)
 	updateTracing(logger)
 
+	return powerStoreSvc
+}
+
+func startConfigWatchers(logger *logrus.Logger, config *entrypoint.Config, exporter *otlexporters.OtlCollectorExporter, powerStoreSvc *service.PowerStoreService) {
 	viper.WatchConfig()
+	volumeFinder := &k8s.VolumeFinder{
+		API:    &k8s.API{},
+		Logger: logger,
+	}
 	viper.OnConfigChange(func(_ fsnotify.Event) {
 		updateLoggingSettings(logger)
 		updateCollectorAddress(config, exporter, logger)
@@ -135,11 +151,15 @@ func main() {
 		updateTracing(logger)
 	})
 
+	configFileListener := viper.New()
+	configFileListener.SetConfigFile(defaultStorageSystemConfigFile)
 	configFileListener.WatchConfig()
 	configFileListener.OnConfigChange(func(_ fsnotify.Event) {
 		updatePowerStoreConnection(powerStoreSvc, logger)
 	})
+}
 
+func startHTTPServer(logger *logrus.Logger) {
 	viper.SetDefault("TLS_CERT_PATH", defaultCertFile)
 	viper.SetDefault("TLS_KEY_PATH", defaultKeyFile)
 	viper.SetDefault("PORT", defaultDebugPort)
@@ -150,15 +170,7 @@ func main() {
 	// TLS_KEY_PATH is only read as an environment variable
 	keyFile := viper.GetString("TLS_KEY_PATH")
 
-	var bindPort int
-	// PORT is only read as an environment variable
-	portEnv := viper.GetString("PORT")
-	if portEnv != "" {
-		var err error
-		if bindPort, err = strconv.Atoi(portEnv); err != nil {
-			logger.WithError(err).WithField("port", portEnv).Fatal("port value is invalid")
-		}
-	}
+	bindPort := getBindPort(logger)
 
 	go func() {
 		expvar.NewString("service").Set("metrics-powerstore")
@@ -174,10 +186,18 @@ func main() {
 			logger.WithError(err).Error("debug listener closed")
 		}
 	}()
+}
 
-	if err := entrypoint.Run(context.Background(), config, exporter, powerStoreSvc); err != nil {
-		logger.WithError(err).Fatal("running service")
+func getBindPort(logger *logrus.Logger) int {
+	portEnv := viper.GetString("PORT")
+	if portEnv != "" {
+		bindPort, err := strconv.Atoi(portEnv)
+		if err != nil {
+			logger.WithError(err).WithField("port", portEnv).Fatal("port value is invalid")
+		}
+		return bindPort
 	}
+	return 0
 }
 
 func updateTracing(logger *logrus.Logger) {
