@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -304,4 +305,39 @@ func TestStartConfigWatchers(t *testing.T) {
 	assert.Equal(t, time.Second*10, config.FileSystemTickInterval)
 
 	viper.Reset()
+}
+
+func TestGetBindPort(t *testing.T) {
+	logger := logrus.New()
+
+	// Test case: Default port
+	t.Run("Default port", func(t *testing.T) {
+		// viper.Set("PORT", "")
+		startHTTPServer(logger)
+		logger := logrus.New()
+
+		result := getBindPort(logger)
+
+		assert.Equal(t, defaultDebugPort, strconv.Itoa(result))
+	})
+
+	// Test case: Custom port
+	t.Run("Custom port", func(t *testing.T) {
+		viper.Set("PORT", "8080")
+		logger := logrus.New()
+
+		result := getBindPort(logger)
+
+		assert.Equal(t, 8080, result)
+	})
+
+	// Test case: Invalid port
+	t.Run("Invalid port", func(t *testing.T) {
+		viper.Set("PORT", "invalid")
+		logger.ExitFunc = func(int) { panic("fatal") }
+
+		// getBindPort(logger)
+		// expectedOutput := "port value is invalid"
+		assert.Panics(t, func() { panic(getBindPort(logger)) })
+	})
 }
