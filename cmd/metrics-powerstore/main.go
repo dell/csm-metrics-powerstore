@@ -49,11 +49,11 @@ const (
 	defaultKeyFile                 = "/certs/localhost.key"
 )
 
+var getPowerStoreArrays = common.GetPowerStoreArrays
+
 func main() {
-	logger := logrus.New()
-	config := initializeConfig(logger)
-	exporter := &otlexporters.OtlCollectorExporter{}
-	powerStoreSvc := initializePowerStoreService(logger)
+
+	logger, config, powerStoreSvc, exporter := initializeConfig()
 
 	startConfigWatchers(logger, config, exporter, powerStoreSvc)
 	startHTTPServer(logger)
@@ -63,7 +63,9 @@ func main() {
 	}
 }
 
-func initializeConfig(logger *logrus.Logger) *entrypoint.Config {
+func initializeConfig() (*logrus.Logger, *entrypoint.Config, *service.PowerStoreService, *otlexporters.OtlCollectorExporter) {
+	logger := logrus.New()
+	exporter := &otlexporters.OtlCollectorExporter{}
 	viper.SetConfigFile(defaultConfigFile)
 	err := viper.ReadInConfig()
 	// if unable to read configuration file, proceed in case we use environment variables
@@ -73,7 +75,6 @@ func initializeConfig(logger *logrus.Logger) *entrypoint.Config {
 
 	leaderElectorGetter := &k8s.LeaderElector{API: &k8s.LeaderElector{}}
 	collectorCertPath := getCollectorCertPath()
-	exporter := &otlexporters.OtlCollectorExporter{}
 
 	config := &entrypoint.Config{
 		LeaderElector:     leaderElectorGetter,
@@ -81,16 +82,33 @@ func initializeConfig(logger *logrus.Logger) *entrypoint.Config {
 		Logger:            logger,
 	}
 
+	volumeFinder := &k8s.VolumeFinder{API: &k8s.API{}, Logger: logger}
+
+	powerStoreSvc := &service.PowerStoreService{
+		MetricsWrapper: &service.MetricsWrapper{Meter: otel.Meter("powerstore")},
+		Logger:         logger,
+		VolumeFinder:   volumeFinder,
+	}
+
+	updatePowerStoreConnection(powerStoreSvc, logger)
+	applyInitialConfig(logger, config, exporter, powerStoreSvc, volumeFinder)
+
+	return logger, config, powerStoreSvc, exporter
+}
+
+func applyInitialConfig(logger *logrus.Logger, config *entrypoint.Config, exporter *otlexporters.OtlCollectorExporter, powerStoreSvc *service.PowerStoreService, volumeFinder *k8s.VolumeFinder) {
 	updateLoggingSettings(logger)
 	updateCollectorAddress(config, exporter, logger)
+	updateProvisionerNames(volumeFinder, logger)
 	updateMetricsEnabled(config, logger)
 	updateTickIntervals(config, logger)
-
-	return config
+	updateService(powerStoreSvc, logger)
+	updateTracing(logger)
 }
 
 var updateLoggingSettings = func(logger *logrus.Logger) {
 	logFormat := viper.GetString("LOG_FORMAT")
+	fmt.Printf("LOG_FORMAT: %s\n", logFormat)
 	if strings.EqualFold(logFormat, "json") {
 		logger.SetFormatter(&logrus.JSONFormatter{})
 	} else {
@@ -118,23 +136,6 @@ func getCollectorCertPath() string {
 	return ""
 }
 
-func initializePowerStoreService(logger *logrus.Logger) *service.PowerStoreService {
-	volumeFinder := &k8s.VolumeFinder{API: &k8s.API{}, Logger: logger}
-	updateProvisionerNames(volumeFinder, logger)
-
-	powerStoreSvc := &service.PowerStoreService{
-		MetricsWrapper: &service.MetricsWrapper{Meter: otel.Meter("powerstore")},
-		Logger:         logger,
-		VolumeFinder:   volumeFinder,
-	}
-
-	updatePowerStoreConnection(powerStoreSvc, logger)
-	updateService(powerStoreSvc, logger)
-	updateTracing(logger)
-
-	return powerStoreSvc
-}
-
 func startConfigWatchers(logger *logrus.Logger, config *entrypoint.Config, exporter *otlexporters.OtlCollectorExporter, powerStoreSvc *service.PowerStoreService) {
 	viper.WatchConfig()
 	volumeFinder := &k8s.VolumeFinder{
@@ -142,13 +143,7 @@ func startConfigWatchers(logger *logrus.Logger, config *entrypoint.Config, expor
 		Logger: logger,
 	}
 	viper.OnConfigChange(func(_ fsnotify.Event) {
-		updateLoggingSettings(logger)
-		updateCollectorAddress(config, exporter, logger)
-		updateProvisionerNames(volumeFinder, logger)
-		updateMetricsEnabled(config, logger)
-		updateTickIntervals(config, logger)
-		updateService(powerStoreSvc, logger)
-		updateTracing(logger)
+		applyInitialConfig(logger, config, exporter, powerStoreSvc, volumeFinder)
 	})
 
 	configFileListener := viper.New()
@@ -163,6 +158,7 @@ func startHTTPServer(logger *logrus.Logger) {
 	viper.SetDefault("TLS_CERT_PATH", defaultCertFile)
 	viper.SetDefault("TLS_KEY_PATH", defaultKeyFile)
 	viper.SetDefault("PORT", defaultDebugPort)
+	fmt.Printf("PORT: %s\n", viper.GetString("PORT"))
 
 	// TLS_CERT_PATH is only read as an environment variable
 	certFile := viper.GetString("TLS_CERT_PATH")
@@ -220,7 +216,7 @@ func updateTracing(logger *logrus.Logger) {
 }
 
 func updatePowerStoreConnection(powerStoreSvc *service.PowerStoreService, logger *logrus.Logger) {
-	arrays, _, _, err := common.GetPowerStoreArrays(defaultStorageSystemConfigFile, logger)
+	arrays, _, _, err := getPowerStoreArrays(defaultStorageSystemConfigFile, logger)
 	if err != nil {
 		logger.WithError(err).Fatal("initialize arrays in controller service")
 	}
@@ -234,6 +230,7 @@ func updatePowerStoreConnection(powerStoreSvc *service.PowerStoreService, logger
 
 func updateCollectorAddress(config *entrypoint.Config, exporter *otlexporters.OtlCollectorExporter, logger *logrus.Logger) {
 	collectorAddress := viper.GetString("COLLECTOR_ADDR")
+	fmt.Printf("COLLECTOR_ADDR: %s\n", collectorAddress)
 	if collectorAddress == "" {
 		logger.Fatal("COLLECTOR_ADDR is required")
 	}
