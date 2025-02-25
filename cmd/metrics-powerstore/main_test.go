@@ -178,62 +178,6 @@ func TestGetCollectorCertPath(t *testing.T) {
 	}
 }
 
-// func TestStartConfigWatchers(t *testing.T) {
-// 	logger := logrus.New()
-// 	config := &entrypoint.Config{}
-// 	exporter := &otlexporters.OtlCollectorExporter{}
-// 	powerStoreSvc := &service.PowerStoreService{}
-// 	volumeFinder := &k8s.VolumeFinder{
-// 		API:    &k8s.API{},
-// 		Logger: logger,
-// 	}
-
-// 	// Test case: Viper configuration is updated
-// 	viper.Set("test_key", "test_value")
-// 	viper.Set("POWERSTORE_VOLUME_IO_POLL_FREQUENCY", "10")
-// 	viper.Set("COLLECTOR_ADDR", "test_address")
-// 	viper.Set("POWERSTORE_VOLUME_METRICS_ENABLED", "true")
-// 	viper.OnConfigChange(func(_ fsnotify.Event) {
-// 		updateLoggingSettings(logger)
-// 		updateCollectorAddress(config, exporter, logger)
-// 		updateProvisionerNames(volumeFinder, logger)
-// 		updateMetricsEnabled(config, logger)
-// 		updateTickIntervals(config, logger)
-// 		updateService(powerStoreSvc, logger)
-// 		updateTracing(logger)
-// 	})
-
-// 	startConfigWatchers(logger, config, exporter, powerStoreSvc)
-
-// 	// Assert that the logging settings are updated
-// 	assert.Equal(t, logrus.InfoLevel, logger.Level)
-// 	assert.Equal(t, "test_value", viper.GetString("test_key"))
-
-// 	// Assert that the collector address is updated
-// 	// assert.Equal(t, "test_address", config.CollectorAddress)
-// 	assert.Equal(t, "test_address", exporter.CollectorAddr)
-
-// 	// Assert that the provisioner names are updated
-// 	// assert.Equal(t, []string{"test_provisioner"}, powerStoreSvc.VolumeFinder.DriverNames)
-
-// 	// Assert that the metrics enabled flag is updated
-// 	assert.Equal(t, true, config.VolumeMetricsEnabled)
-
-// 	// Assert that the tick intervals are updated
-// 	assert.Equal(t, time.Second*10, config.VolumeTickInterval)
-// 	assert.Equal(t, time.Second*10, config.SpaceTickInterval)
-// 	assert.Equal(t, time.Second*10, config.ArrayTickInterval)
-// 	assert.Equal(t, time.Second*10, config.FileSystemTickInterval)
-
-// 	// Assert that the service is updated
-// 	assert.Equal(t, time.Second*10, config.VolumeTickInterval)
-
-// Assert that the tracing is updated
-// assert.Equal(t, "test_uri", tracer.ZipkinURI)
-// assert.Equal(t, float32(0.5), tracer.ZipkinProbability)
-// assert.Equal(t, "test_service_name", tracer.ZipkinServiceName)
-// }
-
 func TestInitializePowerStoreService(t *testing.T) {
 	logger := logrus.New()
 	viper.Set("provisioner_names", "test-provisioner,test-provisioner-2")
@@ -340,4 +284,75 @@ func TestGetBindPort(t *testing.T) {
 		// expectedOutput := "port value is invalid"
 		assert.Panics(t, func() { panic(getBindPort(logger)) })
 	})
+}
+
+func TestUpdateTickIntervals(t *testing.T) {
+	tests := []struct {
+		name      string
+		volFreq   string
+		spaceFreq string
+		arrayFreq string
+		fsFreq    string
+		// volMetricsFreq string
+		expectedVolFreq   time.Duration
+		expectedSpaceFreq time.Duration
+		expectedArrayFreq time.Duration
+		expectedFsFreq    time.Duration
+		// expectedVolMetricsFreq  time.Duration
+		expectPanic bool
+	}{
+		{
+			name:      "Valid Values",
+			volFreq:   "10",
+			spaceFreq: "20",
+			arrayFreq: "10",
+			fsFreq:    "20",
+			// volMetricsFreq: "10",
+			expectedVolFreq:   10 * time.Second,
+			expectedSpaceFreq: 20 * time.Second,
+			expectedArrayFreq: 10 * time.Second,
+			expectedFsFreq:    20 * time.Second,
+			// expectedVolMetricsFreq:  10 * time.Second,
+			expectPanic: false,
+		},
+		{
+			name:      "InValid Values",
+			volFreq:   "invalid",
+			spaceFreq: "invalid",
+			arrayFreq: "",
+			fsFreq:    "invalidinvalid",
+			// volMetricsFreq: "10",
+			expectedVolFreq:   defaultTickInterval,
+			expectedSpaceFreq: defaultTickInterval,
+			expectedArrayFreq: defaultTickInterval,
+			expectedFsFreq:    defaultTickInterval,
+			// expectedVolMetricsFreq: defaultTickInterval,
+			expectPanic: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			viper.Reset()
+			viper.Set("POWERSTORE_VOLUME_IO_POLL_FREQUENCY", tt.volFreq)
+			viper.Set("POWERSTORE_SPACE_POLL_FREQUENCY", tt.spaceFreq)
+			viper.Set("POWERSTORE_ARRAY_POLL_FREQUENCY", tt.arrayFreq)
+			viper.Set("POWERSTORE_FILE_SYSTEM_POLL_FREQUENCY", tt.fsFreq)
+			// viper.Set("POWERSTORE_VOLUME_METRICS_ENABLED", "invalid")
+
+			config := &entrypoint.Config{}
+			logger := logrus.New()
+			logger.ExitFunc = func(int) { panic("fatal") }
+
+			if tt.expectPanic {
+				assert.Panics(t, func() { updateTickIntervals(config, logger) })
+			} else {
+				assert.NotPanics(t, func() { updateTickIntervals(config, logger) })
+				assert.Equal(t, time.Second*10, config.VolumeTickInterval)
+				assert.Equal(t, time.Second*20, config.SpaceTickInterval)
+				assert.Equal(t, time.Second*10, config.ArrayTickInterval)
+				assert.Equal(t, time.Second*20, config.FileSystemTickInterval)
+			}
+		})
+	}
 }
