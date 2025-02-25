@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"os"
 	"strconv"
@@ -15,6 +16,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func TestInitializeConfig(t *testing.T) {
@@ -54,44 +57,6 @@ TLS_ENABLED: false
 		// Handle the error or log it
 		log.Printf("Error reading config: %v", err)
 	}
-
-	// Test case: configuration file is readable
-	// viper.SetConfigFile("testdata/config.yaml")
-	// err = viper.ReadInConfig()
-	// if err != nil {
-	// 	t.Fatalf("unable to read Config file: %v", err)
-	// }
-
-	// // Create a directory at the given path
-	// dirPath := "/etc/config"
-
-	// // Remove the directory if available
-	// err = os.RemoveAll(dirPath)
-	// if err != nil {
-	// 	fmt.Println("Error removing directory:", err)
-	// 	return
-	// }
-	// err = os.Mkdir(dirPath, os.ModePerm)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// viper.Set("COLLECTOR_ADDR", "localhost:4317")
-	// defer viper.Reset()
-
-	// viper.Set("TLS_ENABLED", false)
-	// // viper.Set("COLLECTOR_CERT_PATH", "testdata/cert.crt")
-
-	// // Create a file inside the directory
-	// filePath := filepath.Join(dirPath, "karavi-metrics-powerstore.yaml")
-	// file, err := os.Create(filePath)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// defer file.Close()
-
-	// logger := logrus.New()
-	//
 
 	tests := []struct {
 		name                  string
@@ -212,156 +177,28 @@ func Test_updateService(t *testing.T) {
 	})
 }
 
-// func TestInitializeConfig(t *testing.T) {
-// 	// Test case: configuration file is readable
-// 	viper.SetConfigFile("testdata/config.yaml")
-// 	err := viper.ReadInConfig()
-// 	if err != nil {
-// 		t.Fatalf("unable to read Config file: %v", err)
-// 	}
-
-// 	// Create a directory at the given path
-// 	dirPath := "/etc/config"
-
-// 	// Remove the directory if available
-// 	err = os.RemoveAll(dirPath)
-// 	if err != nil {
-// 		fmt.Println("Error removing directory:", err)
-// 		return
-// 	}
-// 	err = os.Mkdir(dirPath, os.ModePerm)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	viper.Set("COLLECTOR_ADDR", "localhost:4317")
-// 	defer viper.Reset()
-
-// 	viper.Set("TLS_ENABLED", false)
-// 	// viper.Set("COLLECTOR_CERT_PATH", "testdata/cert.crt")
-
-// 	// Create a file inside the directory
-// 	filePath := filepath.Join(dirPath, "karavi-metrics-powerstore.yaml")
-// 	file, err := os.Create(filePath)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	defer file.Close()
-
-// 	logger := logrus.New()
-// 	logger, config, powerStoreSvc, exporter = initializeConfig()
-
-// 	if config.LeaderElector == nil {
-// 		t.Errorf("expected LeaderElector to be initialized, got nil")
-// 	}
-// 	fmt.Println("Certpath ", config.CollectorCertPath)
-
-// 	// if config.CollectorCertPath != "testdata/cert.crt" {
-// 	// 	t.Errorf("expected CollectorCertPath to be 'testdata/cert.crt', got %s", config.CollectorCertPath)
-// 	// }
-
-// 	if config.Logger != logger {
-// 		t.Errorf("expected Logger to be the same as the input logger, got different logger")
-// 	}
-
-// 	// Test case: configuration file is not readable
-// 	viper.SetConfigFile("testdata/nonexistent.yaml")
-// 	err = viper.ReadInConfig()
-// 	if err == nil {
-// 		t.Fatalf("expected unable to read Config file, got nil error")
-// 	}
-
-// 	logger = logrus.New()
-// 	config = initializeConfig(logger)
-
-// 	if config.LeaderElector == nil {
-// 		t.Errorf("expected LeaderElector to be initialized, got nil")
-// 	}
-
-// 	if config.CollectorCertPath != "" {
-// 		t.Errorf("expected CollectorCertPath to be empty, got %s", config.CollectorCertPath)
-// 	}
-
-// 	if config.Logger != logger {
-// 		t.Errorf("expected Logger to be the same as the input logger, got different logger")
-// 	}
-
-// 	// Delete the file
-// 	err = os.Remove(filePath)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// }
-
 func TestGetCollectorCertPath(t *testing.T) {
-	// Test case: TLS_ENABLED is not set
-	os.Setenv("TLS_ENABLED", "")
+
+	// Test case: TLS_ENABLED is set to false
+	os.Setenv("TLS_ENABLED", "false")
 	if getCollectorCertPath() != "" {
 		t.Errorf("expected empty string, got %s", getCollectorCertPath())
+	}
 
-		// Test case: TLS_ENABLED is set to false
-		os.Setenv("TLS_ENABLED", "false")
-		if getCollectorCertPath() != "" {
-			t.Errorf("expected empty string, got %s", getCollectorCertPath())
-		}
+	// Test case: TLS_ENABLED is set to true, COLLECTOR_CERT_PATH is empty
+	os.Setenv("TLS_ENABLED", "true")
+	os.Setenv("COLLECTOR_CERT_PATH", "")
+	if getCollectorCertPath() != otlexporters.DefaultCollectorCertPath {
+		t.Errorf("expected %s, got %s", otlexporters.DefaultCollectorCertPath, getCollectorCertPath())
+	}
 
-		// Test case: TLS_ENABLED is set to true, COLLECTOR_CERT_PATH is empty
-		os.Setenv("TLS_ENABLED", "true")
-		os.Setenv("COLLECTOR_CERT_PATH", "")
-		if getCollectorCertPath() != otlexporters.DefaultCollectorCertPath {
-			t.Errorf("expected %s, got %s", otlexporters.DefaultCollectorCertPath, getCollectorCertPath())
-		}
-
-		// Test case: TLS_ENABLED is set to true, COLLECTOR_CERT_PATH is not empty
-		os.Setenv("TLS_ENABLED", "true")
-		os.Setenv("COLLECTOR_CERT_PATH", "/path/to/cert.crt")
-		if getCollectorCertPath() != "/path/to/cert.crt" {
-			t.Errorf("expected %s, got %s", "/path/to/cert.crt", getCollectorCertPath())
-		}
+	// Test case: TLS_ENABLED is set to true, COLLECTOR_CERT_PATH is not empty
+	os.Setenv("TLS_ENABLED", "true")
+	os.Setenv("COLLECTOR_CERT_PATH", "/path/to/cert.crt")
+	if getCollectorCertPath() != "/path/to/cert.crt" {
+		t.Errorf("expected %s, got %s", "/path/to/cert.crt", getCollectorCertPath())
 	}
 }
-
-// func TestInitializePowerStoreService(t *testing.T) {
-// 	logger := logrus.New()
-// 	config := &entrypoint.Config{}
-// 	exporter := &otlexporters.OtlCollectorExporter{}
-// 	powerStoreSvc := &service.PowerStoreService{}
-// 	viper.Set("provisioner_names", "test-provisioner,test-provisioner-2")
-
-// 	// Create a directory at the given path
-// 	dirPath := "/powerstore-config"
-
-// 	// Remove the directory if available
-// 	err := os.RemoveAll(dirPath)
-// 	if err != nil {
-// 		fmt.Println("Error removing directory:", err)
-// 		return
-// 	}
-// 	err = os.MkdirAll(dirPath, os.ModePerm)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	filePath := filepath.Join(dirPath, "config")
-// 	file, err := os.Create(filePath)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	defer file.Close()
-
-// 	// Test case: Initialize PowerStore service with valid inputs
-// 	t.Run("Initialize PowerStore service with valid inputs", func(t *testing.T) {
-// 		config, powerStoreSvc = initializePowerStoreService(logger)
-
-// 		assert.NotNil(t, powerStoreSvc)
-// 		assert.NotNil(t, powerStoreSvc.Logger)
-// 		assert.NotNil(t, powerStoreSvc.VolumeFinder)
-// 		assert.NotNil(t, powerStoreSvc.MetricsWrapper)
-
-// 	})
-
-// 	viper.Reset()
-
-// }
 
 func TestStartConfigWatchers(t *testing.T) {
 	logger := logrus.New()
@@ -426,54 +263,82 @@ func TestGetBindPort(t *testing.T) {
 		viper.Set("PORT", "invalid")
 		logger.ExitFunc = func(int) { panic("fatal") }
 
-		// getBindPort(logger)
-		// expectedOutput := "port value is invalid"
 		assert.Panics(t, func() { panic(getBindPort(logger)) })
 	})
 }
 
 func TestUpdateTickIntervals(t *testing.T) {
 	tests := []struct {
-		name      string
-		volFreq   string
-		spaceFreq string
-		arrayFreq string
-		fsFreq    string
-		// volMetricsFreq string
+		name              string
+		volFreq           string
+		spaceFreq         string
+		arrayFreq         string
+		fsFreq            string
 		expectedVolFreq   time.Duration
 		expectedSpaceFreq time.Duration
 		expectedArrayFreq time.Duration
 		expectedFsFreq    time.Duration
-		// expectedVolMetricsFreq  time.Duration
-		expectPanic bool
+		expectPanic       bool
 	}{
 		{
-			name:      "Valid Values",
-			volFreq:   "10",
-			spaceFreq: "20",
-			arrayFreq: "10",
-			fsFreq:    "20",
-			// volMetricsFreq: "10",
+			name:              "Valid Values",
+			volFreq:           "10",
+			spaceFreq:         "20",
+			arrayFreq:         "10",
+			fsFreq:            "20",
 			expectedVolFreq:   10 * time.Second,
 			expectedSpaceFreq: 20 * time.Second,
 			expectedArrayFreq: 10 * time.Second,
 			expectedFsFreq:    20 * time.Second,
-			// expectedVolMetricsFreq:  10 * time.Second,
-			expectPanic: false,
+			expectPanic:       false,
 		},
 		{
-			name:      "InValid Values",
-			volFreq:   "invalid",
-			spaceFreq: "invalid",
-			arrayFreq: "",
-			fsFreq:    "invalidinvalid",
-			// volMetricsFreq: "10",
+			name:              "InValid Values",
+			volFreq:           "invalid",
+			spaceFreq:         "invalid",
+			arrayFreq:         "",
+			fsFreq:            "invalidinvalid",
 			expectedVolFreq:   defaultTickInterval,
 			expectedSpaceFreq: defaultTickInterval,
 			expectedArrayFreq: defaultTickInterval,
 			expectedFsFreq:    defaultTickInterval,
-			// expectedVolMetricsFreq: defaultTickInterval,
-			expectPanic: true,
+			expectPanic:       true,
+		},
+		{
+			name:              "InValid SpaceFreq",
+			volFreq:           "10",
+			spaceFreq:         "invalid",
+			arrayFreq:         "10",
+			fsFreq:            "10",
+			expectedVolFreq:   10 * time.Second,
+			expectedSpaceFreq: defaultTickInterval,
+			expectedArrayFreq: 10 * time.Second,
+			expectedFsFreq:    10 * time.Second,
+			expectPanic:       true,
+		},
+		{
+			name:              "InValid arrayFreq",
+			volFreq:           "10",
+			spaceFreq:         "10",
+			arrayFreq:         "invalid",
+			fsFreq:            "10",
+			expectedVolFreq:   10 * time.Second,
+			expectedSpaceFreq: 10 * time.Second,
+			expectedArrayFreq: defaultTickInterval,
+			expectedFsFreq:    10 * time.Second,
+			expectPanic:       true,
+		},
+		{
+			name:              "InValid fsFeq",
+			volFreq:           "10",
+			spaceFreq:         "10",
+			arrayFreq:         "10",
+			fsFreq:            "invalid",
+			expectedVolFreq:   10 * time.Second,
+			expectedSpaceFreq: 10 * time.Second,
+			expectedArrayFreq: 10 * time.Second,
+			expectedFsFreq:    defaultTickInterval,
+			expectPanic:       true,
 		},
 	}
 
@@ -498,6 +363,50 @@ func TestUpdateTickIntervals(t *testing.T) {
 				assert.Equal(t, time.Second*20, config.SpaceTickInterval)
 				assert.Equal(t, time.Second*10, config.ArrayTickInterval)
 				assert.Equal(t, time.Second*20, config.FileSystemTickInterval)
+			}
+		})
+	}
+}
+
+func TestUpdateTracing(t *testing.T) {
+	tests := []struct {
+		name        string
+		initTracing func(string, float64) (trace.TracerProvider, error)
+		envVars     map[string]string
+		wantErr     bool
+	}{
+		{
+			name: "valid tracing",
+			initTracing: func(string, float64) (trace.TracerProvider, error) {
+				tp := otel.GetTracerProvider()
+				return tp, nil
+			},
+			envVars: map[string]string{"ZIPKIN_URI": "http://localhost:9411/api/v2/spans", "ZIPKIN_SERVICE": "test-service", "ZIPKIN_PROBABILITY": "0.5"},
+			wantErr: false,
+		},
+		{
+			name: "tracing initialization error",
+			initTracing: func(string, float64) (trace.TracerProvider, error) {
+				return nil, errors.New("tracing initialization error")
+			},
+			envVars: map[string]string{"ZIPKIN_URI": "http://localhost:9411/api/v2/spans", "ZIPKIN_SERVICE": "test-service", "ZIPKIN_PROBABILITY": "0.5"},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := logrus.New()
+			initTracing = tt.initTracing
+			viper.Reset()
+			for k, v := range tt.envVars {
+				viper.Set(k, v)
+				defer viper.Set(k, "")
+			}
+			updateTracing(logger)
+
+			if tt.wantErr {
+				assert.NotNil(t, logger.Out)
 			}
 		})
 	}

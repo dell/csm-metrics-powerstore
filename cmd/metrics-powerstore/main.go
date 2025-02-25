@@ -50,6 +50,7 @@ const (
 )
 
 var getPowerStoreArrays = common.GetPowerStoreArrays
+var initTracing = tracer.InitTracing
 
 func main() {
 
@@ -201,7 +202,7 @@ func updateTracing(logger *logrus.Logger) {
 	zipkinServiceName := viper.GetString("ZIPKIN_SERVICE_NAME")
 	zipkinProbability := viper.GetFloat64("ZIPKIN_PROBABILITY")
 
-	tp, err := tracer.InitTracing(zipkinURI, zipkinProbability)
+	tp, err := initTracing(zipkinURI, zipkinProbability)
 	if err != nil {
 		logger.WithError(err).Error("initializing tracer")
 	}
