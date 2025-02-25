@@ -49,7 +49,10 @@ const (
 	defaultKeyFile                 = "/certs/localhost.key"
 )
 
+// getPowerStoreArrays is a wrapper for common.GetPowerStoreArrays
 var getPowerStoreArrays = common.GetPowerStoreArrays
+
+// initTracing is a wrapper for tracer.InitTracing
 var initTracing = tracer.InitTracing
 
 func main() {

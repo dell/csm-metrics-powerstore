@@ -208,6 +208,7 @@ func TestStartConfigWatchers(t *testing.T) {
 
 	// Test case: Viper configuration is updated
 	viper.Set("test_key", "test_value")
+	viper.Set("PROVISIONER_NAMES", "csi-powerstore")
 	viper.Set("POWERSTORE_VOLUME_IO_POLL_FREQUENCY", "30")
 	viper.Set("POWERSTORE_SPACE_POLL_FREQUENCY", "20")
 	viper.Set("POWERSTORE_ARRAY_POLL_FREQUENCY", "10")
