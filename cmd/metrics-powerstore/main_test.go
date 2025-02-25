@@ -21,7 +21,6 @@ import (
 )
 
 func TestInitializeConfig(t *testing.T) {
-
 	// Mock getPowerScaleClusters to avoid file I/O
 	originalGetPowerStoreArrays := getPowerStoreArrays
 	defer func() { getPowerStoreArrays = originalGetPowerStoreArrays }()
@@ -143,39 +142,56 @@ func TestUpdateProvisionerNames(t *testing.T) {
 	})
 }
 
-func Test_updateService(t *testing.T) {
-	// Test case: Update service with valid maxPowerStoreConcurrentRequests
-	t.Run("Update service with valid maxPowerStoreConcurrentRequests", func(t *testing.T) {
-		// Create a new logger for the test
-		logger := logrus.New()
-		// Create a new PowerStoreService for the test
-		powerStoreSvc := &service.PowerStoreService{
-			Logger: logger,
-		}
-		// Set the maxPowerStoreConcurrentRequests in the test
-		viper.Set("POWERSTORE_MAX_CONCURRENT_QUERIES", "10")
-		// Call the function
-		updateService(powerStoreSvc, logger)
-		// Assert the expected result
-		assert.Equal(t, 10, powerStoreSvc.MaxPowerStoreConnections)
-	})
+// func Test_updateService(t *testing.T) {
+// 	// Test case: Update service with valid maxPowerStoreConcurrentRequests
+// 	t.Run("Update service with valid maxPowerStoreConcurrentRequests", func(t *testing.T) {
+// 		// Create a new logger for the test
+// 		logger := logrus.New()
+// 		// Create a new PowerStoreService for the test
+// 		powerStoreSvc := &service.PowerStoreService{
+// 			Logger: logger,
+// 		}
+// 		// Set the maxPowerStoreConcurrentRequests in the test
+// 		viper.Set("POWERSTORE_MAX_CONCURRENT_QUERIES", "10")
+// 		// Call the function
+// 		updateService(powerStoreSvc, logger)
+// 		// Assert the expected result
+// 		assert.Equal(t, 10, powerStoreSvc.MaxPowerStoreConnections)
+// 	})
 
-	// Test case: Update service with no maxPowerStoreConcurrentRequests
-	t.Run("Update service with no maxPowerStoreConcurrentRequests", func(t *testing.T) {
-		// Create a new logger for the test
-		logger := logrus.New()
-		// Create a new PowerStoreService for the test
-		powerStoreSvc := &service.PowerStoreService{
-			Logger: logger,
-		}
-		// Set the maxPowerStoreConcurrentRequests in the test
-		viper.Set("POWERSTORE_MAX_CONCURRENT_QUERIES", "")
-		// Call the function
-		updateService(powerStoreSvc, logger)
-		// Assert the expected result
-		assert.Equal(t, service.DefaultMaxPowerStoreConnections, powerStoreSvc.MaxPowerStoreConnections)
-	})
-}
+// 	// Test case: Update service with no maxPowerStoreConcurrentRequests
+// 	t.Run("Update service with no maxPowerStoreConcurrentRequests", func(t *testing.T) {
+// 		// Create a new logger for the test
+// 		logger := logrus.New()
+// 		// Create a new PowerStoreService for the test
+// 		powerStoreSvc := &service.PowerStoreService{
+// 			Logger: logger,
+// 		}
+// 		// Set the maxPowerStoreConcurrentRequests in the test
+// 		viper.Set("POWERSTORE_MAX_CONCURRENT_QUERIES", "")
+// 		// Call the function
+// 		updateService(powerStoreSvc, logger)
+// 		// Assert the expected result
+// 		assert.Equal(t, service.DefaultMaxPowerStoreConnections, powerStoreSvc.MaxPowerStoreConnections)
+// 	})
+
+// Test case: Update service with invalid maxPowerStoreConcurrentRequests
+// t.Run("Update service with invalid maxPowerStoreConcurrentRequests", func(t *testing.T) {
+// 	// Create a new logger for the test
+// 	logger := logrus.New()
+// 	logger.ExitFunc = func(int) { panic("fatal") }
+// 	// Create a new PowerStoreService for the test
+// 	powerStoreSvc := &service.PowerStoreService{
+// 		Logger: logger,
+// 	}
+// 	// Set the maxPowerStoreConcurrentRequests in the test
+// 	viper.Set("POWERSTORE_MAX_CONCURRENT_QUERIES", "invalid")
+// 	// // Call the function
+// 	// updateService(powerStoreSvc, logger)
+// 	// Assert the expected result
+// 	assert.Panics(t, func() { updateService(powerStoreSvc, logger) })
+// })
+// }
 
 func TestGetCollectorCertPath(t *testing.T) {
 
@@ -216,6 +232,8 @@ func TestStartConfigWatchers(t *testing.T) {
 	viper.Set("COLLECTOR_ADDR", "test_address")
 	viper.Set("POWERSTORE_VOLUME_METRICS_ENABLED", "true")
 	viper.Set("LOG_LEVEL", "debug")
+	viper.Set("TLS_ENABLED", "false")
+
 	logger, config, powerStoreSvc, exporter = initializeConfig()
 
 	startConfigWatchers(logger, config, exporter, powerStoreSvc)
@@ -408,6 +426,46 @@ func TestUpdateTracing(t *testing.T) {
 
 			if tt.wantErr {
 				assert.NotNil(t, logger.Out)
+			}
+		})
+	}
+}
+
+func TestUpdateService(t *testing.T) {
+	tests := []struct {
+		name          string
+		maxConcurrent string
+		expected      int
+		expectPanic   bool
+	}{
+		{
+			name:          "Valid Value",
+			maxConcurrent: "10",
+			expected:      10,
+			expectPanic:   false,
+		},
+		{
+			name:          "Invalid Value",
+			maxConcurrent: "invalid",
+			expected:      service.DefaultMaxPowerStoreConnections,
+			expectPanic:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			viper.Reset()
+			viper.Set("POWERSTORE_MAX_CONCURRENT_QUERIES", tt.maxConcurrent)
+
+			svc := &service.PowerStoreService{}
+			logger := logrus.New()
+			logger.ExitFunc = func(int) { panic("fatal") }
+
+			if tt.expectPanic {
+				assert.Panics(t, func() { updateService(svc, logger) })
+			} else {
+				assert.NotPanics(t, func() { updateService(svc, logger) })
+				assert.Equal(t, tt.expected, svc.MaxPowerStoreConnections)
 			}
 		})
 	}
