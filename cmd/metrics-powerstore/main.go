@@ -230,7 +230,6 @@ func updatePowerStoreConnection(powerStoreSvc *service.PowerStoreService, logger
 
 func updateCollectorAddress(config *entrypoint.Config, exporter *otlexporters.OtlCollectorExporter, logger *logrus.Logger) {
 	collectorAddress := viper.GetString("COLLECTOR_ADDR")
-	fmt.Printf("COLLECTOR_ADDR: %s\n", collectorAddress)
 	if collectorAddress == "" {
 		logger.Fatal("COLLECTOR_ADDR is required")
 	}
