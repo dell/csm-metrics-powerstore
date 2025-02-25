@@ -21,7 +21,6 @@ import (
 )
 
 func TestInitializeConfig(t *testing.T) {
-
 	// Mock getPowerScaleClusters to avoid file I/O
 	originalGetPowerStoreArrays := getPowerStoreArrays
 	defer func() { getPowerStoreArrays = originalGetPowerStoreArrays }()
@@ -126,76 +125,53 @@ TLS_ENABLED: false
 }
 
 func TestUpdateProvisionerNames(t *testing.T) {
-	// Test case: Update provisioner names with valid input
-	t.Run("Update provisioner names with valid input", func(t *testing.T) {
-		// Create a new logger for the test
-		logger := logrus.New()
-		// Create a new VolumeFinder for the test
-		volumeFinder := &k8s.VolumeFinder{
-			Logger: logger,
-		}
-		// Set the provisioner names in the test
-		viper.Set("provisioner_names", "test-provisioner,test-provisioner-2")
-		// Call the function
-		updateProvisionerNames(volumeFinder, logger)
-		// Assert the expected result
-		assert.Equal(t, []string{"test-provisioner", "test-provisioner-2"}, volumeFinder.DriverNames)
-	})
+	tests := []struct {
+		name         string
+		provisioners string
+		expected     []string
+		expectPanic  bool
+	}{
+		{
+			name:         "Single Provisioner",
+			provisioners: "csi-powerstore",
+			expected:     []string{"csi-powerstore"},
+			expectPanic:  false,
+		},
+		{
+			name:         "Multiple Provisioners",
+			provisioners: "csi-powerstore1,csi-powerstore2",
+			expected:     []string{"csi-powerstore1", "csi-powerstore2"},
+			expectPanic:  false,
+		},
+		{
+			name:         "Empty Provisioners",
+			provisioners: "",
+			expected:     nil,
+			expectPanic:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			viper.Reset()
+			viper.Set("PROVISIONER_NAMES", tt.provisioners)
+
+			vf := &k8s.VolumeFinder{}
+
+			logger := logrus.New()
+			logger.ExitFunc = func(int) { panic("fatal") }
+
+			if tt.expectPanic {
+				assert.Panics(t, func() { updateProvisionerNames(vf, logger) })
+			} else {
+				assert.NotPanics(t, func() { updateProvisionerNames(vf, logger) })
+				assert.Equal(t, tt.expected, vf.DriverNames)
+			}
+		})
+	}
 }
 
-// func Test_updateService(t *testing.T) {
-// 	// Test case: Update service with valid maxPowerStoreConcurrentRequests
-// 	t.Run("Update service with valid maxPowerStoreConcurrentRequests", func(t *testing.T) {
-// 		// Create a new logger for the test
-// 		logger := logrus.New()
-// 		// Create a new PowerStoreService for the test
-// 		powerStoreSvc := &service.PowerStoreService{
-// 			Logger: logger,
-// 		}
-// 		// Set the maxPowerStoreConcurrentRequests in the test
-// 		viper.Set("POWERSTORE_MAX_CONCURRENT_QUERIES", "10")
-// 		// Call the function
-// 		updateService(powerStoreSvc, logger)
-// 		// Assert the expected result
-// 		assert.Equal(t, 10, powerStoreSvc.MaxPowerStoreConnections)
-// 	})
-
-// 	// Test case: Update service with no maxPowerStoreConcurrentRequests
-// 	t.Run("Update service with no maxPowerStoreConcurrentRequests", func(t *testing.T) {
-// 		// Create a new logger for the test
-// 		logger := logrus.New()
-// 		// Create a new PowerStoreService for the test
-// 		powerStoreSvc := &service.PowerStoreService{
-// 			Logger: logger,
-// 		}
-// 		// Set the maxPowerStoreConcurrentRequests in the test
-// 		viper.Set("POWERSTORE_MAX_CONCURRENT_QUERIES", "")
-// 		// Call the function
-// 		updateService(powerStoreSvc, logger)
-// 		// Assert the expected result
-// 		assert.Equal(t, service.DefaultMaxPowerStoreConnections, powerStoreSvc.MaxPowerStoreConnections)
-// 	})
-
-// Test case: Update service with invalid maxPowerStoreConcurrentRequests
-// t.Run("Update service with invalid maxPowerStoreConcurrentRequests", func(t *testing.T) {
-// 	// Create a new logger for the test
-// 	logger := logrus.New()
-// 	logger.ExitFunc = func(int) { panic("fatal") }
-// 	// Create a new PowerStoreService for the test
-// 	powerStoreSvc := &service.PowerStoreService{
-// 		Logger: logger,
-// 	}
-// 	// Set the maxPowerStoreConcurrentRequests in the test
-// 	viper.Set("POWERSTORE_MAX_CONCURRENT_QUERIES", "invalid")
-// 	// // Call the function
-// 	// updateService(powerStoreSvc, logger)
-// 	// Assert the expected result
-// 	assert.Panics(t, func() { updateService(powerStoreSvc, logger) })
-// })
-// }
-
 func TestGetCollectorCertPath(t *testing.T) {
-
 	// Test case: TLS_ENABLED is set to false
 	os.Setenv("TLS_ENABLED", "false")
 	if getCollectorCertPath() != "" {
@@ -239,43 +215,6 @@ func TestStartConfigWatchers(t *testing.T) {
 		})
 	}
 }
-
-// func TestStartConfigWatchers(t *testing.T) {
-// 	logger := logrus.New()
-// 	config := &entrypoint.Config{}
-// 	exporter := &otlexporters.OtlCollectorExporter{}
-// 	powerStoreSvc := &service.PowerStoreService{}
-
-// 	// Test case: Viper configuration is updated
-// 	viper.Set("test_key", "test_value")
-// 	viper.Set("PROVISIONER_NAMES", "csi-powerstore")
-// 	viper.Set("POWERSTORE_VOLUME_IO_POLL_FREQUENCY", "30")
-// 	viper.Set("POWERSTORE_SPACE_POLL_FREQUENCY", "20")
-// 	viper.Set("POWERSTORE_ARRAY_POLL_FREQUENCY", "10")
-// 	viper.Set("POWERSTORE_FILE_SYSTEM_POLL_FREQUENCY", "10")
-// 	viper.Set("COLLECTOR_ADDR", "test_address")
-// 	viper.Set("POWERSTORE_VOLUME_METRICS_ENABLED", "true")
-// 	viper.Set("LOG_LEVEL", "debug")
-// 	viper.Set("TLS_ENABLED", "false")
-
-// 	logger, config, powerStoreSvc, exporter = initializeConfig()
-
-// 	startConfigWatchers(logger, config, exporter, powerStoreSvc)
-
-// 	// Assert that the logging settings are updated
-// 	assert.Equal(t, logrus.DebugLevel, logger.Level)
-// 	assert.Equal(t, "test_value", viper.GetString("test_key"))
-// 	// Assert that the metrics enabled flag is updated
-// 	assert.Equal(t, true, config.VolumeMetricsEnabled)
-
-// 	// Assert that the tick intervals are updated
-// 	assert.Equal(t, time.Second*30, config.VolumeTickInterval)
-// 	assert.Equal(t, time.Second*20, config.SpaceTickInterval)
-// 	assert.Equal(t, time.Second*10, config.ArrayTickInterval)
-// 	assert.Equal(t, time.Second*10, config.FileSystemTickInterval)
-
-// 	viper.Reset()
-// }
 
 func TestGetBindPort(t *testing.T) {
 	logger := logrus.New()
@@ -474,6 +413,12 @@ func TestUpdateService(t *testing.T) {
 			expected:      service.DefaultMaxPowerStoreConnections,
 			expectPanic:   true,
 		},
+		{
+			name:          "Zero Value",
+			maxConcurrent: "0",
+			expected:      service.DefaultMaxPowerStoreConnections,
+			expectPanic:   true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -490,6 +435,45 @@ func TestUpdateService(t *testing.T) {
 			} else {
 				assert.NotPanics(t, func() { updateService(svc, logger) })
 				assert.Equal(t, tt.expected, svc.MaxPowerStoreConnections)
+			}
+		})
+	}
+}
+
+func TestUpdateCollectorAddress(t *testing.T) {
+	tests := []struct {
+		name        string
+		addr        string
+		expectPanic bool
+	}{
+		{
+			name:        "Valid Address",
+			addr:        "localhost:8080",
+			expectPanic: false,
+		},
+		{
+			name:        "Empty Address",
+			addr:        "",
+			expectPanic: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			viper.Reset()
+			viper.Set("COLLECTOR_ADDR", tt.addr)
+
+			logger := logrus.New()
+			logger.ExitFunc = func(int) { panic("fatal") }
+			config := &entrypoint.Config{Logger: logger}
+			exporter := &otlexporters.OtlCollectorExporter{}
+
+			if tt.expectPanic {
+				assert.Panics(t, func() { updateCollectorAddress(config, exporter, logger) })
+			} else {
+				assert.NotPanics(t, func() { updateCollectorAddress(config, exporter, logger) })
+				assert.Equal(t, tt.addr, config.CollectorAddress)
+				assert.Equal(t, tt.addr, exporter.CollectorAddr)
 			}
 		})
 	}

@@ -56,7 +56,6 @@ var getPowerStoreArrays = common.GetPowerStoreArrays
 var initTracing = tracer.InitTracing
 
 func main() {
-
 	logger, config, powerStoreSvc, exporter := initializeConfig()
 
 	startConfigWatchers(logger, config, exporter, powerStoreSvc)
@@ -112,7 +111,6 @@ func applyInitialConfig(logger *logrus.Logger, config *entrypoint.Config, export
 
 var updateLoggingSettings = func(logger *logrus.Logger) {
 	logFormat := viper.GetString("LOG_FORMAT")
-	fmt.Printf("LOG_FORMAT: %s\n", logFormat)
 	if strings.EqualFold(logFormat, "json") {
 		logger.SetFormatter(&logrus.JSONFormatter{})
 	} else {
@@ -134,7 +132,6 @@ func getCollectorCertPath() string {
 		if len(strings.TrimSpace(collectorCertPath)) < 1 {
 			return otlexporters.DefaultCollectorCertPath
 		}
-		fmt.Println("collectorCertPath", collectorCertPath)
 		return collectorCertPath
 	}
 	return ""
@@ -162,7 +159,6 @@ func startHTTPServer(logger *logrus.Logger) {
 	viper.SetDefault("TLS_CERT_PATH", defaultCertFile)
 	viper.SetDefault("TLS_KEY_PATH", defaultKeyFile)
 	viper.SetDefault("PORT", defaultDebugPort)
-	fmt.Printf("PORT: %s\n", viper.GetString("PORT"))
 
 	// TLS_CERT_PATH is only read as an environment variable
 	certFile := viper.GetString("TLS_CERT_PATH")
