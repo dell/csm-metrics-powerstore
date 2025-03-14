@@ -1,12 +1,12 @@
 module github.com/dell/csm-metrics-powerstore
 
-go 1.23.0
+go 1.24
 
-toolchain go1.23.4
+toolchain go1.24.1
 
 require (
-	github.com/dell/gocsi v1.13.0
-	github.com/dell/gopowerstore v1.17.0
+	github.com/dell/gocsi v1.13.1-0.20250226203119-f6c4e42fab09
+	github.com/dell/gopowerstore v1.17.1-0.20250310150330-6496c4485777
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/golang/mock v1.6.0
 	github.com/sirupsen/logrus v1.9.3
@@ -65,7 +65,7 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.mongodb.org/mongo-driver v1.17.2 // indirect
