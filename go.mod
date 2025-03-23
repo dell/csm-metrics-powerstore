@@ -3,8 +3,8 @@ module github.com/dell/csm-metrics-powerstore
 go 1.24
 
 require (
-	github.com/dell/gocsi v1.13.0
-	github.com/dell/gopowerstore v1.17.0
+	github.com/dell/gocsi v1.13.1-0.20250226203119-f6c4e42fab09
+	github.com/dell/gopowerstore v1.17.1-0.20250319154601-af67f09c82c4
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/golang/mock v1.6.0
 	github.com/sirupsen/logrus v1.9.3
