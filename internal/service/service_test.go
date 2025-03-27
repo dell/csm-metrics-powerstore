@@ -84,6 +84,53 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			}
 			return service, ctrl
 		},
+		"success with HBNFS Volumes": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "nfs-volume-1/127.0.0.1/scsi",
+				},
+			}, nil).Times(1)
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().PerformanceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return([]gopowerstore.PerformanceMetricsByVolumeResponse{
+				{
+					CommonMaxAvgIopsBandwidthFields: gopowerstore.CommonMaxAvgIopsBandwidthFields{
+						ReadBandwidth:  1,
+						WriteBandwidth: 1,
+						ReadIops:       1,
+						WriteIops:      1,
+					},
+					CommonAvgFields: gopowerstore.CommonAvgFields{
+						AvgReadLatency:  1,
+						AvgWriteLatency: 1,
+					},
+				},
+			}, nil).Times(1)
+
+			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(), gomock.Any()).Return([]gopowerstore.VolumeMirrorTransferRateResponse{
+				{
+					ID:                       "1",
+					SynchronizationBandwidth: 1,
+					MirrorBandwidth:          1,
+					DataRemaining:            1,
+				},
+			}, nil).Times(1)
+
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
 		"metrics not pushed if volume does not have scsi protocol": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)

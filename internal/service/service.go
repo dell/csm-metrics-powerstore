@@ -27,6 +27,7 @@ import (
 
 	"github.com/dell/gopowerstore"
 
+	"github.com/dell/csm-hbnfs/nfs"
 	"github.com/dell/csm-metrics-powerstore/internal/k8s"
 	"github.com/sirupsen/logrus"
 )
@@ -242,9 +243,17 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 					return
 				}
 
+				if nfs.IsNFSVolumeID(volumeID) {
+					volumeID = nfs.ToArrayVolumeID(volumeID)
+				}
+
+				s.Logger.WithFields(logrus.Fields{
+					"volume_id": volumeID,
+				}).Infof("Getting the Performance Metrics")
+
 				metrics, err := goPowerStoreClient.PerformanceMetricsByVolume(ctx, volumeID, gopowerstore.TwentySec)
 				if err != nil {
-					s.Logger.WithError(err).WithField("volume_id", volumeMeta.ID).Error("getting performance metrics for volume")
+					s.Logger.WithError(err).WithField("volume_id", volumeID).Error("getting performance metrics for volume")
 					return
 				}
 
