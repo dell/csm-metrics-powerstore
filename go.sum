@@ -18,8 +18,8 @@ github.com/dell/csm-hbnfs v0.0.0-20250319170424-b253bacd6b1d h1:xKev/BWDlWQGAjn0
 github.com/dell/csm-hbnfs v0.0.0-20250319170424-b253bacd6b1d/go.mod h1:dfG+SeUxL9P9hVo7+Rk6OpzTW4E4PO6b6NW7LRt9GmQ=
 github.com/dell/gocsi v1.13.0 h1:agiPFOYlcnoe4bdBXu8zECfNAspm51Vb/MgSlYVaxvU=
 github.com/dell/gocsi v1.13.0/go.mod h1:G74XoRObNZyO/H3g/h3yJzNf1TyoyaBaLPt/kg+8EcU=
-github.com/dell/gopowerstore v1.17.0 h1:xQqMZ/6Aw3NzO+2kw+VHy/xsxfTjoQHHjy+McE9W748=
-github.com/dell/gopowerstore v1.17.0/go.mod h1:Ul7yw0rAboFV9sSB5Li2TkteDxL3/Ic+Q2bFdada3ZU=
+github.com/dell/gopowerstore v1.18.0 h1:6ohSzuYrNCKuHOnh6uBpWQkdLBEL4OpBHqr/369X4Qo=
+github.com/dell/gopowerstore v1.18.0/go.mod h1:9qiSVpAKigzpBnAe6buq//krFGtc9XGbNsct/WGOoVU=
 github.com/emicklei/go-restful/v3 v3.12.1 h1:PJMDIM/ak7btuL8Ex0iYET9hxM3CI2sjZtzpL63nKAU=
 github.com/emicklei/go-restful/v3 v3.12.1/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
