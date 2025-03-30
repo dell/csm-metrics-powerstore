@@ -4,8 +4,8 @@ go 1.24
 
 require (
 	github.com/dell/csm-hbnfs v0.0.0-20250319170424-b253bacd6b1d
-	github.com/dell/gocsi v1.13.0
-	github.com/dell/gopowerstore v1.17.0
+	github.com/dell/gocsi v1.13.1-0.20250327070427-854e59aaa95d
+	github.com/dell/gopowerstore v1.18.1-0.20250327070356-d9ef961a7dbe
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/golang/mock v1.6.0
 	github.com/sirupsen/logrus v1.9.3
