@@ -6,7 +6,7 @@ require (
 	github.com/dell/csm-hbnfs v0.0.0-20250319170424-b253bacd6b1d
 	github.com/dell/gocsi v1.13.0
 	github.com/dell/gopowerstore v1.18.0
-	github.com/fsnotify/fsnotify v1.8.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golang/mock v1.6.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.20.0
