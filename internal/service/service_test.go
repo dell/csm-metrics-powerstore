@@ -84,7 +84,7 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 			}
 			return service, ctrl
 		},
-		"success with HBNFS Volumes": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+		"success with SharedNFS Volumes": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
 			metrics := mocks.NewMockMetricsRecorder(ctrl)
 			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)

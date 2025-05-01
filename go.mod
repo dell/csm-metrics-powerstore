@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.1
 
 require (
-	github.com/dell/csm-hbnfs v0.0.0-20250319170424-b253bacd6b1d
+	github.com/dell/csm-sharednfs v0.0.0-20250501154455-b2e65b805092
 	github.com/dell/gocsi v1.13.0
 	github.com/dell/gopowerstore v1.18.0
 	github.com/fsnotify/fsnotify v1.9.0

@@ -14,8 +14,8 @@ github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/dell/csm-hbnfs v0.0.0-20250319170424-b253bacd6b1d h1:xKev/BWDlWQGAjn0i4vYGnhTZv12ZyVdSoY2fPxap5Y=
-github.com/dell/csm-hbnfs v0.0.0-20250319170424-b253bacd6b1d/go.mod h1:dfG+SeUxL9P9hVo7+Rk6OpzTW4E4PO6b6NW7LRt9GmQ=
+github.com/dell/csm-sharednfs v0.0.0-20250501154455-b2e65b805092 h1:MUo3LruPg9uZ0xetjI0Kg8GG52zceeEpa61WHcy2yhY=
+github.com/dell/csm-sharednfs v0.0.0-20250501154455-b2e65b805092/go.mod h1:+flf+ETu0LkNUDVFEybV7fJtO6MEHedg816CILTrXhs=
 github.com/dell/gocsi v1.13.0 h1:agiPFOYlcnoe4bdBXu8zECfNAspm51Vb/MgSlYVaxvU=
 github.com/dell/gocsi v1.13.0/go.mod h1:G74XoRObNZyO/H3g/h3yJzNf1TyoyaBaLPt/kg+8EcU=
 github.com/dell/gopowerstore v1.18.0 h1:6ohSzuYrNCKuHOnh6uBpWQkdLBEL4OpBHqr/369X4Qo=

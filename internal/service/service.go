@@ -27,7 +27,7 @@ import (
 
 	"github.com/dell/gopowerstore"
 
-	"github.com/dell/csm-hbnfs/nfs"
+	"github.com/dell/csm-sharednfs/nfs"
 	"github.com/dell/csm-metrics-powerstore/internal/k8s"
 	"github.com/sirupsen/logrus"
 )
