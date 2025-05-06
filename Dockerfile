@@ -24,8 +24,8 @@ LABEL vendor="Dell Technologies" \
       name="csm-metrics-powerstore" \
       summary="Dell Container Storage Modules (CSM) for Observability - Metrics for PowerStore" \
       description="Provides insight into storage usage and performance as it relates to the CSI (Container Storage Interface) Driver for Dell PowerStore" \
-      release="1.13.0" \
-      version="1.11.0" \
+      release="1.14.0" \
+      version="1.12.0" \
       license="Apache-2.0"
 COPY --from=builder /go/src/service /
 ENTRYPOINT ["/service"]
