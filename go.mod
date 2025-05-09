@@ -2,7 +2,7 @@ module github.com/dell/csm-metrics-powerstore
 
 go 1.24.0
 
-toolchain go1.24.1
+toolchain go1.24.2
 
 require (
 	github.com/dell/csm-sharednfs v0.0.0-20250501154455-b2e65b805092
