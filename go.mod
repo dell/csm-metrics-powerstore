@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.2
 
 require (
-	github.com/dell/csm-sharednfs v0.0.0-20250501154455-b2e65b805092
+	github.com/dell/csm-sharednfs v1.0.0
 	github.com/dell/gocsi v1.14.0
 	github.com/dell/gopowerstore v1.19.0
 	github.com/fsnotify/fsnotify v1.9.0
