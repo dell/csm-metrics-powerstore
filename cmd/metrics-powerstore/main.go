@@ -27,9 +27,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dell/csm-metrics-powerstore/internal/common"
 	"github.com/dell/csm-metrics-powerstore/internal/entrypoint"
 	"github.com/dell/csm-metrics-powerstore/internal/k8s"
+	"github.com/dell/csm-metrics-powerstore/internal/pstoreresource"
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
 	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
@@ -49,8 +49,8 @@ const (
 	defaultKeyFile                 = "/certs/localhost.key"
 )
 
-// getPowerStoreArrays is a wrapper for common.GetPowerStoreArrays
-var getPowerStoreArrays = common.GetPowerStoreArrays
+// getPowerStoreArrays is a wrapper for pstoreresource.GetPowerStoreArrays
+var getPowerStoreArrays = pstoreresource.GetPowerStoreArrays
 
 // initTracing is a wrapper for tracer.InitTracing
 var initTracing = tracer.InitTracing

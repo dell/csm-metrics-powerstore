@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2021-2022 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2021-2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  limitations under the License.
 */
 
-package common_test
+package pstoreresource_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/dell/csm-metrics-powerstore/internal/common"
+	"github.com/dell/csm-metrics-powerstore/internal/pstoreresource"
 	csictx "github.com/dell/gocsi/context"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -29,10 +29,10 @@ import (
 func Test_Run(t *testing.T) {
 	tests := map[string]func(t *testing.T) (filePath string, env map[string]string, expectError bool){
 		"success": func(*testing.T) (string, map[string]string, bool) {
-			return "testdata/sample-config.yaml", map[string]string{common.EnvThrottlingRateLimit: "123"}, false
+			return "testdata/sample-config.yaml", map[string]string{pstoreresource.EnvThrottlingRateLimit: "123"}, false
 		},
 		"invalid throttling value": func(*testing.T) (string, map[string]string, bool) {
-			return "testdata/sample-config.yaml", map[string]string{common.EnvThrottlingRateLimit: "abc"}, false
+			return "testdata/sample-config.yaml", map[string]string{pstoreresource.EnvThrottlingRateLimit: "abc"}, false
 		},
 		"file doesn't exist": func(*testing.T) (string, map[string]string, bool) {
 			return "testdata/no-file.yaml", nil, true
@@ -44,7 +44,7 @@ func Test_Run(t *testing.T) {
 			return "testdata/no-global-id.yaml", nil, true
 		},
 		"empty arrays": func(*testing.T) (string, map[string]string, bool) {
-			return "testdata/empty-array.yaml", map[string]string{common.EnvThrottlingRateLimit: "abc"}, false
+			return "testdata/empty-array.yaml", map[string]string{pstoreresource.EnvThrottlingRateLimit: "abc"}, false
 		},
 		"nil array entry": func(*testing.T) (string, map[string]string, bool) {
 			return "testdata/nil-array.yaml", nil, true
@@ -63,7 +63,7 @@ func Test_Run(t *testing.T) {
 				csictx.Setenv(context.Background(), k, v)
 			}
 
-			arrays, mapper, defaultArray, err := common.GetPowerStoreArrays(filePath, logger)
+			arrays, mapper, defaultArray, err := pstoreresource.GetPowerStoreArrays(filePath, logger)
 
 			switch name {
 			case "empty arrays":
