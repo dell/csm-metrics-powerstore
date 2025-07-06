@@ -6,8 +6,8 @@ toolchain go1.24.3
 
 require (
 	github.com/dell/csm-sharednfs v1.0.0
-	github.com/dell/gocsi v1.14.0
-	github.com/dell/gopowerstore v1.19.0
+	github.com/dell/gocsi v1.14.1-0.20250701150109-1da4fb20c6c5
+	github.com/dell/gopowerstore v1.19.1-0.20250630074043-2a862d3b0e6f
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golang/mock v1.6.0
 	github.com/sirupsen/logrus v1.9.3
@@ -30,7 +30,6 @@ require (
 require (
 	github.com/akutz/gosync v0.1.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.2 // indirect
 	github.com/container-storage-interface/spec v1.8.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
@@ -71,9 +70,9 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	go.etcd.io/etcd/api/v3 v3.5.17 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.5.17 // indirect
-	go.etcd.io/etcd/client/v3 v3.5.17 // indirect
+	go.etcd.io/etcd/api/v3 v3.6.1 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.6.1 // indirect
+	go.etcd.io/etcd/client/v3 v3.6.1 // indirect
 	go.mongodb.org/mongo-driver v1.17.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.7.0 // indirect
