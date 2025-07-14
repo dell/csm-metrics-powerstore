@@ -44,6 +44,7 @@ type MetricsRecorder interface {
 		readBW, writeBW,
 		readIOPS, writeIOPS,
 		readLatency, writeLatency, syncronizationBW, mirrorBW, dataRemaining float32) error
+	RecordTopologyMetrics(ctx context.Context, meta interface{}, topologyMetrics *TopologyMetricsRecord, listOfPVs []string) error
 }
 
 // MeterCreater interface is used to create and provide Meter instances, which are used to report measurements.
@@ -62,6 +63,7 @@ type MetricsWrapper struct {
 	Labels            sync.Map
 	SpaceMetrics      sync.Map
 	ArraySpaceMetrics sync.Map
+	TopologyMetrics   sync.Map
 }
 
 // SpaceMetrics contains the metrics related to a capacity
@@ -74,6 +76,11 @@ type SpaceMetrics struct {
 type ArraySpaceMetrics struct {
 	LogicalProvisioned metric.Float64ObservableUpDownCounter
 	LogicalUsed        metric.Float64ObservableUpDownCounter
+}
+
+type TopologyMetrics struct {
+	PvcSize metric.Float64ObservableUpDownCounter
+	Values  sync.Map
 }
 
 // Metrics contains the list of metrics data that is collected
@@ -625,6 +632,100 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(_ context.Context, meta interf
 		metrics.MirrorBW,
 		metrics.DataRemaining,
 	)
+	if err != nil {
+		return err
+	}
+
+	<-done
+	_ = reg.Unregister()
+
+	return nil
+}
+
+func (mw *MetricsWrapper) initTopologyMetrics(prefix, metaID string, labels []attribute.KeyValue) (*TopologyMetrics, error) {
+	pvcSize, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "pvc_size")
+	if err != nil {
+		return nil, err
+	}
+	metrics := &TopologyMetrics{
+		PvcSize: pvcSize,
+	}
+
+	mw.TopologyMetrics.Store(metaID, metrics)
+	mw.Labels.Store(metaID, labels)
+
+	return metrics, nil
+}
+
+func (mw *MetricsWrapper) RecordTopologyMetrics(_ context.Context, meta interface{}, topologyMetrics *TopologyMetricsRecord, listOfPVs []string) error {
+	var prefix string
+	var metaID string
+	var labels []attribute.KeyValue
+
+	switch v := meta.(type) {
+	case *TopologyMeta:
+		prefix, metaID = "powerstore_topology_", v.PersistentVolume
+		labels = []attribute.KeyValue{
+			attribute.String("Namespace", v.Namespace),
+			attribute.String("PersistentVolumeClaim", v.PersistentVolumeClaim),
+			attribute.String("PersistentVolumeStatus", v.PersistentVolumeStatus),
+			attribute.String("VolumeClaimName", v.VolumeClaimName),
+			attribute.String("PersistentVolume", v.PersistentVolume),
+			attribute.String("StorageClass", v.StorageClass),
+			attribute.String("Driver", v.Driver),
+			attribute.String("ProvisionedSize", v.ProvisionedSize),
+			attribute.String("StorageSystemVolumeName", v.StorageSystemVolumeName),
+			attribute.String("StoragePoolName", v.StoragePoolName),
+			attribute.String("StorageSystem", v.StorageSystem),
+			attribute.String("Protocol", v.Protocol),
+			attribute.String("CreatedTime", v.CreatedTime),
+			attribute.String("PlotWithMean", "No"),
+		}
+	default:
+		return errors.New("unknown MetaData type")
+	}
+
+	metricsMapValue, ok := mw.TopologyMetrics.Load(metaID)
+	if !ok {
+		newMetrics, err := mw.initTopologyMetrics(prefix, metaID, labels)
+		if err != nil {
+			return err
+		}
+		metricsMapValue = newMetrics
+	} else {
+		currentLabels, ok := mw.Labels.Load(metaID)
+		if ok {
+			currentLabels := currentLabels.([]attribute.KeyValue)
+			updatedLabels := currentLabels
+			haveLabelsChanged := false
+			for i, current := range currentLabels {
+				for _, new := range labels {
+					if current.Key == new.Key && current.Value != new.Value {
+						updatedLabels[i].Value = new.Value
+						haveLabelsChanged = true
+					}
+				}
+			}
+			if haveLabelsChanged {
+				newMetrics, err := mw.initTopologyMetrics(prefix, metaID, updatedLabels)
+				if err != nil {
+					return err
+				}
+				metricsMapValue = newMetrics
+			}
+		}
+	}
+
+	metrics := metricsMapValue.(*TopologyMetrics)
+
+	done := make(chan struct{})
+	reg, err := mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
+		obs.ObserveFloat64(metrics.PvcSize, float64(topologyMetrics.PVCSize), metric.ObserveOption(metric.WithAttributes(labels...)))
+		go func() {
+			done <- struct{}{}
+		}()
+		return nil
+	}, metrics.PvcSize)
 	if err != nil {
 		return err
 	}

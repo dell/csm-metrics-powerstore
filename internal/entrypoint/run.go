@@ -51,6 +51,7 @@ type Config struct {
 	SpaceTickInterval      time.Duration
 	ArrayTickInterval      time.Duration
 	FileSystemTickInterval time.Duration
+	TopologyTickInterval   time.Duration
 	LeaderElector          pstoreServices.LeaderElector
 	VolumeMetricsEnabled   bool
 	CollectorAddress       string
@@ -111,6 +112,8 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 	arrayTicker := time.NewTicker(ArrayTickInterval)
 	FileSystemTickInterval := config.FileSystemTickInterval
 	filesystemTicker := time.NewTicker(FileSystemTickInterval)
+	topologyTickInterval := config.TopologyTickInterval
+	topologyTicker := time.NewTicker(topologyTickInterval)
 
 	for {
 		select {
@@ -170,6 +173,20 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			}
 			powerStoreSvc.ExportFileSystemStatistics(ctx)
 			span.End()
+		case <-topologyTicker.C:
+			ctx, span := tracer.GetTracer(ctx, "topology-metrics")
+			if !config.LeaderElector.IsLeader() {
+				logger.Info("not leader pod to collect metrics")
+				span.End()
+				continue
+			}
+			if !config.VolumeMetricsEnabled {
+				logger.Info("powerstore topology metrics collection is disabled")
+				span.End()
+				continue
+			}
+			powerStoreSvc.ExportTopologyMetrics(ctx)
+			span.End()
 		case err := <-errCh:
 			if err == nil {
 				continue
@@ -196,6 +213,11 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			FileSystemTickInterval = config.FileSystemTickInterval
 			filesystemTicker = time.NewTicker(FileSystemTickInterval)
 		}
+		if topologyTickInterval != config.TopologyTickInterval {
+			topologyTickInterval = config.TopologyTickInterval
+			topologyTicker = time.NewTicker(topologyTickInterval)
+		}
+
 	}
 }
 
@@ -219,6 +241,10 @@ func ValidateConfig(config *Config) error {
 
 	if config.FileSystemTickInterval > MaximumVolTickInterval || config.FileSystemTickInterval < MinimumVolTickInterval {
 		return fmt.Errorf("filesystem polling frequency not within allowed range of %v and %v", MinimumVolTickInterval.String(), MaximumVolTickInterval.String())
+	}
+
+	if config.TopologyTickInterval > MaximumVolTickInterval || config.TopologyTickInterval < MinimumVolTickInterval {
+		return fmt.Errorf("topology polling frequency not within allowed range of %v and %v", MinimumVolTickInterval.String(), MaximumVolTickInterval.String())
 	}
 
 	return nil

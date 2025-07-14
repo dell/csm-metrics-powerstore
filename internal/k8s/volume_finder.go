@@ -43,16 +43,20 @@ type VolumeFinder struct {
 
 // VolumeInfo contains information about mapping a Persistent Volume to the volume created on a storage system
 type VolumeInfo struct {
-	Namespace              string `json:"namespace"`
-	PersistentVolumeClaim  string `json:"persistent_volume_claim"`
-	PersistentVolumeStatus string `json:"volume_status"`
-	VolumeClaimName        string `json:"volume_claim_name"`
-	PersistentVolume       string `json:"persistent_volume"`
-	StorageClass           string `json:"storage_class"`
-	Driver                 string `json:"driver"`
-	ProvisionedSize        string `json:"provisioned_size"`
-	CreatedTime            string `json:"created_time"`
-	VolumeHandle           string `json:"volume_handle"`
+	Namespace               string `json:"namespace"`
+	PersistentVolumeClaim   string `json:"persistent_volume_claim"`
+	PersistentVolumeStatus  string `json:"volume_status"`
+	VolumeClaimName         string `json:"volume_claim_name"`
+	PersistentVolume        string `json:"persistent_volume"`
+	StorageClass            string `json:"storage_class"`
+	Driver                  string `json:"driver"`
+	ProvisionedSize         string `json:"provisioned_size"`
+	CreatedTime             string `json:"created_time"`
+	VolumeHandle            string `json:"volume_handle"`
+	StorageSystemVolumeName string `json:"storage_system_volume_name"`
+	StoragePoolName         string `json:"storage_pool_name"`
+	StorageSystem           string `json:"storage_system"`
+	Protocol                string `json:"protocol"`
 }
 
 // GetPersistentVolumes will return a list of persistent volume information
@@ -85,16 +89,20 @@ func (f VolumeFinder) GetPersistentVolumes(ctx context.Context) ([]VolumeInfo, e
 			status := volume.Status
 
 			info := VolumeInfo{
-				Namespace:              claim.Namespace,
-				PersistentVolumeClaim:  string(claim.UID),
-				VolumeClaimName:        claim.Name,
-				PersistentVolumeStatus: string(status.Phase),
-				PersistentVolume:       volume.Name,
-				StorageClass:           volume.Spec.StorageClassName,
-				Driver:                 volume.Spec.CSI.Driver,
-				ProvisionedSize:        capacity.String(),
-				CreatedTime:            volume.CreationTimestamp.String(),
-				VolumeHandle:           volume.Spec.CSI.VolumeHandle,
+				Namespace:               claim.Namespace,
+				PersistentVolumeClaim:   string(claim.UID),
+				VolumeClaimName:         claim.Name,
+				PersistentVolumeStatus:  string(status.Phase),
+				PersistentVolume:        volume.Name,
+				StorageClass:            volume.Spec.StorageClassName,
+				Driver:                  volume.Spec.CSI.Driver,
+				ProvisionedSize:         capacity.String(),
+				CreatedTime:             volume.CreationTimestamp.String(),
+				VolumeHandle:            volume.Spec.CSI.VolumeHandle,
+				StorageSystemVolumeName: volume.Spec.CSI.VolumeAttributes["Name"],
+				StoragePoolName:         volume.Spec.CSI.VolumeAttributes["StoragePoolName"],
+				StorageSystem:           volume.Spec.CSI.VolumeAttributes["StorageSystem"],
+				Protocol:                volume.Spec.CSI.VolumeAttributes["Protocol"],
 			}
 			volumeInfo = append(volumeInfo, info)
 		}
