@@ -642,8 +642,8 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(_ context.Context, meta interf
 	return nil
 }
 
-func (mw *MetricsWrapper) initTopologyMetrics(prefix, metaID string, labels []attribute.KeyValue) (*TopologyMetrics, error) {
-	pvcSize, err := mw.Meter.Float64ObservableUpDownCounter(prefix + "pvc_size")
+func (mw *MetricsWrapper) initTopologyMetrics(metaID string, labels []attribute.KeyValue) (*TopologyMetrics, error) {
+	pvcSize, err := mw.Meter.Float64ObservableUpDownCounter("karavi_topology_metrics")
 	if err != nil {
 		return nil, err
 	}
@@ -658,13 +658,12 @@ func (mw *MetricsWrapper) initTopologyMetrics(prefix, metaID string, labels []at
 }
 
 func (mw *MetricsWrapper) RecordTopologyMetrics(_ context.Context, meta interface{}, topologyMetrics *TopologyMetricsRecord, listOfPVs []string) error {
-	var prefix string
 	var metaID string
 	var labels []attribute.KeyValue
 
 	switch v := meta.(type) {
 	case *TopologyMeta:
-		prefix, metaID = "powerstore_topology_", v.PersistentVolume
+		metaID = v.PersistentVolume
 		labels = []attribute.KeyValue{
 			attribute.String("Namespace", v.Namespace),
 			attribute.String("PersistentVolumeClaim", v.PersistentVolumeClaim),
@@ -687,7 +686,7 @@ func (mw *MetricsWrapper) RecordTopologyMetrics(_ context.Context, meta interfac
 
 	metricsMapValue, ok := mw.TopologyMetrics.Load(metaID)
 	if !ok {
-		newMetrics, err := mw.initTopologyMetrics(prefix, metaID, labels)
+		newMetrics, err := mw.initTopologyMetrics(metaID, labels)
 		if err != nil {
 			return err
 		}
@@ -707,7 +706,7 @@ func (mw *MetricsWrapper) RecordTopologyMetrics(_ context.Context, meta interfac
 				}
 			}
 			if haveLabelsChanged {
-				newMetrics, err := mw.initTopologyMetrics(prefix, metaID, updatedLabels)
+				newMetrics, err := mw.initTopologyMetrics(metaID, updatedLabels)
 				if err != nil {
 					return err
 				}
