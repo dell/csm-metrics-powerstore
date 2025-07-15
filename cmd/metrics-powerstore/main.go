@@ -318,6 +318,7 @@ func updateTickIntervals(config *entrypoint.Config, logger *logrus.Logger) {
 
 	topologyTickInterval := defaultTickInterval
 	topologyPollFrequencySeconds := viper.GetString("POWERSTORE_TOPOLOGY_METRICS_POLL_FREQUENCY")
+	logger.WithField("topologyPollFrequencySeconds", fmt.Sprintf("%v", topologyPollFrequencySeconds)).Info("Niru::::::topologyPollFrequencySeconds")
 	if topologyPollFrequencySeconds != "" {
 		numSeconds, err := strconv.Atoi(topologyPollFrequencySeconds)
 		if err != nil {
@@ -326,7 +327,7 @@ func updateTickIntervals(config *entrypoint.Config, logger *logrus.Logger) {
 		topologyTickInterval = time.Duration(numSeconds) * time.Second
 	}
 	config.TopologyTickInterval = topologyTickInterval
-	logger.WithField("topology_tick_interval", fmt.Sprintf("%v", topologyTickInterval)).Debug("setting topology tick interval")
+	logger.WithField("topology_tick_interval", fmt.Sprintf("%v", topologyTickInterval)).Info("setting topology tick interval")
 
 }
 
