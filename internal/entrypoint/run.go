@@ -244,7 +244,6 @@ func ValidateConfig(config *Config) error {
 	}
 
 	if config.TopologyTickInterval > MaximumVolTickInterval || config.TopologyTickInterval < MinimumVolTickInterval {
-		fmt.Println(":::::niru::: config.TopologyTickInterval::", config.TopologyTickInterval)
 		return fmt.Errorf("topology polling frequency not within allowed range of %v and %v", MinimumVolTickInterval.String(), MaximumVolTickInterval.String())
 	}
 
