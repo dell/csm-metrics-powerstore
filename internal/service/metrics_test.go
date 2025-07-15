@@ -824,3 +824,65 @@ func TestMetricsWrapper_RecordFileSystemMetrics_Label_Update(t *testing.T) {
 		}
 	})
 }
+
+func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
+	mw := &service.MetricsWrapper{
+		Meter: otel.Meter("powerstore-topology-test"),
+	}
+
+	exporter := &otlexporters.OtlCollectorExporter{}
+	err := exporter.InitExporter()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type args struct {
+		ctx             context.Context
+		meta            interface{}
+		topologyMetrics *service.TopologyMetricsRecord
+		listOfPVs       []string
+	}
+
+	tests := []struct {
+		name    string
+		mw      *service.MetricsWrapper
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "success",
+			mw:   mw,
+			args: args{
+				ctx: context.Background(),
+				meta: &service.TopologyMeta{
+					Namespace:               "default",
+					PersistentVolumeClaim:   "pvc-123",
+					PersistentVolumeStatus:  "Bound",
+					VolumeClaimName:         "claim-123",
+					PersistentVolume:        "pv-123",
+					StorageClass:            "standard",
+					Driver:                  "csi-powerstore",
+					ProvisionedSize:         "100Gi",
+					StorageSystemVolumeName: "vol-123",
+					StoragePoolName:         "pool-1",
+					StorageSystem:           "system-1",
+					Protocol:                "iSCSI",
+					CreatedTime:             "2023-01-01T00:00:00Z",
+				},
+				topologyMetrics: &service.TopologyMetricsRecord{
+					PVCSize: 1024,
+				},
+				listOfPVs: []string{"pv-123"},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.mw.RecordTopologyMetrics(tt.args.ctx, tt.args.meta, tt.args.topologyMetrics, tt.args.listOfPVs); (err != nil) != tt.wantErr {
+				t.Errorf("MetricsWrapper.RecordTopologyMetrics() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
