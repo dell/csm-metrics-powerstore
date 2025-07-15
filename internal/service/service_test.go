@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	"github.com/dell/csm-metrics-powerstore/internal/service/mocks"
@@ -1032,6 +1033,103 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 			service, ctrl := tc(t)
 			service.Logger = logrus.New()
 			service.ExportFileSystemStatistics(context.Background())
+			ctrl.Finish()
+		})
+	}
+}
+
+func Test_ExportTopologyMetrics(t *testing.T) {
+	type setup struct {
+		Service *service.PowerStoreService
+	}
+
+	tests := map[string]func(t *testing.T) (service.PowerStoreService, *gomock.Controller){
+		"success": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().RecordTopologyMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				{
+					Namespace:               "default",
+					PersistentVolumeClaim:   "pvc-1",
+					PersistentVolumeStatus:  "Bound",
+					VolumeClaimName:         "pvc-1",
+					PersistentVolume:        "pv-1",
+					StorageClass:            "sc1",
+					Driver:                  "driver1",
+					ProvisionedSize:         "100Gi",
+					CreatedTime:             time.Now().Format(time.RFC3339),
+					VolumeHandle:            "vol1/127.0.0.1/scsi",
+					StorageSystemVolumeName: "ssvol1",
+					StoragePoolName:         "pool1",
+					StorageSystem:           "PowerStore",
+					Protocol:                "scsi",
+				},
+				{
+					Namespace:               "default",
+					PersistentVolumeClaim:   "pvc-2",
+					PersistentVolumeStatus:  "Bound",
+					VolumeClaimName:         "pvc-2",
+					PersistentVolume:        "pv-2",
+					StorageClass:            "sc1",
+					Driver:                  "driver1",
+					ProvisionedSize:         "200Gi",
+					CreatedTime:             time.Now().Format(time.RFC3339),
+					VolumeHandle:            "vol2/127.0.0.1/scsi",
+					StorageSystemVolumeName: "ssvol2",
+					StoragePoolName:         "pool2",
+					StorageSystem:           "PowerStore",
+					Protocol:                "scsi",
+				},
+			}, nil).Times(1)
+
+			clients := make(map[string]service.PowerStoreClient) // not used in topology test but keep for completeness
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+				Logger:            logrus.New(),
+			}
+			return service, ctrl
+		},
+		"error getting volumes": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return(nil, errors.New("error getting volumes")).Times(1)
+
+			service := service.PowerStoreService{
+				MetricsWrapper: metrics,
+				VolumeFinder:   volFinder,
+				Logger:         logrus.New(),
+			}
+			return service, ctrl
+		},
+		"no metrics wrapper": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Times(0) // should not be called if metrics wrapper nil
+
+			service := service.PowerStoreService{
+				MetricsWrapper: nil,
+				VolumeFinder:   volFinder,
+				Logger:         logrus.New(),
+			}
+			return service, ctrl
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			service, ctrl := tc(t)
+			service.ExportTopologyMetrics(context.Background())
 			ctrl.Finish()
 		})
 	}

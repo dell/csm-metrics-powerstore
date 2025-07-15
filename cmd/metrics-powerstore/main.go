@@ -306,7 +306,7 @@ func updateTickIntervals(config *entrypoint.Config, logger *logrus.Logger) {
 
 	fileSystemTickInterval := defaultTickInterval
 	fileSystemPollFrequencySeconds := viper.GetString("POWERSTORE_FILE_SYSTEM_POLL_FREQUENCY")
-	if arrayPollFrequencySeconds != "" {
+	if fileSystemPollFrequencySeconds != "" {
 		numSeconds, err := strconv.Atoi(fileSystemPollFrequencySeconds)
 		if err != nil {
 			logger.WithError(err).Fatal("POWERSTORE_FILE_SYSTEM_POLL_FREQUENCY was not set to a valid number")

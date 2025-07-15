@@ -80,7 +80,6 @@ type ArraySpaceMetrics struct {
 
 type TopologyMetrics struct {
 	PvcSize metric.Float64ObservableUpDownCounter
-	Values  sync.Map
 }
 
 // Metrics contains the list of metrics data that is collected

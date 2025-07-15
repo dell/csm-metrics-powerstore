@@ -87,7 +87,6 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 		}
 
 		if config.CollectorCertPath != "" {
-
 			transportCreds, err := credentials.NewClientTLSFromFile(config.CollectorCertPath, "")
 			if err != nil {
 				errCh <- err
@@ -132,6 +131,7 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			}
 			powerStoreSvc.ExportVolumeStatistics(ctx)
 			span.End()
+
 		case <-spaceTicker.C:
 			ctx, span := tracer.GetTracer(ctx, "volume-space-metrics")
 			if !config.LeaderElector.IsLeader() {
@@ -146,6 +146,7 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			}
 			powerStoreSvc.ExportSpaceVolumeMetrics(ctx)
 			span.End()
+
 		case <-arrayTicker.C:
 			ctx, span := tracer.GetTracer(ctx, "array-space-metrics")
 			if !config.LeaderElector.IsLeader() {
@@ -160,6 +161,7 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			}
 			powerStoreSvc.ExportArraySpaceMetrics(ctx)
 			span.End()
+
 		case <-filesystemTicker.C:
 			ctx, span := tracer.GetTracer(ctx, "filesystem-metrics")
 			if !config.LeaderElector.IsLeader() {
@@ -174,6 +176,7 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			}
 			powerStoreSvc.ExportFileSystemStatistics(ctx)
 			span.End()
+
 		case <-topologyTicker.C:
 			ctx, span := tracer.GetTracer(ctx, "topology-metrics")
 			if !config.LeaderElector.IsLeader() {
@@ -188,11 +191,13 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			}
 			powerStoreSvc.ExportTopologyMetrics(ctx)
 			span.End()
+
 		case err := <-errCh:
 			if err == nil {
 				continue
 			}
 			return err
+
 		case <-ctx.Done():
 			return nil
 		}
