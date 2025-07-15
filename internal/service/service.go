@@ -1004,20 +1004,15 @@ func (s *PowerStoreService) gatherTopologyMetrics(ctx context.Context, volumes <
 
 	ch := make(chan *TopologyMetricsRecord)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, s.MaxPowerStoreConnections)
 
 	go func() {
 		exported := false
 		for volume := range volumes {
 			exported = true
 			wg.Add(1)
-			sem <- struct{}{}
 
 			go func(volume k8s.VolumeInfo) {
-				defer func() {
-					wg.Done()
-					<-sem
-				}()
+				defer wg.Done()
 
 				// VolumeHandle format: "volume-id/array-ip/protocol"
 				volumeProperties := strings.Split(volume.VolumeHandle, "/")
@@ -1064,7 +1059,6 @@ func (s *PowerStoreService) gatherTopologyMetrics(ctx context.Context, volumes <
 
 		wg.Wait()
 		close(ch)
-		close(sem)
 	}()
 
 	return ch
@@ -1117,11 +1111,6 @@ func (s *PowerStoreService) ExportTopologyMetrics(ctx context.Context) {
 	if s.MetricsWrapper == nil {
 		s.Logger.Warn("no MetricsWrapper provided for getting ExportTopologyMetrics")
 		return
-	}
-
-	if s.MaxPowerStoreConnections == 0 {
-		s.Logger.Debug("Using DefaultMaxPowerStoreConnections")
-		s.MaxPowerStoreConnections = DefaultMaxPowerStoreConnections
 	}
 
 	pvs, err := s.VolumeFinder.GetPersistentVolumes(ctx)
