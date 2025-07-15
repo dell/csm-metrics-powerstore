@@ -57,6 +57,7 @@ type Config struct {
 	CollectorAddress       string
 	CollectorCertPath      string
 	Logger                 *logrus.Logger
+	TopologyMetricsEnabled bool
 }
 
 // Run is the entry point for starting the service
@@ -180,7 +181,7 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 				span.End()
 				continue
 			}
-			if !config.VolumeMetricsEnabled {
+			if !config.TopologyMetricsEnabled {
 				logger.Info("powerstore topology metrics collection is disabled")
 				span.End()
 				continue
@@ -217,7 +218,6 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 			topologyTickInterval = config.TopologyTickInterval
 			topologyTicker = time.NewTicker(topologyTickInterval)
 		}
-
 	}
 }
 

@@ -256,6 +256,15 @@ func updateMetricsEnabled(config *entrypoint.Config, logger *logrus.Logger) {
 	}
 	config.VolumeMetricsEnabled = powerstoreVolumeMetricsEnabled
 	logger.WithField("volume_metrics_enabled", powerstoreVolumeMetricsEnabled).Debug("setting volume metrics enabled")
+
+	powerstoreTopologyMetricsEnabled := true
+	powerstoreTopologyMetricsEnabledValue := viper.GetString("POWERSTORE_TOPOLOGY_METRICS_ENABLED")
+	if powerstoreTopologyMetricsEnabledValue == "false" {
+		powerstoreTopologyMetricsEnabled = false
+	}
+	config.TopologyMetricsEnabled = powerstoreTopologyMetricsEnabled
+	logger.WithField("topology_metrics_enabled", powerstoreTopologyMetricsEnabled).Debug("setting topology metrics enabled")
+
 }
 
 func updateTickIntervals(config *entrypoint.Config, logger *logrus.Logger) {
@@ -305,7 +314,20 @@ func updateTickIntervals(config *entrypoint.Config, logger *logrus.Logger) {
 		fileSystemTickInterval = time.Duration(numSeconds) * time.Second
 	}
 	config.FileSystemTickInterval = fileSystemTickInterval
-	logger.WithField("array_tick_interval", fmt.Sprintf("%v", fileSystemTickInterval)).Debug("setting filesystem tick interval")
+	logger.WithField("file_tick_interval", fmt.Sprintf("%v", fileSystemTickInterval)).Debug("setting filesystem tick interval")
+
+	topologyTickInterval := defaultTickInterval
+	topologyPollFrequencySeconds := viper.GetString("POWERSTORE_TOPOLOGY_METRICS_POLL_FREQUENCY")
+	if topologyPollFrequencySeconds != "" {
+		numSeconds, err := strconv.Atoi(topologyPollFrequencySeconds)
+		if err != nil {
+			logger.WithError(err).Fatal("POWERSTORE_TOPOLOGY_METRICS_POLL_FREQUENCY was not set to a valid number")
+		}
+		topologyTickInterval = time.Duration(numSeconds) * time.Second
+	}
+	config.TopologyTickInterval = topologyTickInterval
+	logger.WithField("topology_tick_interval", fmt.Sprintf("%v", topologyTickInterval)).Debug("setting topology tick interval")
+
 }
 
 func updateService(pstoreSvc *service.PowerStoreService, logger *logrus.Logger) {
