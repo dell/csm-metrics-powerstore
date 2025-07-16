@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2021-2022 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -102,6 +102,8 @@ type PowerStoreService struct {
 	PowerStoreClients        map[string]PowerStoreClient
 	DefaultPowerStoreArray   *PowerStoreArray
 	VolumeFinder             VolumeFinder
+	PrevPVList               map[string]bool
+	PrevPVListLock           sync.Mutex
 }
 
 // VolumeFinder is used to find volume information in kubernetes
@@ -145,9 +147,6 @@ type TopologyMetricsRecord struct {
 	TopologyMeta *TopologyMeta
 	PVCSize      int64
 }
-
-var PrevPVList = make(map[string]bool)
-var CurrentPVList map[string]bool
 
 // ExportVolumeStatistics records I/O statistics for the given list of Volumes
 func (s *PowerStoreService) ExportVolumeStatistics(ctx context.Context) {
@@ -1064,7 +1063,7 @@ func (s *PowerStoreService) gatherTopologyMetrics(ctx context.Context, volumes <
 	return ch
 }
 
-func (s *PowerStoreService) pushTopologyMetrics(ctx context.Context, topologyMetrics <-chan *TopologyMetricsRecord, listOfPVs []string) <-chan *TopologyMetricsRecord {
+func (s *PowerStoreService) pushTopologyMetrics(ctx context.Context, topologyMetrics <-chan *TopologyMetricsRecord) <-chan *TopologyMetricsRecord {
 	start := time.Now()
 	defer s.timeSince(start, "pushTopologyMetrics")
 
@@ -1080,7 +1079,7 @@ func (s *PowerStoreService) pushTopologyMetrics(ctx context.Context, topologyMet
 			go func(metrics *TopologyMetricsRecord) {
 				defer wg.Done()
 
-				err := s.MetricsWrapper.RecordTopologyMetrics(ctx, metrics.TopologyMeta, metrics, listOfPVs)
+				err := s.MetricsWrapper.RecordTopologyMetrics(ctx, metrics.TopologyMeta, metrics)
 				if err != nil {
 					s.Logger.WithError(err).
 						WithField("volume_id", metrics.TopologyMeta.PersistentVolume).
@@ -1120,30 +1119,27 @@ func (s *PowerStoreService) ExportTopologyMetrics(ctx context.Context) {
 	}
 
 	// Track deleted PVs
-	CurrentPVList = make(map[string]bool)
+	currentPVList := make(map[string]bool, len(pvs))
 	for _, pv := range pvs {
-		CurrentPVList[pv.PersistentVolume] = true
+		currentPVList[pv.PersistentVolume] = true
 	}
 
 	var deletedPVs []string
-	for pv := range PrevPVList {
-		if _, exists := CurrentPVList[pv]; !exists {
+	s.PrevPVListLock.Lock()
+	for pv := range s.PrevPVList {
+		if !currentPVList[pv] {
 			deletedPVs = append(deletedPVs, pv)
 		}
 	}
+	s.PrevPVList = currentPVList
+	s.PrevPVListLock.Unlock()
 
 	if len(deletedPVs) > 0 {
 		s.Logger.Infof("Deleted PVs: %v", deletedPVs)
 	}
 
-	// Update PrevPVList
-	PrevPVList = make(map[string]bool, len(CurrentPVList))
-	for key, val := range CurrentPVList {
-		PrevPVList[key] = val
-	}
-
 	// Trigger metric collection and push
-	for range s.pushTopologyMetrics(ctx, s.gatherTopologyMetrics(ctx, s.volumeServer(ctx, pvs)), deletedPVs) {
+	for range s.pushTopologyMetrics(ctx, s.gatherTopologyMetrics(ctx, s.volumeServer(ctx, pvs))) {
 		// consume the channel until it is empty and closed
 	} // revive:disable-line:empty-block
 }

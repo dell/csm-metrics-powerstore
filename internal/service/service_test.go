@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2021-2022 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -1086,13 +1086,10 @@ func Test_ExportTopologyMetrics(t *testing.T) {
 				},
 			}, nil).Times(1)
 
-			clients := make(map[string]service.PowerStoreClient) // not used in topology test but keep for completeness
-
 			service := service.PowerStoreService{
-				MetricsWrapper:    metrics,
-				VolumeFinder:      volFinder,
-				PowerStoreClients: clients,
-				Logger:            logrus.New(),
+				MetricsWrapper: metrics,
+				VolumeFinder:   volFinder,
+				Logger:         logrus.New(),
 			}
 			return service, ctrl
 		},

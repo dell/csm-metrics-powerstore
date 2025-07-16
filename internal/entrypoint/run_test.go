@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2021-2022 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -137,8 +137,6 @@ func Test_Run(t *testing.T) {
 		"error with invalid topology ticker interval": func(*testing.T) (bool, *entrypoint.Config, otlexporters.Otlexporter, pStoreServices.Service, func(*entrypoint.Config) error, *gomock.Controller, bool) {
 			ctrl := gomock.NewController(t)
 			leaderElector := mocks.NewMockLeaderElector(ctrl)
-			//clients := make(map[string]service.PowerStoreClient)
-			//clients["test"] = mocks.NewMockPowerStoreClient(ctrl)
 			config := &entrypoint.Config{
 				VolumeMetricsEnabled:   true,
 				LeaderElector:          leaderElector,

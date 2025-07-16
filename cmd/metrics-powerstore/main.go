@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2021-2022 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -91,6 +91,7 @@ func initializeConfig() (*logrus.Logger, *entrypoint.Config, *service.PowerStore
 		MetricsWrapper: &service.MetricsWrapper{Meter: otel.Meter("powerstore")},
 		Logger:         logger,
 		VolumeFinder:   volumeFinder,
+		PrevPVList:     make(map[string]bool),
 	}
 
 	updatePowerStoreConnection(powerStoreSvc, logger)
@@ -264,7 +265,6 @@ func updateMetricsEnabled(config *entrypoint.Config, logger *logrus.Logger) {
 	}
 	config.TopologyMetricsEnabled = powerstoreTopologyMetricsEnabled
 	logger.WithField("topology_metrics_enabled", powerstoreTopologyMetricsEnabled).Debug("setting topology metrics enabled")
-
 }
 
 func updateTickIntervals(config *entrypoint.Config, logger *logrus.Logger) {
@@ -327,7 +327,6 @@ func updateTickIntervals(config *entrypoint.Config, logger *logrus.Logger) {
 	}
 	config.TopologyTickInterval = topologyTickInterval
 	logger.WithField("topology_tick_interval", fmt.Sprintf("%v", topologyTickInterval)).Debug("setting topology tick interval")
-
 }
 
 func updateService(pstoreSvc *service.PowerStoreService, logger *logrus.Logger) {

@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2021-2022 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ type MetricsRecorder interface {
 		readBW, writeBW,
 		readIOPS, writeIOPS,
 		readLatency, writeLatency, syncronizationBW, mirrorBW, dataRemaining float32) error
-	RecordTopologyMetrics(ctx context.Context, meta interface{}, topologyMetrics *TopologyMetricsRecord, listOfPVs []string) error
+	RecordTopologyMetrics(ctx context.Context, meta interface{}, topologyMetrics *TopologyMetricsRecord) error
 }
 
 // MeterCreater interface is used to create and provide Meter instances, which are used to report measurements.
@@ -656,7 +656,7 @@ func (mw *MetricsWrapper) initTopologyMetrics(metaID string, labels []attribute.
 	return metrics, nil
 }
 
-func (mw *MetricsWrapper) RecordTopologyMetrics(_ context.Context, meta interface{}, topologyMetrics *TopologyMetricsRecord, listOfPVs []string) error {
+func (mw *MetricsWrapper) RecordTopologyMetrics(_ context.Context, meta interface{}, topologyMetrics *TopologyMetricsRecord) error {
 	var metaID string
 	var labels []attribute.KeyValue
 

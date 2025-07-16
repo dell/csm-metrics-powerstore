@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2021-2022 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -204,22 +204,27 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 
 		// check if tick interval config settings have changed
 		if VolumeTickInterval != config.VolumeTickInterval {
+			volumeTicker.Stop()
 			VolumeTickInterval = config.VolumeTickInterval
 			volumeTicker = time.NewTicker(VolumeTickInterval)
 		}
 		if SpaceTickInterval != config.SpaceTickInterval {
+			spaceTicker.Stop()
 			SpaceTickInterval = config.SpaceTickInterval
 			spaceTicker = time.NewTicker(SpaceTickInterval)
 		}
 		if ArrayTickInterval != config.ArrayTickInterval {
+			arrayTicker.Stop()
 			ArrayTickInterval = config.ArrayTickInterval
 			arrayTicker = time.NewTicker(ArrayTickInterval)
 		}
 		if FileSystemTickInterval != config.FileSystemTickInterval {
+			filesystemTicker.Stop()
 			FileSystemTickInterval = config.FileSystemTickInterval
 			filesystemTicker = time.NewTicker(FileSystemTickInterval)
 		}
 		if topologyTickInterval != config.TopologyTickInterval {
+			topologyTicker.Stop()
 			topologyTickInterval = config.TopologyTickInterval
 			topologyTicker = time.NewTicker(topologyTickInterval)
 		}
