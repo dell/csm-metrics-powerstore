@@ -109,17 +109,17 @@ func (mr *MockMetricsRecorderMockRecorder) RecordStorageClassSpaceMetrics(ctx, s
 }
 
 // RecordTopologyMetrics mocks base method.
-func (m *MockMetricsRecorder) RecordTopologyMetrics(ctx context.Context, meta any, topologyMetrics *service.TopologyMetricsRecord, listOfPVs []string) error {
+func (m *MockMetricsRecorder) RecordTopologyMetrics(ctx context.Context, meta any, topologyMetrics *service.TopologyMetricsRecord) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RecordTopologyMetrics", ctx, meta, topologyMetrics, listOfPVs)
+	ret := m.ctrl.Call(m, "RecordTopologyMetrics", ctx, meta, topologyMetrics)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RecordTopologyMetrics indicates an expected call of RecordTopologyMetrics.
-func (mr *MockMetricsRecorderMockRecorder) RecordTopologyMetrics(ctx, meta, topologyMetrics, listOfPVs any) *gomock.Call {
+func (mr *MockMetricsRecorderMockRecorder) RecordTopologyMetrics(ctx, meta, topologyMetrics any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordTopologyMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordTopologyMetrics), ctx, meta, topologyMetrics, listOfPVs)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordTopologyMetrics", reflect.TypeOf((*MockMetricsRecorder)(nil).RecordTopologyMetrics), ctx, meta, topologyMetrics)
 }
 
 // MockMeterCreater is a mock of MeterCreater interface.

@@ -840,7 +840,6 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 		ctx             context.Context
 		meta            interface{}
 		topologyMetrics *service.TopologyMetricsRecord
-		listOfPVs       []string
 	}
 
 	tests := []struct {
@@ -872,7 +871,6 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 				topologyMetrics: &service.TopologyMetricsRecord{
 					PVCSize: 1024,
 				},
-				listOfPVs: []string{"pv-123"},
 			},
 			wantErr: false,
 		},
@@ -880,7 +878,7 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.mw.RecordTopologyMetrics(tt.args.ctx, tt.args.meta, tt.args.topologyMetrics, tt.args.listOfPVs); (err != nil) != tt.wantErr {
+			if err := tt.mw.RecordTopologyMetrics(tt.args.ctx, tt.args.meta, tt.args.topologyMetrics); (err != nil) != tt.wantErr {
 				t.Errorf("MetricsWrapper.RecordTopologyMetrics() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

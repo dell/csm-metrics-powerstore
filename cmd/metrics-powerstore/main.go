@@ -91,7 +91,6 @@ func initializeConfig() (*logrus.Logger, *entrypoint.Config, *service.PowerStore
 		MetricsWrapper: &service.MetricsWrapper{Meter: otel.Meter("powerstore")},
 		Logger:         logger,
 		VolumeFinder:   volumeFinder,
-		PrevPVList:     make(map[string]bool),
 	}
 
 	updatePowerStoreConnection(powerStoreSvc, logger)

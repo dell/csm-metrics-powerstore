@@ -79,7 +79,7 @@ TLS_ENABLED: false
 			},
 			expectedLogLevel:               logrus.DebugLevel,
 			expectedCollectorAddr:          "localhost:4317",
-			expectedProvisioners:           []string{"csi-isilon"},
+			expectedProvisioners:           []string{"csi-powerflex"},
 			expectedCertPath:               otlexporters.DefaultCollectorCertPath,
 			expectedTopologyMetricsEnabled: true,
 		},

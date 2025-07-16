@@ -102,8 +102,6 @@ type PowerStoreService struct {
 	PowerStoreClients        map[string]PowerStoreClient
 	DefaultPowerStoreArray   *PowerStoreArray
 	VolumeFinder             VolumeFinder
-	PrevPVList               map[string]bool
-	PrevPVListLock           sync.Mutex
 }
 
 // VolumeFinder is used to find volume information in kubernetes
@@ -147,6 +145,11 @@ type TopologyMetricsRecord struct {
 	TopologyMeta *TopologyMeta
 	PVCSize      int64
 }
+
+var (
+	PrevPVList     map[string]bool
+	PrevPVListLock sync.Mutex
+)
 
 // ExportVolumeStatistics records I/O statistics for the given list of Volumes
 func (s *PowerStoreService) ExportVolumeStatistics(ctx context.Context) {
@@ -1125,17 +1128,17 @@ func (s *PowerStoreService) ExportTopologyMetrics(ctx context.Context) {
 	}
 
 	var deletedPVs []string
-	s.PrevPVListLock.Lock()
-	for pv := range s.PrevPVList {
+	PrevPVListLock.Lock()
+	for pv := range PrevPVList {
 		if !currentPVList[pv] {
 			deletedPVs = append(deletedPVs, pv)
 		}
 	}
-	s.PrevPVList = currentPVList
-	s.PrevPVListLock.Unlock()
+	PrevPVList = currentPVList
+	PrevPVListLock.Unlock()
 
 	if len(deletedPVs) > 0 {
-		s.Logger.Infof("Deleted PVs: %v", deletedPVs)
+		s.Logger.Infof("Deleted %d PVs: %v", len(deletedPVs), deletedPVs)
 	}
 
 	// Trigger metric collection and push
