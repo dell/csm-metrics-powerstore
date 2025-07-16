@@ -909,7 +909,7 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 				meta: &service.TopologyMeta{
 					Namespace:               "default",
 					PersistentVolumeClaim:   "pvc-123",
-					PersistentVolumeStatus:  "Bound", // Changed from "Pending" to "Bound"
+					PersistentVolumeStatus:  "Bound",
 					VolumeClaimName:         "claim-123",
 					PersistentVolume:        metaID,
 					StorageClass:            "standard",
@@ -935,7 +935,7 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 				meta: &service.TopologyMeta{
 					Namespace:               "default",
 					PersistentVolumeClaim:   "pvc-123",
-					PersistentVolumeStatus:  "Pending", // Matches preloaded label
+					PersistentVolumeStatus:  "Pending",
 					VolumeClaimName:         "claim-123",
 					PersistentVolume:        metaID,
 					StorageClass:            "standard",

@@ -45,8 +45,9 @@ func Test_Run(t *testing.T) {
 			leaderElector.EXPECT().IsLeader().AnyTimes().Return(true)
 
 			config := &entrypoint.Config{
-				VolumeMetricsEnabled: true,
-				LeaderElector:        leaderElector,
+				VolumeMetricsEnabled:   true,
+				TopologyMetricsEnabled: true,
+				LeaderElector:          leaderElector,
 			}
 			prevConfigValidationFunc := entrypoint.ConfigValidatorFunc
 			entrypoint.ConfigValidatorFunc = noCheckConfig
@@ -262,12 +263,56 @@ func Test_Run(t *testing.T) {
 
 			return true, config, e, svc, prevConfigValidationFunc, ctrl, false
 		},
+		"ticker intervals are updated dynamically": func(t *testing.T) (bool, *entrypoint.Config, otlexporters.Otlexporter, pStoreServices.Service, func(*entrypoint.Config) error, *gomock.Controller, bool) {
+			ctrl := gomock.NewController(t)
+
+			leaderElector := mocks.NewMockLeaderElector(ctrl)
+			leaderElector.EXPECT().InitLeaderElection("karavi-metrics-powerstore", "karavi").AnyTimes().Return(nil)
+			leaderElector.EXPECT().IsLeader().AnyTimes().Return(true)
+
+			config := &entrypoint.Config{
+				VolumeMetricsEnabled:   true,
+				TopologyMetricsEnabled: true,
+				LeaderElector:          leaderElector,
+				VolumeTickInterval:     100 * time.Millisecond,
+				SpaceTickInterval:      100 * time.Millisecond,
+				ArrayTickInterval:      100 * time.Millisecond,
+				FileSystemTickInterval: 100 * time.Millisecond,
+				TopologyTickInterval:   100 * time.Millisecond,
+			}
+
+			prevConfigValidationFunc := entrypoint.ConfigValidatorFunc
+			entrypoint.ConfigValidatorFunc = noCheckConfig
+
+			exporter := exportermocks.NewMockOtlexporter(ctrl)
+			exporter.EXPECT().InitExporter(gomock.Any(), gomock.Any()).Return(nil)
+			exporter.EXPECT().StopExporter().Return(nil)
+
+			svc := metrics.NewMockService(ctrl)
+			svc.EXPECT().ExportVolumeStatistics(gomock.Any()).AnyTimes()
+			svc.EXPECT().ExportSpaceVolumeMetrics(gomock.Any()).AnyTimes()
+			svc.EXPECT().ExportArraySpaceMetrics(gomock.Any()).AnyTimes()
+			svc.EXPECT().ExportFileSystemStatistics(gomock.Any()).AnyTimes()
+			svc.EXPECT().ExportTopologyMetrics(gomock.Any()).AnyTimes()
+
+			// Update tick intervals dynamically during test run
+			go func() {
+				time.Sleep(150 * time.Millisecond)
+				config.VolumeTickInterval = 50 * time.Millisecond
+				config.SpaceTickInterval = 50 * time.Millisecond
+				config.ArrayTickInterval = 50 * time.Millisecond
+				config.FileSystemTickInterval = 50 * time.Millisecond
+				config.TopologyTickInterval = 50 * time.Millisecond
+			}()
+
+			return false, config, exporter, svc, prevConfigValidationFunc, ctrl, false
+		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			expectError, config, exporter, svc, prevConfValidation, ctrl, validateConfig := test(t)
-			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
 			defer cancel()
 			if config != nil {
 				config.Logger = logrus.New()
