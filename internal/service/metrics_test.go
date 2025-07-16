@@ -836,6 +836,33 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Pre-populate sync.Maps to cover the else branch in the method
+	metaID := "pv-123"
+	initialLabels := []attribute.KeyValue{
+		attribute.String("Namespace", "default"),
+		attribute.String("PersistentVolumeClaim", "pvc-123"),
+		attribute.String("PersistentVolumeStatus", "Pending"), // Different to force label update
+		attribute.String("VolumeClaimName", "claim-123"),
+		attribute.String("PersistentVolume", metaID),
+		attribute.String("StorageClass", "standard"),
+		attribute.String("Driver", "csi-powerstore"),
+		attribute.String("ProvisionedSize", "100Gi"),
+		attribute.String("StorageSystemVolumeName", "vol-123"),
+		attribute.String("StoragePoolName", "pool-1"),
+		attribute.String("StorageSystem", "system-1"),
+		attribute.String("Protocol", "iSCSI"),
+		attribute.String("CreatedTime", "2023-01-01T00:00:00Z"),
+		attribute.String("PlotWithMean", "No"),
+	}
+
+	// Dummy metrics to satisfy the method usage
+	dummyMetrics := &service.TopologyMetrics{
+		PvcSize: nil, // or mock your metric instrument accordingly if needed
+	}
+
+	mw.TopologyMetrics.Store(metaID, dummyMetrics)
+	mw.Labels.Store(metaID, initialLabels)
+
 	type args struct {
 		ctx             context.Context
 		meta            interface{}
@@ -858,7 +885,7 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 					PersistentVolumeClaim:   "pvc-123",
 					PersistentVolumeStatus:  "Bound",
 					VolumeClaimName:         "claim-123",
-					PersistentVolume:        "pv-123",
+					PersistentVolume:        metaID,
 					StorageClass:            "standard",
 					Driver:                  "csi-powerstore",
 					ProvisionedSize:         "100Gi",
@@ -870,6 +897,58 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 				},
 				topologyMetrics: &service.TopologyMetricsRecord{
 					PVCSize: 1024,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "label update triggers reinit",
+			mw:   mw,
+			args: args{
+				ctx: context.Background(),
+				meta: &service.TopologyMeta{
+					Namespace:               "default",
+					PersistentVolumeClaim:   "pvc-123",
+					PersistentVolumeStatus:  "Bound", // Changed from "Pending" to "Bound"
+					VolumeClaimName:         "claim-123",
+					PersistentVolume:        metaID,
+					StorageClass:            "standard",
+					Driver:                  "csi-powerstore",
+					ProvisionedSize:         "100Gi",
+					StorageSystemVolumeName: "vol-123",
+					StoragePoolName:         "pool-1",
+					StorageSystem:           "system-1",
+					Protocol:                "iSCSI",
+					CreatedTime:             "2023-01-01T00:00:00Z",
+				},
+				topologyMetrics: &service.TopologyMetricsRecord{
+					PVCSize: 2048,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "existing metrics no label change",
+			mw:   mw,
+			args: args{
+				ctx: context.Background(),
+				meta: &service.TopologyMeta{
+					Namespace:               "default",
+					PersistentVolumeClaim:   "pvc-123",
+					PersistentVolumeStatus:  "Pending", // Matches preloaded label
+					VolumeClaimName:         "claim-123",
+					PersistentVolume:        metaID,
+					StorageClass:            "standard",
+					Driver:                  "csi-powerstore",
+					ProvisionedSize:         "100Gi",
+					StorageSystemVolumeName: "vol-123",
+					StoragePoolName:         "pool-1",
+					StorageSystem:           "system-1",
+					Protocol:                "iSCSI",
+					CreatedTime:             "2023-01-01T00:00:00Z",
+				},
+				topologyMetrics: &service.TopologyMetricsRecord{
+					PVCSize: 512,
 				},
 			},
 			wantErr: false,

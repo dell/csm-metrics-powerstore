@@ -146,11 +146,6 @@ type TopologyMetricsRecord struct {
 	PVCSize      int64
 }
 
-var (
-	PrevPVList     map[string]bool
-	PrevPVListLock sync.Mutex
-)
-
 // ExportVolumeStatistics records I/O statistics for the given list of Volumes
 func (s *PowerStoreService) ExportVolumeStatistics(ctx context.Context) {
 	ctx, span := tracer.GetTracer(ctx, "ExportVolumeStatistics")
@@ -1000,7 +995,7 @@ func (s *PowerStoreService) pushFileSystemMetrics(ctx context.Context, volumeMet
 	return ch
 }
 
-func (s *PowerStoreService) gatherTopologyMetrics(ctx context.Context, volumes <-chan k8s.VolumeInfo) <-chan *TopologyMetricsRecord {
+func (s *PowerStoreService) gatherTopologyMetrics(_ context.Context, volumes <-chan k8s.VolumeInfo) <-chan *TopologyMetricsRecord {
 	start := time.Now()
 	defer s.timeSince(start, "gatherTopologyMetrics")
 
@@ -1119,26 +1114,6 @@ func (s *PowerStoreService) ExportTopologyMetrics(ctx context.Context) {
 	if err != nil {
 		s.Logger.WithError(err).Error("getting persistent volumes")
 		return
-	}
-
-	// Track deleted PVs
-	currentPVList := make(map[string]bool, len(pvs))
-	for _, pv := range pvs {
-		currentPVList[pv.PersistentVolume] = true
-	}
-
-	var deletedPVs []string
-	PrevPVListLock.Lock()
-	for pv := range PrevPVList {
-		if !currentPVList[pv] {
-			deletedPVs = append(deletedPVs, pv)
-		}
-	}
-	PrevPVList = currentPVList
-	PrevPVListLock.Unlock()
-
-	if len(deletedPVs) > 0 {
-		s.Logger.Infof("Deleted %d PVs: %v", len(deletedPVs), deletedPVs)
 	}
 
 	// Trigger metric collection and push
