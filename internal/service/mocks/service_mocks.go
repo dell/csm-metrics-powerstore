@@ -15,6 +15,7 @@ import (
 type MockService struct {
 	ctrl     *gomock.Controller
 	recorder *MockServiceMockRecorder
+	isgomock struct{}
 }
 
 // MockServiceMockRecorder is the mock recorder for MockService.
@@ -41,7 +42,7 @@ func (m *MockService) ExportArraySpaceMetrics(arg0 context.Context) {
 }
 
 // ExportArraySpaceMetrics indicates an expected call of ExportArraySpaceMetrics.
-func (mr *MockServiceMockRecorder) ExportArraySpaceMetrics(arg0 interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) ExportArraySpaceMetrics(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportArraySpaceMetrics", reflect.TypeOf((*MockService)(nil).ExportArraySpaceMetrics), arg0)
 }
@@ -53,7 +54,7 @@ func (m *MockService) ExportFileSystemStatistics(arg0 context.Context) {
 }
 
 // ExportFileSystemStatistics indicates an expected call of ExportFileSystemStatistics.
-func (mr *MockServiceMockRecorder) ExportFileSystemStatistics(arg0 interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) ExportFileSystemStatistics(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportFileSystemStatistics", reflect.TypeOf((*MockService)(nil).ExportFileSystemStatistics), arg0)
 }
@@ -65,9 +66,21 @@ func (m *MockService) ExportSpaceVolumeMetrics(arg0 context.Context) {
 }
 
 // ExportSpaceVolumeMetrics indicates an expected call of ExportSpaceVolumeMetrics.
-func (mr *MockServiceMockRecorder) ExportSpaceVolumeMetrics(arg0 interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) ExportSpaceVolumeMetrics(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportSpaceVolumeMetrics", reflect.TypeOf((*MockService)(nil).ExportSpaceVolumeMetrics), arg0)
+}
+
+// ExportTopologyMetrics mocks base method.
+func (m *MockService) ExportTopologyMetrics(arg0 context.Context) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ExportTopologyMetrics", arg0)
+}
+
+// ExportTopologyMetrics indicates an expected call of ExportTopologyMetrics.
+func (mr *MockServiceMockRecorder) ExportTopologyMetrics(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportTopologyMetrics", reflect.TypeOf((*MockService)(nil).ExportTopologyMetrics), arg0)
 }
 
 // ExportVolumeStatistics mocks base method.
@@ -77,7 +90,7 @@ func (m *MockService) ExportVolumeStatistics(arg0 context.Context) {
 }
 
 // ExportVolumeStatistics indicates an expected call of ExportVolumeStatistics.
-func (mr *MockServiceMockRecorder) ExportVolumeStatistics(arg0 interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) ExportVolumeStatistics(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportVolumeStatistics", reflect.TypeOf((*MockService)(nil).ExportVolumeStatistics), arg0)
 }

@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2021-2022 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -512,6 +512,40 @@ func TestMetricsWrapper_RecordArraySpaceMetrics_Label_Update(t *testing.T) {
 			}
 		}
 	})
+	t.Run("success: label change triggers metric reinitialization", func(t *testing.T) {
+		arrayID := "array-456"
+
+		// Initial call with one driver
+		err := mw.RecordArraySpaceMetrics(context.Background(), arrayID, "driverA", 100, 50)
+		if err != nil {
+			t.Errorf("expected nil error (initial record), got %v", err)
+		}
+
+		// Simulate label change by manually storing different labels
+		mw.Labels.Store(arrayID, []attribute.KeyValue{
+			attribute.String("ArrayID", arrayID),
+			attribute.String("Driver", "driverB"), // Different driver to trigger label update
+			attribute.String("PlotWithMean", "No"),
+		})
+
+		// Second call with updated driver
+		err = mw.RecordArraySpaceMetrics(context.Background(), arrayID, "driverA", 200, 100)
+		if err != nil {
+			t.Errorf("expected nil error (updated record), got %v", err)
+		}
+
+		// Validate that the label was updated
+		newLabels, ok := mw.Labels.Load(arrayID)
+		if !ok {
+			t.Errorf("expected labels to exist for %v, but did not find them", arrayID)
+		}
+		labels := newLabels.([]attribute.KeyValue)
+		for _, l := range labels {
+			if l.Key == "Driver" && l.Value.AsString() != "driverA" {
+				t.Errorf("expected Driver to be updated to 'driverA', got %v", l.Value.AsString())
+			}
+		}
+	})
 }
 
 func TestMetricsWrapper_RecordStorageClassSpaceMetrics(t *testing.T) {
@@ -633,6 +667,38 @@ func TestMetricsWrapper_RecordStorageClassSpaceMetrics_Label_Update(t *testing.T
 						t.Errorf("expected label %v to be updated to %v, but the value was %v", e.Key, e.Value.AsString(), l.Value.AsString())
 					}
 				}
+			}
+		}
+	})
+	t.Run("success: existing labels are updated when changed", func(t *testing.T) {
+		// Step 1: Record initial metrics with one set of labels
+		err := mw.RecordStorageClassSpaceMetrics(context.Background(), "sc-original", "driverA", 100, 50)
+		if err != nil {
+			t.Errorf("expected nil error (initial record), got %v", err)
+		}
+
+		// Step 2: Manually override the stored labels to simulate a change
+		mw.Labels.Store("sc-original", []attribute.KeyValue{
+			attribute.String("StorageClass", "sc-original"),
+			attribute.String("Driver", "driverA"),
+			attribute.String("PlotWithMean", "Yes"), // This differs from the new label
+		})
+
+		// Step 3: Call again with updated label value to trigger label update logic
+		err = mw.RecordStorageClassSpaceMetrics(context.Background(), "sc-original", "driverA", 200, 100)
+		if err != nil {
+			t.Errorf("expected nil error (updated record), got %v", err)
+		}
+
+		// Step 4: Verify that the label was updated
+		newLabels, ok := mw.Labels.Load("sc-original")
+		if !ok {
+			t.Errorf("expected labels to exist for %v, but did not find them", "sc-original")
+		}
+		labels := newLabels.([]attribute.KeyValue)
+		for _, l := range labels {
+			if l.Key == "PlotWithMean" && l.Value.AsString() != "No" {
+				t.Errorf("expected PlotWithMean to be updated to 'No', got %v", l.Value.AsString())
 			}
 		}
 	})
@@ -823,4 +889,171 @@ func TestMetricsWrapper_RecordFileSystemMetrics_Label_Update(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
+	mw := &service.MetricsWrapper{
+		Meter: otel.Meter("powerstore-topology-test"),
+	}
+
+	exporter := &otlexporters.OtlCollectorExporter{}
+	err := exporter.InitExporter()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Pre-populate sync.Maps to cover the else branch in the method
+	metaID := "pv-123"
+	initialLabels := []attribute.KeyValue{
+		attribute.String("Namespace", "default"),
+		attribute.String("PersistentVolumeClaim", "pvc-123"),
+		attribute.String("PersistentVolumeStatus", "Pending"), // Different to force label update
+		attribute.String("VolumeClaimName", "claim-123"),
+		attribute.String("PersistentVolume", metaID),
+		attribute.String("StorageClass", "standard"),
+		attribute.String("Driver", "csi-powerstore"),
+		attribute.String("ProvisionedSize", "100Gi"),
+		attribute.String("StorageSystemVolumeName", "vol-123"),
+		attribute.String("StoragePoolName", "pool-1"),
+		attribute.String("StorageSystem", "system-1"),
+		attribute.String("Protocol", "iSCSI"),
+		attribute.String("CreatedTime", "2023-01-01T00:00:00Z"),
+		attribute.String("PlotWithMean", "No"),
+	}
+
+	// Dummy metrics to satisfy the method usage
+	dummyMetrics := &service.TopologyMetrics{
+		PvAvailabilityMetric: nil,
+	}
+
+	mw.TopologyMetrics.Store(metaID, dummyMetrics)
+	mw.Labels.Store(metaID, initialLabels)
+
+	type args struct {
+		ctx             context.Context
+		meta            interface{}
+		topologyMetrics *service.TopologyMetricsRecord
+	}
+
+	tests := []struct {
+		name    string
+		mw      *service.MetricsWrapper
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "success",
+			mw:   mw,
+			args: args{
+				ctx: context.Background(),
+				meta: &service.TopologyMeta{
+					Namespace:               "default",
+					PersistentVolumeClaim:   "pvc-123",
+					PersistentVolumeStatus:  "Bound",
+					VolumeClaimName:         "claim-123",
+					PersistentVolume:        metaID,
+					StorageClass:            "standard",
+					Driver:                  "csi-powerstore",
+					ProvisionedSize:         "100Gi",
+					StorageSystemVolumeName: "vol-123",
+					StoragePoolName:         "pool-1",
+					StorageSystem:           "system-1",
+					Protocol:                "iSCSI",
+					CreatedTime:             "2023-01-01T00:00:00Z",
+				},
+				topologyMetrics: &service.TopologyMetricsRecord{
+					PvAvailable: 1024,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "label update triggers reinit",
+			mw:   mw,
+			args: args{
+				ctx: context.Background(),
+				meta: &service.TopologyMeta{
+					Namespace:               "default",
+					PersistentVolumeClaim:   "pvc-123",
+					PersistentVolumeStatus:  "Bound",
+					VolumeClaimName:         "claim-123",
+					PersistentVolume:        metaID,
+					StorageClass:            "standard",
+					Driver:                  "csi-powerstore",
+					ProvisionedSize:         "100Gi",
+					StorageSystemVolumeName: "vol-123",
+					StoragePoolName:         "pool-1",
+					StorageSystem:           "system-1",
+					Protocol:                "iSCSI",
+					CreatedTime:             "2023-01-01T00:00:00Z",
+				},
+				topologyMetrics: &service.TopologyMetricsRecord{
+					PvAvailable: 2048,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "existing metrics no label change",
+			mw:   mw,
+			args: args{
+				ctx: context.Background(),
+				meta: &service.TopologyMeta{
+					Namespace:               "default",
+					PersistentVolumeClaim:   "pvc-123",
+					PersistentVolumeStatus:  "Pending",
+					VolumeClaimName:         "claim-123",
+					PersistentVolume:        metaID,
+					StorageClass:            "standard",
+					Driver:                  "csi-powerstore",
+					ProvisionedSize:         "100Gi",
+					StorageSystemVolumeName: "vol-123",
+					StoragePoolName:         "pool-1",
+					StorageSystem:           "system-1",
+					Protocol:                "iSCSI",
+					CreatedTime:             "2023-01-01T00:00:00Z",
+				},
+				topologyMetrics: &service.TopologyMetricsRecord{
+					PvAvailable: 512,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "new metrics initialized when not found in TopologyMetrics map",
+			mw: &service.MetricsWrapper{
+				Meter: otel.Meter("powerstore-topology-test"),
+			},
+			args: args{
+				ctx: context.Background(),
+				meta: &service.TopologyMeta{
+					Namespace:               "default",
+					PersistentVolumeClaim:   "pvc-new",
+					PersistentVolumeStatus:  "Bound",
+					VolumeClaimName:         "claim-new",
+					PersistentVolume:        "pv-new", // This metaID is not preloaded
+					StorageClass:            "gold",
+					Driver:                  "csi-powerstore",
+					ProvisionedSize:         "200Gi",
+					StorageSystemVolumeName: "vol-new",
+					StoragePoolName:         "pool-2",
+					StorageSystem:           "system-2",
+					Protocol:                "NVMe",
+					CreatedTime:             "2024-01-01T00:00:00Z",
+				},
+				topologyMetrics: &service.TopologyMetricsRecord{
+					PvAvailable: 1024,
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.mw.RecordTopologyMetrics(tt.args.ctx, tt.args.meta, tt.args.topologyMetrics); (err != nil) != tt.wantErr {
+				t.Errorf("MetricsWrapper.RecordTopologyMetrics() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }

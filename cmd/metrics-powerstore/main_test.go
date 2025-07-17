@@ -49,6 +49,7 @@ LOG_LEVEL: debug
 COLLECTOR_ADDR: localhost:4317
 PROVISIONER_NAMES: csi-powerstore
 POWERSTORE_VOLUME_METRICS_ENABLED: true
+POWERSTORE_TOPOLOGY_METRICS_ENABLED: "true"
 TLS_ENABLED: false
 `
 	err := viper.ReadConfig(strings.NewReader(configContent))
@@ -58,40 +59,45 @@ TLS_ENABLED: false
 	}
 
 	tests := []struct {
-		name                  string
-		envVars               map[string]string
-		expectedLogLevel      logrus.Level
-		expectedCollectorAddr string
-		expectedProvisioners  []string
-		expectedCertPath      string
+		name                           string
+		envVars                        map[string]string
+		expectedLogLevel               logrus.Level
+		expectedCollectorAddr          string
+		expectedProvisioners           []string
+		expectedCertPath               string
+		expectedTopologyMetricsEnabled bool
 	}{
 		{
 			name: "SuccessfulInitializationWithDefaults",
 			envVars: map[string]string{
-				"LOG_LEVEL":                         "debug",
-				"COLLECTOR_ADDR":                    "localhost:4317",
-				"PROVISIONER_NAMES":                 "csi-powerstore",
-				"POWERSTORE_VOLUME_METRICS_ENABLED": "true",
-				"TLS_ENABLED":                       "false",
+				"LOG_LEVEL":                           "debug",
+				"COLLECTOR_ADDR":                      "localhost:4317",
+				"PROVISIONER_NAMES":                   "csi-powerstore",
+				"POWERSTORE_VOLUME_METRICS_ENABLED":   "true",
+				"TLS_ENABLED":                         "false",
+				"POWERSTORE_TOPOLOGY_METRICS_ENABLED": "true",
 			},
-			expectedLogLevel:      logrus.DebugLevel,
-			expectedCollectorAddr: "localhost:4317",
-			expectedProvisioners:  []string{"csi-isilon"},
-			expectedCertPath:      otlexporters.DefaultCollectorCertPath,
+			expectedLogLevel:               logrus.DebugLevel,
+			expectedCollectorAddr:          "localhost:4317",
+			expectedProvisioners:           []string{"csi-powerflex"},
+			expectedCertPath:               otlexporters.DefaultCollectorCertPath,
+			expectedTopologyMetricsEnabled: true,
 		},
 		{
 			name: "TLSEnabledWithCustomCertPath",
 			envVars: map[string]string{
-				"LOG_LEVEL":           "info",
-				"COLLECTOR_ADDR":      "collector:4317",
-				"PROVISIONER_NAMES":   "csi-powerstore",
-				"TLS_ENABLED":         "true",
-				"COLLECTOR_CERT_PATH": "/custom/cert/path",
+				"LOG_LEVEL":                           "info",
+				"COLLECTOR_ADDR":                      "collector:4317",
+				"PROVISIONER_NAMES":                   "csi-powerstore",
+				"TLS_ENABLED":                         "true",
+				"COLLECTOR_CERT_PATH":                 "/custom/cert/path",
+				"POWERSTORE_TOPOLOGY_METRICS_ENABLED": "false",
 			},
-			expectedLogLevel:      logrus.InfoLevel,
-			expectedCollectorAddr: "collector:4317",
-			expectedProvisioners:  []string{"csi-powerstore"},
-			expectedCertPath:      "/custom/cert/path",
+			expectedLogLevel:               logrus.InfoLevel,
+			expectedCollectorAddr:          "collector:4317",
+			expectedProvisioners:           []string{"csi-powerstore"},
+			expectedCertPath:               "/custom/cert/path",
+			expectedTopologyMetricsEnabled: false,
 		},
 	}
 
@@ -251,40 +257,46 @@ func TestGetBindPort(t *testing.T) {
 
 func TestUpdateTickIntervals(t *testing.T) {
 	tests := []struct {
-		name              string
-		volFreq           string
-		spaceFreq         string
-		arrayFreq         string
-		fsFreq            string
-		expectedVolFreq   time.Duration
-		expectedSpaceFreq time.Duration
-		expectedArrayFreq time.Duration
-		expectedFsFreq    time.Duration
-		expectPanic       bool
+		name                 string
+		volFreq              string
+		spaceFreq            string
+		arrayFreq            string
+		fsFreq               string
+		topologyFreq         string
+		expectedVolFreq      time.Duration
+		expectedSpaceFreq    time.Duration
+		expectedArrayFreq    time.Duration
+		expectedFsFreq       time.Duration
+		expectedTopologyFreq time.Duration
+		expectPanic          bool
 	}{
 		{
-			name:              "Valid Values",
-			volFreq:           "10",
-			spaceFreq:         "20",
-			arrayFreq:         "10",
-			fsFreq:            "20",
-			expectedVolFreq:   10 * time.Second,
-			expectedSpaceFreq: 20 * time.Second,
-			expectedArrayFreq: 10 * time.Second,
-			expectedFsFreq:    20 * time.Second,
-			expectPanic:       false,
+			name:                 "Valid Values",
+			volFreq:              "10",
+			spaceFreq:            "20",
+			arrayFreq:            "10",
+			fsFreq:               "20",
+			topologyFreq:         "20",
+			expectedVolFreq:      10 * time.Second,
+			expectedSpaceFreq:    20 * time.Second,
+			expectedArrayFreq:    10 * time.Second,
+			expectedFsFreq:       20 * time.Second,
+			expectedTopologyFreq: 20 * time.Second,
+			expectPanic:          false,
 		},
 		{
-			name:              "InValid Values",
-			volFreq:           "invalid",
-			spaceFreq:         "invalid",
-			arrayFreq:         "",
-			fsFreq:            "invalidinvalid",
-			expectedVolFreq:   defaultTickInterval,
-			expectedSpaceFreq: defaultTickInterval,
-			expectedArrayFreq: defaultTickInterval,
-			expectedFsFreq:    defaultTickInterval,
-			expectPanic:       true,
+			name:                 "Invalid Values",
+			volFreq:              "invalid",
+			spaceFreq:            "invalid",
+			arrayFreq:            "",
+			fsFreq:               "invalidinvalid",
+			topologyFreq:         "invalid",
+			expectedVolFreq:      defaultTickInterval,
+			expectedSpaceFreq:    defaultTickInterval,
+			expectedArrayFreq:    defaultTickInterval,
+			expectedFsFreq:       defaultTickInterval,
+			expectedTopologyFreq: defaultTickInterval,
+			expectPanic:          true,
 		},
 		{
 			name:              "InValid SpaceFreq",
@@ -322,6 +334,34 @@ func TestUpdateTickIntervals(t *testing.T) {
 			expectedFsFreq:    defaultTickInterval,
 			expectPanic:       true,
 		},
+		{
+			name:                 "Invalid TopologyFreq only",
+			volFreq:              "10",
+			spaceFreq:            "10",
+			arrayFreq:            "10",
+			fsFreq:               "10",
+			topologyFreq:         "invalid",
+			expectedVolFreq:      10 * time.Second,
+			expectedSpaceFreq:    10 * time.Second,
+			expectedArrayFreq:    10 * time.Second,
+			expectedFsFreq:       10 * time.Second,
+			expectedTopologyFreq: defaultTickInterval,
+			expectPanic:          true,
+		},
+		{
+			name:                 "Valid TopologyFreq",
+			volFreq:              "10",
+			spaceFreq:            "10",
+			arrayFreq:            "10",
+			fsFreq:               "10",
+			topologyFreq:         "30",
+			expectedVolFreq:      10 * time.Second,
+			expectedSpaceFreq:    10 * time.Second,
+			expectedArrayFreq:    10 * time.Second,
+			expectedFsFreq:       10 * time.Second,
+			expectedTopologyFreq: 30 * time.Second,
+			expectPanic:          false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -332,6 +372,7 @@ func TestUpdateTickIntervals(t *testing.T) {
 			viper.Set("POWERSTORE_ARRAY_POLL_FREQUENCY", tt.arrayFreq)
 			viper.Set("POWERSTORE_FILE_SYSTEM_POLL_FREQUENCY", tt.fsFreq)
 			// viper.Set("POWERSTORE_VOLUME_METRICS_ENABLED", "invalid")
+			viper.Set("POWERSTORE_TOPOLOGY_METRICS_POLL_FREQUENCY", tt.topologyFreq)
 
 			config := &entrypoint.Config{}
 			logger := logrus.New()
@@ -341,10 +382,11 @@ func TestUpdateTickIntervals(t *testing.T) {
 				assert.Panics(t, func() { updateTickIntervals(config, logger) })
 			} else {
 				assert.NotPanics(t, func() { updateTickIntervals(config, logger) })
-				assert.Equal(t, time.Second*10, config.VolumeTickInterval)
-				assert.Equal(t, time.Second*20, config.SpaceTickInterval)
-				assert.Equal(t, time.Second*10, config.ArrayTickInterval)
-				assert.Equal(t, time.Second*20, config.FileSystemTickInterval)
+				assert.Equal(t, tt.expectedVolFreq, config.VolumeTickInterval, "VolumeTickInterval mismatch")
+				assert.Equal(t, tt.expectedSpaceFreq, config.SpaceTickInterval, "SpaceTickInterval mismatch")
+				assert.Equal(t, tt.expectedArrayFreq, config.ArrayTickInterval, "ArrayTickInterval mismatch")
+				assert.Equal(t, tt.expectedFsFreq, config.FileSystemTickInterval, "FileSystemTickInterval mismatch")
+				assert.Equal(t, tt.expectedTopologyFreq, config.TopologyTickInterval, "TopologyTickInterval mismatch")
 			}
 		})
 	}

@@ -42,6 +42,22 @@ type SpaceVolumeMeta struct {
 	Protocol                  string
 }
 
+type TopologyMeta struct {
+	Namespace               string
+	PersistentVolumeClaim   string
+	PersistentVolumeStatus  string
+	VolumeClaimName         string
+	PersistentVolume        string
+	StorageClass            string
+	Driver                  string
+	ProvisionedSize         string
+	StorageSystemVolumeName string
+	StoragePoolName         string
+	StorageSystem           string
+	Protocol                string
+	CreatedTime             string
+}
+
 // TransportType differentiates different SCSI transport protocols (FC, iSCSI, Auto, None)
 type TransportType string
 

@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2021-2022 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -80,6 +80,7 @@ type Service interface {
 	ExportSpaceVolumeMetrics(context.Context)
 	ExportArraySpaceMetrics(context.Context)
 	ExportFileSystemStatistics(context.Context)
+	ExportTopologyMetrics(context.Context)
 }
 
 // PowerStoreClient contains operations for accessing the PowerStore API
@@ -137,6 +138,12 @@ type VolumeSpaceMetricsRecord struct {
 type ArraySpaceMetricsRecord struct {
 	arrayID, storageclass, driver   string
 	logicalProvisioned, logicalUsed int64
+}
+
+// TopologyMetricsRecord used for holding output of the Topology metrics query results
+type TopologyMetricsRecord struct {
+	TopologyMeta *TopologyMeta
+	PvAvailable  int64
 }
 
 // ExportVolumeStatistics records I/O statistics for the given list of Volumes
@@ -986,4 +993,133 @@ func (s *PowerStoreService) pushFileSystemMetrics(ctx context.Context, volumeMet
 	}()
 
 	return ch
+}
+
+// gatherTopologyMetrics returns a channel of topology metrics generated from the input volumes.
+func (s *PowerStoreService) gatherTopologyMetrics(_ context.Context, volumes <-chan k8s.VolumeInfo) <-chan *TopologyMetricsRecord {
+	start := time.Now()
+	defer s.timeSince(start, "gatherTopologyMetrics")
+
+	ch := make(chan *TopologyMetricsRecord)
+	var wg sync.WaitGroup
+
+	go func() {
+		exported := false
+		for volume := range volumes {
+			exported = true
+			wg.Add(1)
+
+			go func(volume k8s.VolumeInfo) {
+				defer wg.Done()
+
+				// VolumeHandle format: "volume-id/array-ip/protocol"
+				volumeProperties := strings.Split(volume.VolumeHandle, "/")
+				if len(volumeProperties) != ExpectedVolumeHandleProperties {
+					s.Logger.WithField("volume_handle", volume.VolumeHandle).Warn("unable to parse volume handle")
+					return
+				}
+
+				topologyMeta := &TopologyMeta{
+					PersistentVolumeClaim:   volume.VolumeClaimName,
+					VolumeClaimName:         volume.VolumeClaimName,
+					PersistentVolumeStatus:  volume.PersistentVolumeStatus,
+					PersistentVolume:        volume.PersistentVolume,
+					Driver:                  volume.Driver,
+					ProvisionedSize:         volume.ProvisionedSize,
+					StorageSystemVolumeName: volume.StorageSystemVolumeName,
+					StoragePoolName:         volume.StoragePoolName,
+					StorageSystem:           volume.StorageSystem,
+					Protocol:                volume.Protocol,
+					CreatedTime:             volume.CreatedTime,
+					StorageClass:            volume.StorageClass,
+				}
+
+				pvAvailable := int64(1) // Placeholder value
+
+				metric := &TopologyMetricsRecord{
+					TopologyMeta: topologyMeta,
+					PvAvailable:  pvAvailable,
+				}
+
+				s.Logger.Debugf("topology metrics - PV: %s, Provisioned: %s",
+					metric.TopologyMeta.PersistentVolume, topologyMeta.ProvisionedSize)
+
+				ch <- metric
+			}(volume)
+		}
+
+		if !exported {
+			ch <- &TopologyMetricsRecord{
+				TopologyMeta: &TopologyMeta{},
+				PvAvailable:  0,
+			}
+		}
+
+		wg.Wait()
+		close(ch)
+	}()
+
+	return ch
+}
+
+// pushTopologyMetrics pushes topology metrics from the input channel to the otel collector and returns successfully recorded ones.
+func (s *PowerStoreService) pushTopologyMetrics(ctx context.Context, topologyMetrics <-chan *TopologyMetricsRecord) <-chan *TopologyMetricsRecord {
+	start := time.Now()
+	defer s.timeSince(start, "pushTopologyMetrics")
+
+	var wg sync.WaitGroup
+	ch := make(chan *TopologyMetricsRecord)
+
+	go func() {
+		ctx, span := tracer.GetTracer(ctx, "pushTopologyMetrics")
+		defer span.End()
+
+		for metrics := range topologyMetrics {
+			wg.Add(1)
+			go func(metrics *TopologyMetricsRecord) {
+				defer wg.Done()
+
+				err := s.MetricsWrapper.RecordTopologyMetrics(ctx, metrics.TopologyMeta, metrics)
+				if err != nil {
+					s.Logger.WithError(err).
+						WithField("volume_id", metrics.TopologyMeta.PersistentVolume).
+						Error("recording topology metrics for volume")
+				} else {
+					s.Logger.Debugf("recorded topology metrics for volume %s and size %s",
+						metrics.TopologyMeta.PersistentVolume, metrics.TopologyMeta.ProvisionedSize)
+					ch <- metrics
+				}
+			}(metrics)
+		}
+
+		wg.Wait()
+		close(ch)
+	}()
+
+	return ch
+}
+
+// ExportTopologyMetrics records topology metrics for the given set of PowerStore volumes.
+func (s *PowerStoreService) ExportTopologyMetrics(ctx context.Context) {
+	ctx, span := tracer.GetTracer(ctx, "ExportTopologyMetrics")
+	defer span.End()
+
+	start := time.Now()
+	defer s.timeSince(start, "ExportTopologyMetrics")
+
+	if s.MetricsWrapper == nil {
+		s.Logger.Warn("no MetricsWrapper provided for getting ExportTopologyMetrics")
+		return
+	}
+
+	pvs, err := s.VolumeFinder.GetPersistentVolumes(ctx)
+	if err != nil {
+		s.Logger.WithError(err).Error("getting persistent volumes")
+		return
+	}
+
+	// Trigger metric collection and push
+	for range s.pushTopologyMetrics(ctx, s.gatherTopologyMetrics(ctx, s.volumeServer(ctx, pvs))) {
+		// consume the channel until it is empty and closed
+	} // revive:disable-line:empty-block
 }

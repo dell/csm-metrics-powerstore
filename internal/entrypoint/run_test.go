@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2021-2022 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -45,8 +45,9 @@ func Test_Run(t *testing.T) {
 			leaderElector.EXPECT().IsLeader().AnyTimes().Return(true)
 
 			config := &entrypoint.Config{
-				VolumeMetricsEnabled: true,
-				LeaderElector:        leaderElector,
+				VolumeMetricsEnabled:   true,
+				TopologyMetricsEnabled: true,
+				LeaderElector:          leaderElector,
 			}
 			prevConfigValidationFunc := entrypoint.ConfigValidatorFunc
 			entrypoint.ConfigValidatorFunc = noCheckConfig
@@ -60,6 +61,7 @@ func Test_Run(t *testing.T) {
 			svc.EXPECT().ExportSpaceVolumeMetrics(gomock.Any()).AnyTimes()
 			svc.EXPECT().ExportArraySpaceMetrics(gomock.Any()).AnyTimes()
 			svc.EXPECT().ExportFileSystemStatistics(gomock.Any()).AnyTimes()
+			svc.EXPECT().ExportTopologyMetrics(gomock.Any()).AnyTimes()
 
 			return false, config, e, svc, prevConfigValidationFunc, ctrl, false
 		},
@@ -126,6 +128,24 @@ func Test_Run(t *testing.T) {
 				SpaceTickInterval:      200 * time.Second,
 				ArrayTickInterval:      200 * time.Second,
 				FileSystemTickInterval: 1 * time.Second,
+			}
+			prevConfigValidationFunc := entrypoint.ConfigValidatorFunc
+			e := exportermocks.NewMockOtlexporter(ctrl)
+			svc := metrics.NewMockService(ctrl)
+
+			return true, config, e, svc, prevConfigValidationFunc, ctrl, true
+		},
+		"error with invalid topology ticker interval": func(*testing.T) (bool, *entrypoint.Config, otlexporters.Otlexporter, pStoreServices.Service, func(*entrypoint.Config) error, *gomock.Controller, bool) {
+			ctrl := gomock.NewController(t)
+			leaderElector := mocks.NewMockLeaderElector(ctrl)
+			config := &entrypoint.Config{
+				VolumeMetricsEnabled:   true,
+				LeaderElector:          leaderElector,
+				VolumeTickInterval:     200 * time.Second,
+				SpaceTickInterval:      200 * time.Second,
+				ArrayTickInterval:      200 * time.Second,
+				FileSystemTickInterval: 200 * time.Second,
+				TopologyTickInterval:   1 * time.Second,
 			}
 			prevConfigValidationFunc := entrypoint.ConfigValidatorFunc
 			e := exportermocks.NewMockOtlexporter(ctrl)
@@ -248,7 +268,7 @@ func Test_Run(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			expectError, config, exporter, svc, prevConfValidation, ctrl, validateConfig := test(t)
-			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
 			defer cancel()
 			if config != nil {
 				config.Logger = logrus.New()
@@ -259,6 +279,7 @@ func Test_Run(t *testing.T) {
 					config.SpaceTickInterval = 100 * time.Millisecond
 					config.ArrayTickInterval = 100 * time.Millisecond
 					config.FileSystemTickInterval = 100 * time.Millisecond
+					config.TopologyTickInterval = 100 * time.Millisecond
 				}
 			}
 			err := entrypoint.Run(ctx, config, exporter, svc)
@@ -282,12 +303,13 @@ func Test_ValidateConfig(t *testing.T) {
 		config  *entrypoint.Config
 		wantErr bool
 	}{
-		{"valid config", &entrypoint.Config{VolumeTickInterval: 10 * time.Second, SpaceTickInterval: 10 * time.Second, ArrayTickInterval: 10 * time.Second, FileSystemTickInterval: 10 * time.Second}, false},
+		{"valid config", &entrypoint.Config{VolumeTickInterval: 10 * time.Second, SpaceTickInterval: 10 * time.Second, ArrayTickInterval: 10 * time.Second, FileSystemTickInterval: 10 * time.Second, TopologyTickInterval: 10 * time.Second}, false},
 		{"nil config", nil, true},
 		{"invalid volume tick interval", &entrypoint.Config{VolumeTickInterval: 1 * time.Second}, true},
 		{"invalid space tick interval", &entrypoint.Config{SpaceTickInterval: 1 * time.Second}, true},
 		{"invalid array tick interval", &entrypoint.Config{ArrayTickInterval: 1 * time.Second}, true},
 		{"invalid filesystem tick interval", &entrypoint.Config{FileSystemTickInterval: 1 * time.Second}, true},
+		{"invalid topology tick interval", &entrypoint.Config{TopologyTickInterval: 1 * time.Second}, true},
 	}
 
 	for _, tt := range tests {
