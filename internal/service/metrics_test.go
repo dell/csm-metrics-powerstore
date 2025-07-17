@@ -512,6 +512,40 @@ func TestMetricsWrapper_RecordArraySpaceMetrics_Label_Update(t *testing.T) {
 			}
 		}
 	})
+	t.Run("success: label change triggers metric reinitialization", func(t *testing.T) {
+		arrayID := "array-456"
+
+		// Initial call with one driver
+		err := mw.RecordArraySpaceMetrics(context.Background(), arrayID, "driverA", 100, 50)
+		if err != nil {
+			t.Errorf("expected nil error (initial record), got %v", err)
+		}
+
+		// Simulate label change by manually storing different labels
+		mw.Labels.Store(arrayID, []attribute.KeyValue{
+			attribute.String("ArrayID", arrayID),
+			attribute.String("Driver", "driverB"), // Different driver to trigger label update
+			attribute.String("PlotWithMean", "No"),
+		})
+
+		// Second call with updated driver
+		err = mw.RecordArraySpaceMetrics(context.Background(), arrayID, "driverA", 200, 100)
+		if err != nil {
+			t.Errorf("expected nil error (updated record), got %v", err)
+		}
+
+		// Validate that the label was updated
+		newLabels, ok := mw.Labels.Load(arrayID)
+		if !ok {
+			t.Errorf("expected labels to exist for %v, but did not find them", arrayID)
+		}
+		labels := newLabels.([]attribute.KeyValue)
+		for _, l := range labels {
+			if l.Key == "Driver" && l.Value.AsString() != "driverA" {
+				t.Errorf("expected Driver to be updated to 'driverA', got %v", l.Value.AsString())
+			}
+		}
+	})
 }
 
 func TestMetricsWrapper_RecordStorageClassSpaceMetrics(t *testing.T) {
@@ -636,6 +670,39 @@ func TestMetricsWrapper_RecordStorageClassSpaceMetrics_Label_Update(t *testing.T
 			}
 		}
 	})
+	t.Run("success: existing labels are updated when changed", func(t *testing.T) {
+		// Step 1: Record initial metrics with one set of labels
+		err := mw.RecordStorageClassSpaceMetrics(context.Background(), "sc-original", "driverA", 100, 50)
+		if err != nil {
+			t.Errorf("expected nil error (initial record), got %v", err)
+		}
+
+		// Step 2: Manually override the stored labels to simulate a change
+		mw.Labels.Store("sc-original", []attribute.KeyValue{
+			attribute.String("StorageClass", "sc-original"),
+			attribute.String("Driver", "driverA"),
+			attribute.String("PlotWithMean", "Yes"), // This differs from the new label
+		})
+
+		// Step 3: Call again with updated label value to trigger label update logic
+		err = mw.RecordStorageClassSpaceMetrics(context.Background(), "sc-original", "driverA", 200, 100)
+		if err != nil {
+			t.Errorf("expected nil error (updated record), got %v", err)
+		}
+
+		// Step 4: Verify that the label was updated
+		newLabels, ok := mw.Labels.Load("sc-original")
+		if !ok {
+			t.Errorf("expected labels to exist for %v, but did not find them", "sc-original")
+		}
+		labels := newLabels.([]attribute.KeyValue)
+		for _, l := range labels {
+			if l.Key == "PlotWithMean" && l.Value.AsString() != "No" {
+				t.Errorf("expected PlotWithMean to be updated to 'No', got %v", l.Value.AsString())
+			}
+		}
+	})
+
 }
 
 func TestMetricsWrapper_RecordFileSystemMetrics(t *testing.T) {
@@ -949,6 +1016,34 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 				},
 				topologyMetrics: &service.TopologyMetricsRecord{
 					PVCSize: 512,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "new metrics initialized when not found in TopologyMetrics map",
+			mw: &service.MetricsWrapper{
+				Meter: otel.Meter("powerstore-topology-test"),
+			},
+			args: args{
+				ctx: context.Background(),
+				meta: &service.TopologyMeta{
+					Namespace:               "default",
+					PersistentVolumeClaim:   "pvc-new",
+					PersistentVolumeStatus:  "Bound",
+					VolumeClaimName:         "claim-new",
+					PersistentVolume:        "pv-new", // This metaID is not preloaded
+					StorageClass:            "gold",
+					Driver:                  "csi-powerstore",
+					ProvisionedSize:         "200Gi",
+					StorageSystemVolumeName: "vol-new",
+					StoragePoolName:         "pool-2",
+					StorageSystem:           "system-2",
+					Protocol:                "NVMe",
+					CreatedTime:             "2024-01-01T00:00:00Z",
+				},
+				topologyMetrics: &service.TopologyMetricsRecord{
+					PVCSize: 1024,
 				},
 			},
 			wantErr: false,
