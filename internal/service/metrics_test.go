@@ -857,7 +857,7 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 
 	// Dummy metrics to satisfy the method usage
 	dummyMetrics := &service.TopologyMetrics{
-		PvcSize: nil, // or mock your metric instrument accordingly if needed
+		PvAvailabilityMetric: nil,
 	}
 
 	mw.TopologyMetrics.Store(metaID, dummyMetrics)

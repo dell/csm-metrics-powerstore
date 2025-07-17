@@ -78,8 +78,9 @@ type ArraySpaceMetrics struct {
 	LogicalUsed        metric.Float64ObservableUpDownCounter
 }
 
+// TopologyMetrics contains the metrics related to PVC size in the cluster.
 type TopologyMetrics struct {
-	PvcSize metric.Float64ObservableUpDownCounter
+	PvAvailabilityMetric metric.Float64ObservableUpDownCounter
 }
 
 // Metrics contains the list of metrics data that is collected
@@ -641,13 +642,14 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(_ context.Context, meta interf
 	return nil
 }
 
+// initTopologyMetrics initializes and stores topology metrics and associated labels for a given volume.
 func (mw *MetricsWrapper) initTopologyMetrics(metaID string, labels []attribute.KeyValue) (*TopologyMetrics, error) {
 	pvcSize, err := mw.Meter.Float64ObservableUpDownCounter("karavi_topology_metrics")
 	if err != nil {
 		return nil, err
 	}
 	metrics := &TopologyMetrics{
-		PvcSize: pvcSize,
+		PvAvailabilityMetric: pvcSize,
 	}
 
 	mw.TopologyMetrics.Store(metaID, metrics)
@@ -656,6 +658,7 @@ func (mw *MetricsWrapper) initTopologyMetrics(metaID string, labels []attribute.
 	return metrics, nil
 }
 
+// RecordTopologyMetrics publishes topology metrics data for a given PowerStore volume.
 func (mw *MetricsWrapper) RecordTopologyMetrics(_ context.Context, meta interface{}, topologyMetrics *TopologyMetricsRecord) error {
 	var metaID string
 	var labels []attribute.KeyValue
@@ -718,12 +721,12 @@ func (mw *MetricsWrapper) RecordTopologyMetrics(_ context.Context, meta interfac
 
 	done := make(chan struct{})
 	reg, err := mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
-		obs.ObserveFloat64(metrics.PvcSize, float64(topologyMetrics.PVCSize), metric.ObserveOption(metric.WithAttributes(labels...)))
+		obs.ObserveFloat64(metrics.PvAvailabilityMetric, float64(topologyMetrics.PVCSize), metric.ObserveOption(metric.WithAttributes(labels...)))
 		go func() {
 			done <- struct{}{}
 		}()
 		return nil
-	}, metrics.PvcSize)
+	}, metrics.PvAvailabilityMetric)
 	if err != nil {
 		return err
 	}

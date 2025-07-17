@@ -995,6 +995,7 @@ func (s *PowerStoreService) pushFileSystemMetrics(ctx context.Context, volumeMet
 	return ch
 }
 
+// gatherTopologyMetrics returns a channel of topology metrics generated from the input volumes.
 func (s *PowerStoreService) gatherTopologyMetrics(_ context.Context, volumes <-chan k8s.VolumeInfo) <-chan *TopologyMetricsRecord {
 	start := time.Now()
 	defer s.timeSince(start, "gatherTopologyMetrics")
@@ -1061,6 +1062,7 @@ func (s *PowerStoreService) gatherTopologyMetrics(_ context.Context, volumes <-c
 	return ch
 }
 
+// pushTopologyMetrics pushes topology metrics from the input channel to the otel collector and returns successfully recorded ones.
 func (s *PowerStoreService) pushTopologyMetrics(ctx context.Context, topologyMetrics <-chan *TopologyMetricsRecord) <-chan *TopologyMetricsRecord {
 	start := time.Now()
 	defer s.timeSince(start, "pushTopologyMetrics")
@@ -1097,7 +1099,7 @@ func (s *PowerStoreService) pushTopologyMetrics(ctx context.Context, topologyMet
 	return ch
 }
 
-// ExportTopologyMetrics records topology metrics for PowerStore volumes.
+// ExportTopologyMetrics records topology metrics for the given set of PowerStore volumes.
 func (s *PowerStoreService) ExportTopologyMetrics(ctx context.Context) {
 	ctx, span := tracer.GetTracer(ctx, "ExportTopologyMetrics")
 	defer span.End()
