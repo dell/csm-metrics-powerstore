@@ -33,10 +33,6 @@ import (
 )
 
 func Test_ExportVolumeStatistics(t *testing.T) {
-	type setup struct {
-		Service *service.PowerStoreService
-	}
-
 	tests := map[string]func(t *testing.T) (service.PowerStoreService, *gomock.Controller){
 		"success": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
@@ -334,10 +330,6 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 }
 
 func Test_ExportSpaceVolumeMetrics(t *testing.T) {
-	type setup struct {
-		Service *service.PowerStoreService
-	}
-
 	tests := map[string]func(t *testing.T) (service.PowerStoreService, *gomock.Controller){
 		"success": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
@@ -561,10 +553,6 @@ func Test_ExportSpaceVolumeMetrics(t *testing.T) {
 }
 
 func Test_ExportArraySpaceMetrics(t *testing.T) {
-	type setup struct {
-		Service *service.PowerStoreService
-	}
-
 	tests := map[string]func(t *testing.T) (service.PowerStoreService, *gomock.Controller){
 		"success": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
@@ -795,10 +783,6 @@ func Test_ExportArraySpaceMetrics(t *testing.T) {
 }
 
 func Test_ExportFileSystemStatistics(t *testing.T) {
-	type setup struct {
-		Service *service.PowerStoreService
-	}
-
 	tests := map[string]func(t *testing.T) (service.PowerStoreService, *gomock.Controller){
 		"success": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
@@ -1039,10 +1023,6 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 }
 
 func Test_ExportTopologyMetrics(t *testing.T) {
-	type setup struct {
-		Service *service.PowerStoreService
-	}
-
 	tests := map[string]func(t *testing.T) (service.PowerStoreService, *gomock.Controller){
 		"success": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
 			ctrl := gomock.NewController(t)
@@ -1116,6 +1096,27 @@ func Test_ExportTopologyMetrics(t *testing.T) {
 
 			service := service.PowerStoreService{
 				MetricsWrapper: nil,
+				VolumeFinder:   volFinder,
+				Logger:         logrus.New(),
+			}
+			return service, ctrl
+		},
+		"no volumes": func(t *testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().
+				RecordTopologyMetrics(gomock.Any(), gomock.Any(), &service.TopologyMetricsRecord{
+					TopologyMeta: &service.TopologyMeta{},
+					PvAvailable:  0,
+				}).
+				Times(1)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{}, nil).Times(1)
+
+			service := service.PowerStoreService{
+				MetricsWrapper: metrics,
 				VolumeFinder:   volFinder,
 				Logger:         logrus.New(),
 			}
