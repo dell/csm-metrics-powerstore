@@ -204,27 +204,22 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 
 		// check if tick interval config settings have changed
 		if VolumeTickInterval != config.VolumeTickInterval {
-			volumeTicker.Stop()
 			VolumeTickInterval = config.VolumeTickInterval
 			volumeTicker = time.NewTicker(VolumeTickInterval)
 		}
 		if SpaceTickInterval != config.SpaceTickInterval {
-			spaceTicker.Stop()
 			SpaceTickInterval = config.SpaceTickInterval
 			spaceTicker = time.NewTicker(SpaceTickInterval)
 		}
 		if ArrayTickInterval != config.ArrayTickInterval {
-			arrayTicker.Stop()
 			ArrayTickInterval = config.ArrayTickInterval
 			arrayTicker = time.NewTicker(ArrayTickInterval)
 		}
 		if FileSystemTickInterval != config.FileSystemTickInterval {
-			filesystemTicker.Stop()
 			FileSystemTickInterval = config.FileSystemTickInterval
 			filesystemTicker = time.NewTicker(FileSystemTickInterval)
 		}
 		if topologyTickInterval != config.TopologyTickInterval {
-			topologyTicker.Stop()
 			topologyTickInterval = config.TopologyTickInterval
 			topologyTicker = time.NewTicker(topologyTickInterval)
 		}

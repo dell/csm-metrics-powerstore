@@ -702,7 +702,6 @@ func TestMetricsWrapper_RecordStorageClassSpaceMetrics_Label_Update(t *testing.T
 			}
 		}
 	})
-
 }
 
 func TestMetricsWrapper_RecordFileSystemMetrics(t *testing.T) {
