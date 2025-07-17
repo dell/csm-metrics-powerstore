@@ -78,7 +78,7 @@ type ArraySpaceMetrics struct {
 	LogicalUsed        metric.Float64ObservableUpDownCounter
 }
 
-// TopologyMetrics contains the metrics related to PVC size in the cluster.
+// TopologyMetrics contains the metrics related to PV availability in the cluster.
 type TopologyMetrics struct {
 	PvAvailabilityMetric metric.Float64ObservableUpDownCounter
 }
