@@ -963,7 +963,7 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 					CreatedTime:             "2023-01-01T00:00:00Z",
 				},
 				topologyMetrics: &service.TopologyMetricsRecord{
-					PVCSize: 1024,
+					PvAvailable: 1024,
 				},
 			},
 			wantErr: false,
@@ -989,7 +989,7 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 					CreatedTime:             "2023-01-01T00:00:00Z",
 				},
 				topologyMetrics: &service.TopologyMetricsRecord{
-					PVCSize: 2048,
+					PvAvailable: 2048,
 				},
 			},
 			wantErr: false,
@@ -1015,7 +1015,7 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 					CreatedTime:             "2023-01-01T00:00:00Z",
 				},
 				topologyMetrics: &service.TopologyMetricsRecord{
-					PVCSize: 512,
+					PvAvailable: 512,
 				},
 			},
 			wantErr: false,
@@ -1043,7 +1043,7 @@ func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 					CreatedTime:             "2024-01-01T00:00:00Z",
 				},
 				topologyMetrics: &service.TopologyMetricsRecord{
-					PVCSize: 1024,
+					PvAvailable: 1024,
 				},
 			},
 			wantErr: false,

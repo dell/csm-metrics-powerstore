@@ -143,7 +143,7 @@ type ArraySpaceMetricsRecord struct {
 // TopologyMetricsRecord used for holding output of the Topology metrics query results
 type TopologyMetricsRecord struct {
 	TopologyMeta *TopologyMeta
-	PVCSize      int64
+	PvAvailable  int64
 }
 
 // ExportVolumeStatistics records I/O statistics for the given list of Volumes
@@ -1034,15 +1034,15 @@ func (s *PowerStoreService) gatherTopologyMetrics(_ context.Context, volumes <-c
 					StorageClass:            volume.StorageClass,
 				}
 
-				pvcSize := int64(1) // Placeholder value
+				pvAvailable := int64(1) // Placeholder value
 
 				metric := &TopologyMetricsRecord{
 					TopologyMeta: topologyMeta,
-					PVCSize:      pvcSize,
+					PvAvailable:  pvAvailable,
 				}
 
-				s.Logger.Debugf("topology metrics - PV: %s, PVC Size: %d, Provisioned: %s",
-					metric.TopologyMeta.PersistentVolume, metric.PVCSize, topologyMeta.ProvisionedSize)
+				s.Logger.Debugf("topology metrics - PV: %s, Provisioned: %s",
+					metric.TopologyMeta.PersistentVolume, topologyMeta.ProvisionedSize)
 
 				ch <- metric
 			}(volume)
@@ -1051,7 +1051,7 @@ func (s *PowerStoreService) gatherTopologyMetrics(_ context.Context, volumes <-c
 		if !exported {
 			ch <- &TopologyMetricsRecord{
 				TopologyMeta: &TopologyMeta{},
-				PVCSize:      0,
+				PvAvailable:  0,
 			}
 		}
 

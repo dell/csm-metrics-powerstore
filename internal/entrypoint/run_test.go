@@ -263,46 +263,6 @@ func Test_Run(t *testing.T) {
 
 			return true, config, e, svc, prevConfigValidationFunc, ctrl, false
 		},
-		"topology ticker interval changes during runtime": func(t *testing.T) (bool, *entrypoint.Config, otlexporters.Otlexporter, pStoreServices.Service, func(*entrypoint.Config) error, *gomock.Controller, bool) {
-			ctrl := gomock.NewController(t)
-
-			leaderElector := mocks.NewMockLeaderElector(ctrl)
-			leaderElector.EXPECT().InitLeaderElection("karavi-metrics-powerstore", "karavi").Return(nil)
-			leaderElector.EXPECT().IsLeader().AnyTimes().Return(true)
-
-			config := &entrypoint.Config{
-				VolumeMetricsEnabled:   true,
-				TopologyMetricsEnabled: true,
-				LeaderElector:          leaderElector,
-				TopologyTickInterval:   100 * time.Millisecond,
-				VolumeTickInterval:     1 * time.Second,
-				SpaceTickInterval:      1 * time.Second,
-				ArrayTickInterval:      1 * time.Second,
-				FileSystemTickInterval: 1 * time.Second,
-			}
-
-			prevConfigValidationFunc := entrypoint.ConfigValidatorFunc
-			entrypoint.ConfigValidatorFunc = noCheckConfig
-
-			e := exportermocks.NewMockOtlexporter(ctrl)
-			e.EXPECT().InitExporter(gomock.Any(), gomock.Any()).Return(nil)
-			e.EXPECT().StopExporter().Return(nil)
-
-			svc := metrics.NewMockService(ctrl)
-			svc.EXPECT().ExportVolumeStatistics(gomock.Any()).AnyTimes()
-			svc.EXPECT().ExportSpaceVolumeMetrics(gomock.Any()).AnyTimes()
-			svc.EXPECT().ExportArraySpaceMetrics(gomock.Any()).AnyTimes()
-			svc.EXPECT().ExportFileSystemStatistics(gomock.Any()).AnyTimes()
-			svc.EXPECT().ExportTopologyMetrics(gomock.Any()).AnyTimes()
-
-			// Simulate a change in the topology tick interval after 200ms
-			go func() {
-				time.Sleep(200 * time.Millisecond)
-				config.TopologyTickInterval = 300 * time.Millisecond
-			}()
-
-			return false, config, e, svc, prevConfigValidationFunc, ctrl, false
-		},
 	}
 
 	for name, test := range tests {

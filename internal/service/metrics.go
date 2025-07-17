@@ -721,7 +721,7 @@ func (mw *MetricsWrapper) RecordTopologyMetrics(_ context.Context, meta interfac
 
 	done := make(chan struct{})
 	reg, err := mw.Meter.RegisterCallback(func(_ context.Context, obs metric.Observer) error {
-		obs.ObserveFloat64(metrics.PvAvailabilityMetric, float64(topologyMetrics.PVCSize), metric.ObserveOption(metric.WithAttributes(labels...)))
+		obs.ObserveFloat64(metrics.PvAvailabilityMetric, float64(topologyMetrics.PvAvailable), metric.ObserveOption(metric.WithAttributes(labels...)))
 		go func() {
 			done <- struct{}{}
 		}()
