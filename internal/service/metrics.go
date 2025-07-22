@@ -676,7 +676,6 @@ func (mw *MetricsWrapper) RecordTopologyMetrics(_ context.Context, meta interfac
 			attribute.String("Driver", v.Driver),
 			attribute.String("ProvisionedSize", v.ProvisionedSize),
 			attribute.String("StorageSystemVolumeName", v.StorageSystemVolumeName),
-			attribute.String("StoragePoolName", v.StoragePoolName),
 			attribute.String("StorageSystem", v.StorageSystem),
 			attribute.String("Protocol", v.Protocol),
 			attribute.String("CreatedTime", v.CreatedTime),

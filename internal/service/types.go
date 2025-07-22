@@ -52,7 +52,6 @@ type TopologyMeta struct {
 	Driver                  string
 	ProvisionedSize         string
 	StorageSystemVolumeName string
-	StoragePoolName         string
 	StorageSystem           string
 	Protocol                string
 	CreatedTime             string

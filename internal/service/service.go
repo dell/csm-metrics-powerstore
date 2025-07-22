@@ -1020,6 +1020,7 @@ func (s *PowerStoreService) gatherTopologyMetrics(_ context.Context, volumes <-c
 				}
 
 				topologyMeta := &TopologyMeta{
+					Namespace:               volume.Namespace,
 					PersistentVolumeClaim:   volume.VolumeClaimName,
 					VolumeClaimName:         volume.VolumeClaimName,
 					PersistentVolumeStatus:  volume.PersistentVolumeStatus,
@@ -1027,7 +1028,6 @@ func (s *PowerStoreService) gatherTopologyMetrics(_ context.Context, volumes <-c
 					Driver:                  volume.Driver,
 					ProvisionedSize:         volume.ProvisionedSize,
 					StorageSystemVolumeName: volume.StorageSystemVolumeName,
-					StoragePoolName:         volume.StoragePoolName,
 					StorageSystem:           volume.StorageSystem,
 					Protocol:                volume.Protocol,
 					CreatedTime:             volume.CreatedTime,

@@ -54,7 +54,6 @@ type VolumeInfo struct {
 	CreatedTime             string `json:"created_time"`
 	VolumeHandle            string `json:"volume_handle"`
 	StorageSystemVolumeName string `json:"storage_system_volume_name"`
-	StoragePoolName         string `json:"storage_pool_name"`
 	StorageSystem           string `json:"storage_system"`
 	Protocol                string `json:"protocol"`
 }
@@ -100,8 +99,7 @@ func (f VolumeFinder) GetPersistentVolumes(ctx context.Context) ([]VolumeInfo, e
 				CreatedTime:             volume.CreationTimestamp.String(),
 				VolumeHandle:            volume.Spec.CSI.VolumeHandle,
 				StorageSystemVolumeName: volume.Spec.CSI.VolumeAttributes["Name"],
-				StoragePoolName:         volume.Spec.CSI.VolumeAttributes["StoragePoolName"],
-				StorageSystem:           volume.Spec.CSI.VolumeAttributes["StorageSystem"],
+				StorageSystem:           volume.Spec.CSI.VolumeAttributes["arrayID"],
 				Protocol:                volume.Spec.CSI.VolumeAttributes["Protocol"],
 			}
 			volumeInfo = append(volumeInfo, info)
