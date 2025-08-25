@@ -6,8 +6,8 @@ toolchain go1.24.5
 
 require (
 	github.com/dell/csm-sharednfs v1.0.0
-	github.com/dell/gocsi v1.14.1-0.20250814142855-75596c20cbec
-	github.com/dell/gopowerstore v1.19.1-0.20250814134855-cb4deab67a3e
+	github.com/dell/gocsi v1.14.1-0.20250819131305-b1e701f09007
+	github.com/dell/gopowerstore v1.19.1-0.20250818152456-835f4538e4ee
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golang/mock v1.6.0
 	github.com/sirupsen/logrus v1.9.3
