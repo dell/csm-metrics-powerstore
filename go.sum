@@ -22,10 +22,10 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dell/csm-sharednfs v1.0.0 h1:+sVJSU1q8i9lfHuSxJUYjQeofsWPcLfyY05m3x2CeWE=
 github.com/dell/csm-sharednfs v1.0.0/go.mod h1:+flf+ETu0LkNUDVFEybV7fJtO6MEHedg816CILTrXhs=
-github.com/dell/gocsi v1.14.1-0.20250819131305-b1e701f09007 h1:l+J+UuCA0MYcB1xsWBmZoe93KNNnoVEqsM3aEAMPllU=
-github.com/dell/gocsi v1.14.1-0.20250819131305-b1e701f09007/go.mod h1:gYekSd5eASmpguOCqBVbMZmxE8EF4KeIyIJkNvqnqNU=
-github.com/dell/gopowerstore v1.19.1-0.20250818152456-835f4538e4ee h1:DtT+oeXVDKpwyMPN1duqfXA07ALlSXRHT0+SwqKTbbs=
-github.com/dell/gopowerstore v1.19.1-0.20250818152456-835f4538e4ee/go.mod h1:ZEF/MMMvPk/JdPeKIUGZFXd+AgQxVqCw/NePpV3QcHc=
+github.com/dell/gocsi v1.14.1-0.20250828071850-fe2891b95da5 h1:MTI9h3sFmd0VBGnAMzkllUf/ftvBSfCOkG8PrpsCAIY=
+github.com/dell/gocsi v1.14.1-0.20250828071850-fe2891b95da5/go.mod h1:GQO6RkslOBdpp4q52A+DAYywjaRpm0JTwnkBm3WDFt8=
+github.com/dell/gopowerstore v1.19.1-0.20250828071553-729e69f22fc3 h1:KGU0HvPRCem74V8yz9V8Vv58ek4JjfsPUZm46XzbQ/A=
+github.com/dell/gopowerstore v1.19.1-0.20250828071553-729e69f22fc3/go.mod h1:ZEF/MMMvPk/JdPeKIUGZFXd+AgQxVqCw/NePpV3QcHc=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
 github.com/emicklei/go-restful/v3 v3.12.1 h1:PJMDIM/ak7btuL8Ex0iYET9hxM3CI2sjZtzpL63nKAU=
