@@ -4,8 +4,8 @@ go 1.25
 
 require (
 	github.com/dell/csm-sharednfs v1.0.0
-	github.com/dell/gocsi v1.14.1-0.20250905061753-91bcfb5340eb
-	github.com/dell/gopowerstore v1.19.1-0.20250905060817-c5edb45ef196
+	github.com/dell/gocsi v1.15.0
+	github.com/dell/gopowerstore v1.20.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golang/mock v1.6.0
 	github.com/sirupsen/logrus v1.9.3
@@ -65,7 +65,7 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.etcd.io/etcd/api/v3 v3.6.1 // indirect
