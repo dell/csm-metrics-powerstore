@@ -3,7 +3,7 @@ module github.com/dell/csm-metrics-powerstore
 go 1.25
 
 require (
-	github.com/dell/csm-sharednfs v1.0.0
+	github.com/dell/csm-sharednfs v1.0.1-0.20250917153118-9094f4bc87d9
 	github.com/dell/gocsi v1.15.0
 	github.com/dell/gopowerstore v1.20.0
 	github.com/fsnotify/fsnotify v1.9.0
