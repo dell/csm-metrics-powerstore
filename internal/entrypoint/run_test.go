@@ -32,7 +32,7 @@ import (
 	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
 	exportermocks "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters/mocks"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 )
 
 func Test_Run(t *testing.T) {

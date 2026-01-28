@@ -28,7 +28,6 @@ import (
 	"github.com/dell/gopowerstore"
 
 	"github.com/dell/csm-metrics-powerstore/internal/k8s"
-	"github.com/dell/csm-sharednfs/nfs"
 	"github.com/sirupsen/logrus"
 )
 
@@ -92,6 +91,7 @@ type PowerStoreClient interface {
 	PerformanceMetricsByFileSystem(context.Context, string, gopowerstore.MetricsIntervalEnum) ([]gopowerstore.PerformanceMetricsByFileSystemResponse, error)
 	GetFS(context.Context, string) (gopowerstore.FileSystem, error)
 	VolumeMirrorTransferRate(ctx context.Context, id string) ([]gopowerstore.VolumeMirrorTransferRateResponse, error)
+	FileSystemMirrorTransferRate(ctx context.Context, id string) ([]gopowerstore.VolumeMirrorTransferRateResponse, error)
 }
 
 // PowerStoreService represents the service for getting metrics data for a PowerStore system
@@ -248,10 +248,6 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 				if err != nil {
 					s.Logger.WithError(err).WithField("ip", arrayID).Warn("no client found for PowerStore with IP")
 					return
-				}
-
-				if nfs.IsNFSVolumeID(volumeID) {
-					volumeID = nfs.ToArrayVolumeID(volumeID)
 				}
 
 				s.Logger.WithFields(logrus.Fields{
@@ -824,8 +820,6 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, s.MaxPowerStoreConnections)
 
-	var volumeID, arrayID, protocol string
-
 	go func() {
 		ctx, span := tracer.GetTracer(ctx, "gatherFileSystemMetrics")
 		defer span.End()
@@ -841,6 +835,7 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 					<-sem
 				}()
 
+				var volumeID, arrayID, protocol string
 				// VolumeHandle is of the format "volume-id/array-ip/protocol"
 				volumeProperties := strings.Split(volume.VolumeHandle, "/")
 				if len(volumeProperties) == ExpectedVolumeHandleProperties {
@@ -903,7 +898,7 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 				}
 
 				// Read the replication parameter
-				replicationMetrics, err := goPowerStoreClient.VolumeMirrorTransferRate(ctx, volumeID)
+				replicationMetrics, err := goPowerStoreClient.FileSystemMirrorTransferRate(ctx, volumeID)
 
 				s.Logger.WithFields(logrus.Fields{
 					"volume_replication_metrics": len(replicationMetrics),

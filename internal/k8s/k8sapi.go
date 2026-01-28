@@ -59,7 +59,8 @@ var ConnectFn = func(api *API) error {
 	return nil
 }
 
-// InClusterConfigFn will return a valid configuration if we are running in a Pod on a kubernetes cluster
+// InClusterConfigFn is a UT support function that will return a valid configuration
+// if we are running in a Pod on a kubernetes cluster.
 var InClusterConfigFn = func() (*rest.Config, error) {
 	return rest.InClusterConfig()
 }

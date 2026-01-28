@@ -108,13 +108,6 @@ func Test_GetPersistentVolumes(t *testing.T) {
 	}
 }
 
-func Test_InClusterConfigFn(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		_, err := k8s.InClusterConfigFn()
-		assert.Error(t, err)
-	})
-}
-
 func Test_NewForConfigError(t *testing.T) {
 	k8sapi := &k8s.API{}
 

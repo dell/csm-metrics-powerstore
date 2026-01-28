@@ -25,6 +25,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	csictx "github.com/dell/gocsi/context"
 
@@ -37,8 +38,14 @@ import (
 )
 
 const (
+	// Default timeout for powerstore API call
+	defaultAPITimeout = 120 * time.Second
+
 	// EnvThrottlingRateLimit sets a number of concurrent requests to APi
 	EnvThrottlingRateLimit = "X_CSI_POWERSTORE_THROTTLING_RATE_LIMIT"
+
+	// EnvPowerstoreAPITimeout specifies the timeout for Powerstore REST API calls
+	EnvPowerstoreAPITimeout = "X_CSI_POWERSTORE_API_TIMEOUT"
 )
 
 // GetPowerStoreArrays parses config.yaml file, initializes gopowerstore Clients and composes map of arrays for ease of access.
@@ -85,6 +92,19 @@ func GetPowerStoreArrays(filePath string, logger *logrus.Logger) (map[string]*se
 		}
 		clientOptions := gopowerstore.NewClientOptions()
 		clientOptions.SetInsecure(array.Insecure)
+
+		// Set timeout for powerstore API call
+		timeout := defaultAPITimeout
+		if powerStoreAPITimeout, ok := csictx.LookupEnv(context.Background(), EnvPowerstoreAPITimeout); ok {
+			fetchedTimeout, err := time.ParseDuration(powerStoreAPITimeout)
+			if err != nil {
+				logger.Errorf("can't get api timeout, using default. error : %s", err)
+			} else {
+				timeout = fetchedTimeout
+				logger.Infof("%s set to: %v", EnvPowerstoreAPITimeout, timeout)
+			}
+		}
+		clientOptions.SetDefaultTimeout(timeout)
 
 		if throttlingRateLimit, ok := csictx.LookupEnv(context.Background(), EnvThrottlingRateLimit); ok {
 			rateLimit, err := strconv.Atoi(throttlingRateLimit)
