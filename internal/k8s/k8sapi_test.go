@@ -71,7 +71,13 @@ func Test_GetPersistentVolumes(t *testing.T) {
 				api.Client = fake.NewSimpleClientset(volumes)
 				return nil
 			}
-			return connect, nil, check(hasNoError, checkExpectedOutput(volumes))
+			expectedVolumes := &corev1.PersistentVolumeList{
+				ListMeta: metav1.ListMeta{
+					ResourceVersion: "2",
+				},
+				Items: volumes.Items,
+			}
+			return connect, nil, check(hasNoError, checkExpectedOutput(expectedVolumes))
 		},
 		"error connecting": func(*testing.T) (connectFn, configFn, []checkFn) {
 			connect := func(_ *k8s.API) error {
