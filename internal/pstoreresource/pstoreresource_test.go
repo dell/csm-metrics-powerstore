@@ -52,6 +52,18 @@ func Test_Run(t *testing.T) {
 		"client with dns creation": func(*testing.T) (string, map[string]string, bool) {
 			return "testdata/client-dns.yaml", nil, false
 		},
+		"valid api timeout": func(*testing.T) (string, map[string]string, bool) {
+			return "testdata/sample-config.yaml", map[string]string{pstoreresource.EnvPowerstoreAPITimeout: "60s"}, false
+		},
+		"invalid api timeout": func(*testing.T) (string, map[string]string, bool) {
+			return "testdata/sample-config.yaml", map[string]string{pstoreresource.EnvPowerstoreAPITimeout: "invalid"}, false
+		},
+		"numeric hostname endpoint": func(*testing.T) (string, map[string]string, bool) {
+			return "testdata/numeric-hostname.yaml", nil, true
+		},
+		"short endpoint": func(*testing.T) (string, map[string]string, bool) {
+			return "testdata/short-endpoint.yaml", nil, true
+		},
 	}
 
 	for name, test := range tests {
