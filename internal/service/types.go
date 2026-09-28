@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2021-2022 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2021-2026 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -27,7 +27,10 @@ type VolumeMeta struct {
 	PersistentVolumeClaimName string
 	Namespace                 string
 	ArrayID                   string
+	ArrayIP                   string
+	ArrayProtocol             string
 	StorageClass              string
+	Protocol                  string
 }
 
 // SpaceVolumeMeta is the details of a volume in an SDC
@@ -37,6 +40,8 @@ type SpaceVolumeMeta struct {
 	PersistentVolumeClaimName string
 	Namespace                 string
 	ArrayID                   string
+	ArrayIP                   string
+	ArrayProtocol             string
 	StorageClass              string
 	Driver                    string
 	Protocol                  string
@@ -73,6 +78,7 @@ type PowerStoreArray struct {
 	Insecure      bool          `yaml:"skipCertificateValidation"`
 	IsDefault     bool          `yaml:"isDefault"`
 
-	Client gopowerstore.Client
-	IP     string
+	Client          gopowerstore.Client
+	IP              string
+	NetworkProtocol string
 }

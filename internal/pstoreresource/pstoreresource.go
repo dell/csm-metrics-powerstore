@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2021-2025 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2021-2026 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -20,22 +20,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/netip"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
-	csictx "github.com/dell/gocsi/context"
-
 	"github.com/dell/csm-metrics-powerstore/internal/service"
+	"github.com/dell/csmlog"
+	csictx "github.com/dell/gocsi/context"
 	"github.com/dell/gopowerstore"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v3"
 )
+
+var lookupIPFunc = func(ctx context.Context, host string) ([]netip.Addr, error) {
+	return net.DefaultResolver.LookupNetIP(ctx, "ip", host)
+}
 
 const (
 	// Default timeout for powerstore API call
@@ -51,21 +56,26 @@ const (
 // GetPowerStoreArrays parses config.yaml file, initializes gopowerstore Clients and composes map of arrays for ease of access.
 // It will return array that can be used as default as a second return parameter.
 // If config does not have any array as a default then the first will be returned as a default.
-func GetPowerStoreArrays(filePath string, logger *logrus.Logger) (map[string]*service.PowerStoreArray, map[string]string, *service.PowerStoreArray, error) {
+func GetPowerStoreArrays(filePath string) (map[string]*service.PowerStoreArray, map[string]string, *service.PowerStoreArray, error) {
 	type config struct {
 		Arrays []*service.PowerStoreArray `yaml:"arrays"`
 	}
 
 	data, err := os.ReadFile(filepath.Clean(filePath))
 	if err != nil {
-		logger.WithError(err).Errorf("cannot read file %s", filePath)
+		csmlog.WithFields(csmlog.Fields{
+			"error": err,
+			"file":  filePath,
+		}).Error("cannot read file")
 		return nil, nil, nil, err
 	}
 
 	var cfg config
 	err = yaml.Unmarshal(data, &cfg)
 	if err != nil {
-		logger.WithError(err).Errorf("cannot unmarshal data")
+		csmlog.WithFields(csmlog.Fields{
+			"error": err,
+		}).Error("cannot unmarshal data")
 		return nil, nil, nil, err
 	}
 
@@ -98,10 +108,10 @@ func GetPowerStoreArrays(filePath string, logger *logrus.Logger) (map[string]*se
 		if powerStoreAPITimeout, ok := csictx.LookupEnv(context.Background(), EnvPowerstoreAPITimeout); ok {
 			fetchedTimeout, err := time.ParseDuration(powerStoreAPITimeout)
 			if err != nil {
-				logger.Errorf("can't get api timeout, using default. error : %s", err)
+				csmlog.Errorf("can't get api timeout, using default. error : %s", err)
 			} else {
 				timeout = fetchedTimeout
-				logger.Infof("%s set to: %v", EnvPowerstoreAPITimeout, timeout)
+				csmlog.Infof("%s set to: %v", EnvPowerstoreAPITimeout, timeout)
 			}
 		}
 		clientOptions.SetDefaultTimeout(timeout)
@@ -109,7 +119,7 @@ func GetPowerStoreArrays(filePath string, logger *logrus.Logger) (map[string]*se
 		if throttlingRateLimit, ok := csictx.LookupEnv(context.Background(), EnvThrottlingRateLimit); ok {
 			rateLimit, err := strconv.Atoi(throttlingRateLimit)
 			if err != nil {
-				logger.Errorf("can't get throttling rate limit, using default")
+				csmlog.Errorf("can't get throttling rate limit, using default")
 			} else {
 				clientOptions.SetRateLimit(rateLimit) // #nosec G115 -- This is a false positive
 			}
@@ -123,23 +133,45 @@ func GetPowerStoreArrays(filePath string, logger *logrus.Logger) (map[string]*se
 		}
 		array.Client = c
 		var ip string
+		var networkProtocol string
 		ips := GetIPListFromString(array.Endpoint)
 		if ips == nil {
-			logger.Warnf("didn't found an IP from the provided endPoint, it could be a FQDN. Please make sure to enter a valid FQDN in https://abc.com/api/rest format")
-			sub := strings.Split(array.Endpoint, "/")
-			if len(sub) > 2 {
-				ip = sub[2]
-				if regexp.MustCompile(`^[0-9.]*$`).MatchString(sub[2]) {
-					return nil, nil, nil, fmt.Errorf("can't get ips from endpoint: %s", array.Endpoint)
-				}
-			} else {
+			csmlog.Warnf("didn't found an IP from the provided endPoint, it could be a FQDN. Please make sure to enter a valid FQDN in https://abc.com/api/rest format")
+			// FR-11.2: Use url.Parse().Hostname() to correctly strip brackets from IPv6 addresses
+			u, err := url.Parse(array.Endpoint)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("can't parse endpoint: %s", array.Endpoint)
+			}
+			ip = u.Hostname()
+			// Validate that hostname is not just an IP address (which should have been caught above)
+			if regexp.MustCompile(`^[0-9.]*$`).MatchString(ip) {
 				return nil, nil, nil, fmt.Errorf("can't get ips from endpoint: %s", array.Endpoint)
+			}
+
+			resolveCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			resolved, resolveErr := lookupIPFunc(resolveCtx, ip)
+			cancel()
+			if resolveErr == nil {
+				for _, addr := range resolved {
+					family := InferProtocol(addr.String())
+					if family == "unknown" {
+						continue
+					}
+					if networkProtocol == "" {
+						networkProtocol = family
+					} else if networkProtocol != family {
+						networkProtocol = "unknown"
+						break
+					}
+				}
 			}
 		} else {
 			ip = ips[0]
+			networkProtocol = InferProtocol(ip)
 		}
 		array.IP = ip
-		logger.Infof("%s,%s,%s,%s,%t,%t,%s", array.Endpoint, array.GlobalID, array.Username, array.NasName, array.Insecure, array.IsDefault, array.BlockProtocol)
+		array.NetworkProtocol = networkProtocol
+		csmlog.Infof("%s,%s,%s,%s,%t,%t,%s", array.Endpoint, array.GlobalID, array.Username, array.NasName, array.Insecure, array.IsDefault, array.BlockProtocol)
 		arrayMap[array.GlobalID] = array
 		mapper[ip] = array.GlobalID
 		if array.IsDefault && !foundDefault {
@@ -151,9 +183,47 @@ func GetPowerStoreArrays(filePath string, logger *logrus.Logger) (map[string]*se
 	return arrayMap, mapper, defaultArray, nil
 }
 
+// InferProtocol determines the IP protocol (ipv4 or ipv6) from an address string
+// FR-10.1: Helper function to classify IP addresses for metrics labeling
+func InferProtocol(ip string) string {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return "unknown"
+	}
+
+	if addr.Is4() {
+		return "ipv4"
+	}
+	if addr.Is6() && !addr.Is4In6() {
+		return "ipv6"
+	}
+	if addr.Is4In6() {
+		// IPv4-mapped IPv6 addresses should be classified as ipv6
+		return "ipv6"
+	}
+
+	return "unknown"
+}
+
 // GetIPListFromString returns list of ips in string form found in input string
 // A return value of nil indicates no match
+// FR-11.1: Now supports both IPv4 and IPv6 addresses using netip.ParseAddr
 func GetIPListFromString(input string) []string {
+	// First try to parse as URL to extract hostname
+	u, err := url.Parse(input)
+	if err == nil && u.Hostname() != "" {
+		// Try to parse the hostname as an IP address
+		if addr, err := netip.ParseAddr(u.Hostname()); err == nil {
+			return []string{addr.String()}
+		}
+	}
+
+	// Try to parse the input directly as an IP address (for bare IP strings)
+	if addr, err := netip.ParseAddr(input); err == nil {
+		return []string{addr.String()}
+	}
+
+	// Fallback to IPv4 regex for backward compatibility
 	re := regexp.MustCompile(`(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}`)
 	return re.FindAllString(input, -1)
 }

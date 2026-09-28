@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2025-2026 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -27,26 +27,39 @@ import (
 	"strings"
 	"time"
 
+	csmserver "github.com/dell/csm-metrics-common/pkg/server"
 	"github.com/dell/csm-metrics-powerstore/internal/entrypoint"
 	"github.com/dell/csm-metrics-powerstore/internal/k8s"
 	"github.com/dell/csm-metrics-powerstore/internal/pstoreresource"
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
 	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
-	"github.com/sirupsen/logrus"
+	"github.com/dell/csmlog"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
 	"go.opentelemetry.io/otel"
 )
 
 const (
-	defaultTickInterval            = 20 * time.Second
+	defaultTickInterval            = 300 * time.Second
 	defaultConfigFile              = "/etc/config/karavi-metrics-powerstore.yaml"
 	defaultStorageSystemConfigFile = "/powerstore-config/config"
 	defaultDebugPort               = "9090"
 	defaultCertFile                = "/certs/localhost.crt"
 	defaultKeyFile                 = "/certs/localhost.key"
+	defaultObsMetricsPort          = "8443"
+	defaultObsMetricsScheme        = "http"
+	defaultObsMetricsCert          = "/etc/metrics-tls/tls.crt"
+	defaultObsMetricsKey           = "/etc/metrics-tls/tls.key"
+)
+
+const (
+	csiObsMetricsEnabledKey = "X_CSI_METRICS_ENABLED"
+	csiObsMetricsPortKey    = "X_CSI_METRICS_PORT"
+	csiObsMetricsCertKey    = "X_CSI_METRICS_TLS_CERT_FILE"
+	csiObsMetricsKeyKey     = "X_CSI_METRICS_TLS_KEY_FILE"
 )
 
 // getPowerStoreArrays is a wrapper for pstoreresource.GetPowerStoreArrays
@@ -55,26 +68,49 @@ var getPowerStoreArrays = pstoreresource.GetPowerStoreArrays
 // initTracing is a wrapper for tracer.InitTracing
 var initTracing = tracer.InitTracing
 
-func main() {
-	logger, config, powerStoreSvc, exporter := initializeConfig()
+type exportFailureRecorder interface {
+	SetExportFailureRecorder(func())
+}
 
-	startConfigWatchers(logger, config, exporter, powerStoreSvc)
-	startHTTPServer(logger)
+func wirePowerStoreExportFailureRecorder(powerStoreSvc *service.PowerStoreService, exporter exportFailureRecorder) {
+	if exporter == nil {
+		return
+	}
+	exporter.SetExportFailureRecorder(func() {
+		if powerStoreSvc != nil && powerStoreSvc.ObsInstrumenter != nil {
+			powerStoreSvc.ObsInstrumenter.RecordExportSuccess(obsGlobalID(powerStoreSvc), "failure")
+		}
+	})
+}
+
+func main() {
+	config, powerStoreSvc, exporter := initializeConfig()
+
+	wirePowerStoreExportFailureRecorder(powerStoreSvc, exporter)
+	startConfigWatchers(config, exporter, powerStoreSvc)
+	startHTTPServer()
+	if strings.EqualFold(viper.GetString(csiObsMetricsEnabledKey), "true") {
+		startMetricsServer(powerStoreSvc, exporter)
+	}
 
 	if err := entrypoint.Run(context.Background(), config, exporter, powerStoreSvc); err != nil {
-		logger.WithError(err).Fatal("running service")
+		csmlog.WithFields(csmlog.Fields{
+			"error": err,
+		}).Fatal("running service")
 	}
 }
 
-func initializeConfig() (*logrus.Logger, *entrypoint.Config, *service.PowerStoreService, *otlexporters.OtlCollectorExporter) {
-	logger := logrus.New()
+func initializeConfig() (*entrypoint.Config, *service.PowerStoreService, *otlexporters.OtlCollectorExporter) {
 	exporter := &otlexporters.OtlCollectorExporter{}
 	viper.SetConfigFile(defaultConfigFile)
+	viper.AutomaticEnv()
 	err := viper.ReadInConfig()
 	// if unable to read configuration file, proceed in case we use environment variables
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to read Config file: %v", err)
 	}
+
+	updateLoggingSettings()
 
 	leaderElectorGetter := &k8s.LeaderElector{API: &k8s.LeaderElector{}}
 	collectorCertPath := getCollectorCertPath()
@@ -82,48 +118,46 @@ func initializeConfig() (*logrus.Logger, *entrypoint.Config, *service.PowerStore
 	config := &entrypoint.Config{
 		LeaderElector:     leaderElectorGetter,
 		CollectorCertPath: collectorCertPath,
-		Logger:            logger,
 	}
 
-	volumeFinder := &k8s.VolumeFinder{API: &k8s.API{}, Logger: logger}
+	volumeFinder := &k8s.VolumeFinder{API: &k8s.API{}}
 
 	powerStoreSvc := &service.PowerStoreService{
 		MetricsWrapper: &service.MetricsWrapper{Meter: otel.Meter("powerstore")},
-		Logger:         logger,
 		VolumeFinder:   volumeFinder,
 	}
 
-	updatePowerStoreConnection(powerStoreSvc, logger)
-	applyInitialConfig(logger, config, exporter, powerStoreSvc, volumeFinder)
+	updatePowerStoreConnection(powerStoreSvc)
+	applyInitialConfig(config, exporter, powerStoreSvc, volumeFinder)
 
-	return logger, config, powerStoreSvc, exporter
+	return config, powerStoreSvc, exporter
 }
 
-func applyInitialConfig(logger *logrus.Logger, config *entrypoint.Config, exporter *otlexporters.OtlCollectorExporter, powerStoreSvc *service.PowerStoreService, volumeFinder *k8s.VolumeFinder) {
-	updateLoggingSettings(logger)
-	updateCollectorAddress(config, exporter, logger)
-	updateProvisionerNames(volumeFinder, logger)
-	updateMetricsEnabled(config, logger)
-	updateTickIntervals(config, logger)
-	updateService(powerStoreSvc, logger)
-	updateTracing(logger)
+func applyInitialConfig(config *entrypoint.Config, exporter *otlexporters.OtlCollectorExporter, powerStoreSvc *service.PowerStoreService, volumeFinder *k8s.VolumeFinder) {
+	updateCollectorAddress(config, exporter)
+	updateProvisionerNames(volumeFinder)
+	updateMetricsEnabled(config)
+	updateTickIntervals(config)
+	updateService(powerStoreSvc)
+	updateTracing()
+	updateLoggingSettings()
 }
 
-var updateLoggingSettings = func(logger *logrus.Logger) {
+var updateLoggingSettings = func() {
 	logFormat := viper.GetString("LOG_FORMAT")
 	if strings.EqualFold(logFormat, "json") {
-		logger.SetFormatter(&logrus.JSONFormatter{})
+		csmlog.SetFormat("json")
 	} else {
 		// use text formatter by default
-		logger.SetFormatter(&logrus.TextFormatter{})
+		csmlog.SetFormat("text")
 	}
 	logLevel := viper.GetString("LOG_LEVEL")
-	level, err := logrus.ParseLevel(logLevel)
+	level, err := csmlog.ParseLevel(logLevel)
 	if err != nil {
 		// use INFO level by default
-		level = logrus.InfoLevel
+		level = csmlog.InfoLevel
 	}
-	logger.SetLevel(level)
+	csmlog.SetLevel(level)
 }
 
 func getCollectorCertPath() string {
@@ -137,25 +171,115 @@ func getCollectorCertPath() string {
 	return ""
 }
 
-func startConfigWatchers(logger *logrus.Logger, config *entrypoint.Config, exporter *otlexporters.OtlCollectorExporter, powerStoreSvc *service.PowerStoreService) {
+func startConfigWatchers(config *entrypoint.Config, exporter *otlexporters.OtlCollectorExporter, powerStoreSvc *service.PowerStoreService) {
 	viper.WatchConfig()
 	volumeFinder := &k8s.VolumeFinder{
-		API:    &k8s.API{},
-		Logger: logger,
+		API: &k8s.API{},
 	}
 	viper.OnConfigChange(func(_ fsnotify.Event) {
-		applyInitialConfig(logger, config, exporter, powerStoreSvc, volumeFinder)
+		applyInitialConfig(config, exporter, powerStoreSvc, volumeFinder)
 	})
 
 	configFileListener := viper.New()
 	configFileListener.SetConfigFile(defaultStorageSystemConfigFile)
 	configFileListener.WatchConfig()
 	configFileListener.OnConfigChange(func(_ fsnotify.Event) {
-		updatePowerStoreConnection(powerStoreSvc, logger)
+		updatePowerStoreConnection(powerStoreSvc)
 	})
 }
 
-func startHTTPServer(logger *logrus.Logger) {
+func startMetricsServer(powerStoreSvc *service.PowerStoreService, _ *otlexporters.OtlCollectorExporter) {
+	reg := prometheus.NewRegistry()
+	powerStoreSvc.ObsInstrumenter = service.NewPSTObsInstrumenter(reg)
+
+	// Read X_CSI_OBS_METRICS_PORT from env, default to 8080
+	viper.SetDefault(csiObsMetricsPortKey, defaultObsMetricsPort)
+	metricsPort := viper.GetString(csiObsMetricsPortKey)
+
+	// Infer the metrics scheme from cert/key env vars: if either is provided,
+	// use HTTPS; otherwise fall back to HTTP.
+	certFile := strings.TrimSpace(viper.GetString(csiObsMetricsCertKey))
+	keyFile := strings.TrimSpace(viper.GetString(csiObsMetricsKeyKey))
+	scheme := defaultObsMetricsScheme
+	if certFile != "" || keyFile != "" {
+		scheme = "https"
+	}
+
+	// Resolve TLS cert/key paths and validate them BEFORE launching the goroutine.
+	// This ensures configuration errors are detected synchronously and can safely
+	// call Fatal from the main goroutine, preventing a running service with a
+	// non-functional metrics endpoint.
+	if scheme == "https" {
+		if certFile == "" {
+			certFile = defaultObsMetricsCert
+		}
+		if keyFile == "" {
+			keyFile = defaultObsMetricsKey
+		}
+
+		if err := validateTLSFiles(certFile, keyFile); err != nil {
+			csmlog.WithFields(csmlog.Fields{
+				"error": err,
+				"cert":  certFile,
+				"key":   keyFile,
+			}).Fatal("observability metrics server failed to start: invalid TLS configuration")
+			return
+		}
+	}
+
+	srv := csmserver.NewMetricsServer(csmserver.Config{
+		Port:     fmt.Sprintf(":%s", metricsPort),
+		CertFile: certFile,
+		KeyFile:  keyFile,
+		Registry: reg,
+	})
+
+	go func() {
+		csmlog.WithFields(csmlog.Fields{
+			"port":   metricsPort,
+			"scheme": scheme,
+		}).Info("starting observability metrics server")
+		if err := srv.Start(); err != nil {
+			csmlog.WithFields(csmlog.Fields{"error": err}).Error("observability metrics server closed")
+		}
+	}()
+}
+
+func obsGlobalID(powerStoreSvc *service.PowerStoreService) string {
+	if powerStoreSvc != nil && powerStoreSvc.DefaultPowerStoreArray != nil && powerStoreSvc.DefaultPowerStoreArray.GlobalID != "" {
+		return powerStoreSvc.DefaultPowerStoreArray.GlobalID
+	}
+	return "powerstore"
+}
+
+func validateTLSFiles(certFile, keyFile string) error {
+	if certFile == "" {
+		return fmt.Errorf("TLS certificate file path is empty")
+	}
+	if keyFile == "" {
+		return fmt.Errorf("TLS key file path is empty")
+	}
+
+	// Check if cert file exists and is accessible
+	if _, err := os.Stat(certFile); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("TLS certificate file does not exist: %s", certFile)
+		}
+		return fmt.Errorf("failed to access TLS certificate file %s: %v", certFile, err)
+	}
+
+	// Check if key file exists and is accessible
+	if _, err := os.Stat(keyFile); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("TLS key file does not exist: %s", keyFile)
+		}
+		return fmt.Errorf("failed to access TLS key file %s: %v", keyFile, err)
+	}
+
+	return nil
+}
+
+func startHTTPServer() {
 	viper.SetDefault("TLS_CERT_PATH", defaultCertFile)
 	viper.SetDefault("TLS_KEY_PATH", defaultKeyFile)
 	viper.SetDefault("PORT", defaultDebugPort)
@@ -166,7 +290,7 @@ func startHTTPServer(logger *logrus.Logger) {
 	// TLS_KEY_PATH is only read as an environment variable
 	keyFile := viper.GetString("TLS_KEY_PATH")
 
-	bindPort := getBindPort(logger)
+	bindPort := getBindPort()
 
 	go func() {
 		expvar.NewString("service").Set("metrics-powerstore")
@@ -178,84 +302,116 @@ func startHTTPServer(logger *logrus.Logger) {
 			Handler:           http.DefaultServeMux,
 			ReadHeaderTimeout: 5 * time.Second,
 		}
+
+		// Validate TLS certificate files before attempting to start the server.
+		// Use Error (not Fatal) here — the debug listener is non-critical and its
+		// failure should not crash the main service.
+		if err := validateTLSFiles(certFile, keyFile); err != nil {
+			csmlog.WithFields(csmlog.Fields{
+				"error": err,
+				"cert":  certFile,
+				"key":   keyFile,
+			}).Error("debug listener failed to start: invalid TLS configuration")
+			return
+		}
+
 		if err := s.ListenAndServeTLS(certFile, keyFile); err != nil {
-			logger.WithError(err).Error("debug listener closed")
+			csmlog.WithFields(csmlog.Fields{
+				"error": err,
+			}).Error("debug listener closed")
 		}
 	}()
 }
 
-func getBindPort(logger *logrus.Logger) int {
+func getBindPort() int {
 	portEnv := viper.GetString("PORT")
 	if portEnv != "" {
 		bindPort, err := strconv.Atoi(portEnv)
 		if err != nil {
-			logger.WithError(err).WithField("port", portEnv).Fatal("port value is invalid")
+			csmlog.WithFields(csmlog.Fields{
+				"error": err,
+				"port":  portEnv,
+			}).Fatal("port value is invalid")
 		}
 		return bindPort
 	}
 	return 0
 }
 
-func updateTracing(logger *logrus.Logger) {
+func updateTracing() {
 	zipkinURI := viper.GetString("ZIPKIN_URI")
 	zipkinServiceName := viper.GetString("ZIPKIN_SERVICE_NAME")
 	zipkinProbability := viper.GetFloat64("ZIPKIN_PROBABILITY")
 
 	tp, err := initTracing(zipkinURI, zipkinProbability)
 	if err != nil {
-		logger.WithError(err).Error("initializing tracer")
+		csmlog.WithFields(csmlog.Fields{
+			"error": err,
+		}).Error("initializing tracer")
 	}
 	if tp != nil {
-		logger.WithFields(logrus.Fields{
+		csmlog.WithFields(csmlog.Fields{
 			"uri":          zipkinURI,
 			"service_name": zipkinServiceName,
-			"probablity":   zipkinProbability,
-		}).Infof("setting zipkin tracing")
+			"probability":  zipkinProbability,
+		}).Info("setting zipkin tracing")
 		otel.SetTracerProvider(tp)
 	}
 }
 
-func updatePowerStoreConnection(powerStoreSvc *service.PowerStoreService, logger *logrus.Logger) {
-	arrays, _, _, err := getPowerStoreArrays(defaultStorageSystemConfigFile, logger)
+func updatePowerStoreConnection(powerStoreSvc *service.PowerStoreService) {
+	arrays, _, defaultArray, err := getPowerStoreArrays(defaultStorageSystemConfigFile)
 	if err != nil {
-		logger.WithError(err).Fatal("initialize arrays in controller service")
+		csmlog.WithFields(csmlog.Fields{
+			"error": err,
+		}).Fatal("initialize arrays in controller service")
 	}
 	powerStoreClients := make(map[string]service.PowerStoreClient)
 	for arrayIP, client := range arrays {
 		powerStoreClients[arrayIP] = client.Client
-		logger.WithField("array_ip", arrayIP).Debug("setting powerstore client from configuration")
+		csmlog.WithFields(csmlog.Fields{
+			"array_ip": arrayIP,
+		}).Debug("setting powerstore client from configuration")
 	}
 	powerStoreSvc.PowerStoreClients = powerStoreClients
+	powerStoreSvc.PowerStoreArrays = arrays
+	powerStoreSvc.DefaultPowerStoreArray = defaultArray
 }
 
-func updateCollectorAddress(config *entrypoint.Config, exporter *otlexporters.OtlCollectorExporter, logger *logrus.Logger) {
+func updateCollectorAddress(config *entrypoint.Config, exporter *otlexporters.OtlCollectorExporter) {
 	collectorAddress := viper.GetString("COLLECTOR_ADDR")
 	if collectorAddress == "" {
-		logger.Fatal("COLLECTOR_ADDR is required")
+		csmlog.Fatal("COLLECTOR_ADDR is required")
 	}
 	config.CollectorAddress = collectorAddress
 	exporter.CollectorAddr = collectorAddress
-	logger.WithField("collector_address", collectorAddress).Debug("setting collector address")
+	csmlog.WithFields(csmlog.Fields{
+		"collector_address": collectorAddress,
+	}).Debug("setting collector address")
 }
 
-func updateProvisionerNames(volumeFinder *k8s.VolumeFinder, logger *logrus.Logger) {
+func updateProvisionerNames(volumeFinder *k8s.VolumeFinder) {
 	provisionerNamesValue := viper.GetString("provisioner_names")
 	if provisionerNamesValue == "" {
-		logger.Fatal("PROVISIONER_NAMES is required")
+		csmlog.Fatal("PROVISIONER_NAMES is required")
 	}
 	provisionerNames := strings.Split(provisionerNamesValue, ",")
 	volumeFinder.DriverNames = provisionerNames
-	logger.WithField("provisioner_names", provisionerNamesValue).Debug("setting provisioner names")
+	csmlog.WithFields(csmlog.Fields{
+		"provisioner_names": provisionerNamesValue,
+	}).Debug("setting provisioner names")
 }
 
-func updateMetricsEnabled(config *entrypoint.Config, logger *logrus.Logger) {
+func updateMetricsEnabled(config *entrypoint.Config) {
 	powerstoreVolumeMetricsEnabled := true
 	powerstoreVolumeMetricsEnabledValue := viper.GetString("POWERSTORE_VOLUME_METRICS_ENABLED")
 	if powerstoreVolumeMetricsEnabledValue == "false" {
 		powerstoreVolumeMetricsEnabled = false
 	}
 	config.VolumeMetricsEnabled = powerstoreVolumeMetricsEnabled
-	logger.WithField("volume_metrics_enabled", powerstoreVolumeMetricsEnabled).Debug("setting volume metrics enabled")
+	csmlog.WithFields(csmlog.Fields{
+		"volume_metrics_enabled": powerstoreVolumeMetricsEnabled,
+	}).Debug("setting volume metrics enabled")
 
 	powerstoreTopologyMetricsEnabled := true
 	powerstoreTopologyMetricsEnabledValue := viper.GetString("POWERSTORE_TOPOLOGY_METRICS_ENABLED")
@@ -263,83 +419,112 @@ func updateMetricsEnabled(config *entrypoint.Config, logger *logrus.Logger) {
 		powerstoreTopologyMetricsEnabled = false
 	}
 	config.TopologyMetricsEnabled = powerstoreTopologyMetricsEnabled
-	logger.WithField("topology_metrics_enabled", powerstoreTopologyMetricsEnabled).Debug("setting topology metrics enabled")
+	csmlog.WithFields(csmlog.Fields{
+		"topology_metrics_enabled": powerstoreTopologyMetricsEnabled,
+	}).Debug("setting topology metrics enabled")
 }
 
-func updateTickIntervals(config *entrypoint.Config, logger *logrus.Logger) {
+func updateTickIntervals(config *entrypoint.Config) {
 	volumeTickInterval := defaultTickInterval
 	volIoPollFrequencySeconds := viper.GetString("POWERSTORE_VOLUME_IO_POLL_FREQUENCY")
 	if volIoPollFrequencySeconds != "" {
 		numSeconds, err := strconv.Atoi(volIoPollFrequencySeconds)
 		if err != nil {
-			logger.WithError(err).Fatal("POWERSTORE_VOLUME_IO_POLL_FREQUENCY was not set to a valid number")
+			csmlog.WithFields(csmlog.Fields{
+				"error": err,
+			}).Fatal("POWERSTORE_VOLUME_IO_POLL_FREQUENCY was not set to a valid number")
 		}
 		volumeTickInterval = time.Duration(numSeconds) * time.Second
 	}
 	config.VolumeTickInterval = volumeTickInterval
-	logger.WithField("volume_tick_interval", fmt.Sprintf("%v", volumeTickInterval)).Debug("setting volume tick interval")
+	csmlog.WithFields(csmlog.Fields{
+		"volume_tick_interval": fmt.Sprintf("%v", volumeTickInterval),
+	}).Debug("setting volume tick interval")
 
 	spaceTickInterval := defaultTickInterval
 	spacePollFrequencySeconds := viper.GetString("POWERSTORE_SPACE_POLL_FREQUENCY")
 	if spacePollFrequencySeconds != "" {
 		numSeconds, err := strconv.Atoi(spacePollFrequencySeconds)
 		if err != nil {
-			logger.WithError(err).Fatal("POWERSTORE_SPACE_POLL_FREQUENCY was not set to a valid number")
+			csmlog.WithFields(csmlog.Fields{
+				"error": err,
+			}).Fatal("POWERSTORE_SPACE_POLL_FREQUENCY was not set to a valid number")
 		}
 		spaceTickInterval = time.Duration(numSeconds) * time.Second
 	}
 	config.SpaceTickInterval = spaceTickInterval
-	logger.WithField("space_tick_interval", fmt.Sprintf("%v", spaceTickInterval)).Debug("setting space tick interval")
+	csmlog.WithFields(csmlog.Fields{
+		"space_tick_interval": fmt.Sprintf("%v", spaceTickInterval),
+	}).Debug("setting space tick interval")
 
 	arrayTickInterval := defaultTickInterval
 	arrayPollFrequencySeconds := viper.GetString("POWERSTORE_ARRAY_POLL_FREQUENCY")
 	if arrayPollFrequencySeconds != "" {
 		numSeconds, err := strconv.Atoi(arrayPollFrequencySeconds)
 		if err != nil {
-			logger.WithError(err).Fatal("POWERSTORE_ARRAY_POLL_FREQUENCY was not set to a valid number")
+			csmlog.WithFields(csmlog.Fields{
+				"error": err,
+			}).Fatal("POWERSTORE_ARRAY_POLL_FREQUENCY was not set to a valid number")
 		}
 		arrayTickInterval = time.Duration(numSeconds) * time.Second
 	}
 	config.ArrayTickInterval = arrayTickInterval
-	logger.WithField("array_tick_interval", fmt.Sprintf("%v", arrayTickInterval)).Debug("setting array tick interval")
+	csmlog.WithFields(csmlog.Fields{
+		"array_tick_interval": fmt.Sprintf("%v", arrayTickInterval),
+	}).Debug("setting array tick interval")
 
 	fileSystemTickInterval := defaultTickInterval
 	fileSystemPollFrequencySeconds := viper.GetString("POWERSTORE_FILE_SYSTEM_POLL_FREQUENCY")
 	if fileSystemPollFrequencySeconds != "" {
 		numSeconds, err := strconv.Atoi(fileSystemPollFrequencySeconds)
 		if err != nil {
-			logger.WithError(err).Fatal("POWERSTORE_FILE_SYSTEM_POLL_FREQUENCY was not set to a valid number")
+			csmlog.WithFields(csmlog.Fields{
+				"error": err,
+			}).Fatal("POWERSTORE_FILE_SYSTEM_POLL_FREQUENCY was not set to a valid number")
 		}
 		fileSystemTickInterval = time.Duration(numSeconds) * time.Second
 	}
 	config.FileSystemTickInterval = fileSystemTickInterval
-	logger.WithField("file_tick_interval", fmt.Sprintf("%v", fileSystemTickInterval)).Debug("setting filesystem tick interval")
+	csmlog.WithFields(csmlog.Fields{
+		"file_tick_interval": fmt.Sprintf("%v", fileSystemTickInterval),
+	}).Debug("setting filesystem tick interval")
 
 	topologyTickInterval := defaultTickInterval
 	topologyPollFrequencySeconds := viper.GetString("POWERSTORE_TOPOLOGY_METRICS_POLL_FREQUENCY")
 	if topologyPollFrequencySeconds != "" {
 		numSeconds, err := strconv.Atoi(topologyPollFrequencySeconds)
 		if err != nil {
-			logger.WithError(err).Fatal("POWERSTORE_TOPOLOGY_METRICS_POLL_FREQUENCY was not set to a valid number")
+			csmlog.WithFields(csmlog.Fields{
+				"error": err,
+			}).Fatal("POWERSTORE_TOPOLOGY_METRICS_POLL_FREQUENCY was not set to a valid number")
 		}
 		topologyTickInterval = time.Duration(numSeconds) * time.Second
 	}
 	config.TopologyTickInterval = topologyTickInterval
-	logger.WithField("topology_tick_interval", fmt.Sprintf("%v", topologyTickInterval)).Debug("setting topology tick interval")
+	csmlog.WithFields(csmlog.Fields{
+		"topology_tick_interval": fmt.Sprintf("%v", topologyTickInterval),
+	}).Debug("setting topology tick interval")
 }
 
-func updateService(pstoreSvc *service.PowerStoreService, logger *logrus.Logger) {
+func updateService(pstoreSvc *service.PowerStoreService) {
 	maxPowerStoreConcurrentRequests := service.DefaultMaxPowerStoreConnections
 	maxPowerStoreConcurrentRequestsVar := viper.GetString("POWERSTORE_MAX_CONCURRENT_QUERIES")
 	if maxPowerStoreConcurrentRequestsVar != "" {
-		maxPowerStoreConcurrentRequests, err := strconv.Atoi(maxPowerStoreConcurrentRequestsVar)
+		var err error
+		maxPowerStoreConcurrentRequests, err = strconv.Atoi(maxPowerStoreConcurrentRequestsVar)
 		if err != nil {
-			logger.WithError(err).Fatal("POWERSTORE_MAX_CONCURRENT_QUERIES was not set to a valid number")
+			csmlog.WithFields(csmlog.Fields{
+				"error": err,
+			}).Fatal("POWERSTORE_MAX_CONCURRENT_QUERIES was not set to a valid number")
 		}
 		if maxPowerStoreConcurrentRequests <= 0 {
-			logger.WithError(err).Fatal("POWERSTORE_MAX_CONCURRENT_QUERIES value was invalid (<= 0)")
+			csmlog.WithFields(csmlog.Fields{
+				"value": maxPowerStoreConcurrentRequests,
+			}).Fatal("POWERSTORE_MAX_CONCURRENT_QUERIES value was invalid (<= 0)")
 		}
 	}
 	pstoreSvc.MaxPowerStoreConnections = maxPowerStoreConcurrentRequests
-	logger.WithField("max_connections", maxPowerStoreConcurrentRequests).Debug("setting max powerstore connections")
+	csmlog.WithFields(csmlog.Fields{
+		"max_connections": maxPowerStoreConcurrentRequests,
+	}).Debug("setting max powerstore connections")
 }

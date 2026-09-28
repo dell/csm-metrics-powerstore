@@ -20,7 +20,7 @@ import (
 	"context"
 
 	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
-	"github.com/sirupsen/logrus"
+	"github.com/dell/csmlog"
 	"go.opentelemetry.io/otel/attribute"
 
 	corev1 "k8s.io/api/core/v1"
@@ -38,7 +38,6 @@ type VolumeGetter interface {
 type VolumeFinder struct {
 	API         VolumeGetter
 	DriverNames []string
-	Logger      *logrus.Logger
 }
 
 // VolumeInfo contains information about mapping a Persistent Volume to the volume created on a storage system
@@ -72,13 +71,17 @@ func (f VolumeFinder) GetPersistentVolumes(ctx context.Context) ([]VolumeInfo, e
 
 	for _, volume := range volumes.Items {
 		if volume.Spec.CSI == nil {
-			f.Logger.Debugf("The PV, %s , is not provisioned by a CSI driver\n", volume.GetName())
+			csmlog.WithFields(csmlog.Fields{
+				"pv_name": volume.GetName(),
+			}).Debug("The PV is not provisioned by a CSI driver")
 			continue
 		}
 
 		// Check added to skip PV s which do not have any PVC s
 		if volume.Spec.ClaimRef == nil {
-			f.Logger.Debugf("The PV, %s , do not have a claim \n", volume.GetName())
+			csmlog.WithFields(csmlog.Fields{
+				"pv_name": volume.GetName(),
+			}).Debug("The PV does not have a claim")
 			continue
 		}
 

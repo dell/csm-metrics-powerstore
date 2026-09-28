@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2021-2025 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2021-2026 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@ package pstoreresource_test
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/dell/csm-metrics-powerstore/internal/pstoreresource"
 	csictx "github.com/dell/gocsi/context"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -68,14 +68,13 @@ func Test_Run(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			logger := logrus.New()
 			filePath, envs, expectError := test(t)
 
 			for k, v := range envs {
 				csictx.Setenv(context.Background(), k, v)
 			}
 
-			arrays, mapper, defaultArray, err := pstoreresource.GetPowerStoreArrays(filePath, logger)
+			arrays, mapper, defaultArray, err := pstoreresource.GetPowerStoreArrays(filePath)
 
 			switch name {
 			case "empty arrays":
@@ -101,6 +100,126 @@ func Test_Run(t *testing.T) {
 					assert.Nil(t, err)
 				}
 			}
+		})
+	}
+}
+
+func TestGetPowerStoreArrays_FQDNProtocol(t *testing.T) {
+	file, err := os.CreateTemp(t.TempDir(), "fqdn-config-*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = file.WriteString("arrays:\n  - endpoint: https://localhost/api/rest\n    globalID: array-fqdn\n    username: user\n    password: password\n    skipCertificateValidation: true\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	arrays, _, _, err := pstoreresource.GetPowerStoreArrays(file.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := arrays["array-fqdn"].NetworkProtocol; got != "ipv4" && got != "ipv6" && got != "unknown" {
+		t.Fatalf("unexpected FQDN protocol classification %q", got)
+	}
+}
+
+// FR-11.1: Test GetIPListFromString with IPv6 support
+func TestGetIPListFromString(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			name:     "bracketed IPv6 endpoint",
+			input:    "https://[2001:db8::1]/api/rest",
+			expected: []string{"2001:db8::1"},
+		},
+		{
+			name:     "IPv4 endpoint",
+			input:    "https://10.0.0.1/api/rest",
+			expected: []string{"10.0.0.1"},
+		},
+		{
+			name:     "FQDN endpoint",
+			input:    "https://my-array.example.com/api/rest",
+			expected: nil,
+		},
+		{
+			name:     "IPv4 endpoint with port",
+			input:    "https://10.0.0.1:443/api/rest",
+			expected: []string{"10.0.0.1"},
+		},
+		{
+			name:     "bracketed IPv6 with port",
+			input:    "https://[2001:db8::1]:443/api/rest",
+			expected: []string{"2001:db8::1"},
+		},
+		{
+			name:     "bare IPv6 string",
+			input:    "2001:db8::1",
+			expected: []string{"2001:db8::1"},
+		},
+		{
+			name:     "bare IPv4 string",
+			input:    "10.0.0.1",
+			expected: []string{"10.0.0.1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := pstoreresource.GetIPListFromString(tt.input)
+			if tt.expected == nil {
+				assert.Nil(t, result)
+			} else {
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}
+
+// FR-10.1: Test InferProtocol function
+func TestInferProtocol(t *testing.T) {
+	tests := []struct {
+		name     string
+		ip       string
+		expected string
+	}{
+		{
+			name:     "IPv4 address",
+			ip:       "10.0.0.1",
+			expected: "ipv4",
+		},
+		{
+			name:     "IPv6 address",
+			ip:       "2001:db8::1",
+			expected: "ipv6",
+		},
+		{
+			name:     "IPv4-mapped IPv6",
+			ip:       "::ffff:192.0.2.1",
+			expected: "ipv6",
+		},
+		{
+			name:     "invalid address",
+			ip:       "invalid",
+			expected: "unknown",
+		},
+		{
+			name:     "empty string",
+			ip:       "",
+			expected: "unknown",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := pstoreresource.InferProtocol(tt.ip)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

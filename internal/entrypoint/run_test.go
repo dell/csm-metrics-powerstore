@@ -22,8 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/dell/csm-metrics-powerstore/internal/entrypoint"
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	pStoreServices "github.com/dell/csm-metrics-powerstore/internal/service"
@@ -271,7 +269,6 @@ func Test_Run(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
 			defer cancel()
 			if config != nil {
-				config.Logger = logrus.New()
 				if !validateConfig {
 					// The configuration is not nil and the test is not attempting to validate the configuration.
 					// In this case, we can use smaller intervals for testing purposes.

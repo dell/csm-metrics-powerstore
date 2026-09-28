@@ -19,13 +19,13 @@ package service_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	"github.com/dell/csm-metrics-powerstore/internal/service/mocks"
 	"github.com/dell/gopowerstore"
-	"github.com/sirupsen/logrus"
 
 	"github.com/dell/csm-metrics-powerstore/internal/k8s"
 
@@ -71,7 +71,110 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 					DataRemaining:            1,
 				},
 			}, nil).Times(1)
+			c.EXPECT().GetProtectionPolicies(gomock.Any()).Return([]gopowerstore.ProtectionPolicy{
+				{
+					ID:               "policy-1",
+					ReplicationRules: []gopowerstore.ReplicationRule{{ID: "rule-1"}},
+					Volumes:          []gopowerstore.Volume{{ID: "volume-1"}},
+				},
+			}, nil).Times(1)
 
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
+		"replication metrics not collected when disabled": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "volume-1/127.0.0.1/scsi",
+				},
+			}, nil).Times(1)
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().PerformanceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return([]gopowerstore.PerformanceMetricsByVolumeResponse{{}}, nil).Times(1)
+			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(), gomock.Any()).Times(0)
+			c.EXPECT().GetProtectionPolicies(gomock.Any()).Return([]gopowerstore.ProtectionPolicy{}, nil).Times(1)
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
+		"replication metrics not collected when GetProtectionPolicies fails": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "volume-1/127.0.0.1/scsi",
+				},
+			}, nil).Times(1)
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().PerformanceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return([]gopowerstore.PerformanceMetricsByVolumeResponse{{}}, nil).Times(1)
+			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(), gomock.Any()).Times(0)
+			c.EXPECT().GetProtectionPolicies(gomock.Any()).Return(nil, fmt.Errorf("API error")).Times(1)
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
+		"multi-volume partial replication": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().Record(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "volume-1/127.0.0.1/scsi",
+				},
+				{
+					PersistentVolume: "pv-2",
+					VolumeHandle:     "volume-2/127.0.0.1/scsi",
+				},
+			}, nil).Times(1)
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().PerformanceMetricsByVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return([]gopowerstore.PerformanceMetricsByVolumeResponse{{}}, nil).Times(2)
+			c.EXPECT().GetProtectionPolicies(gomock.Any()).Return([]gopowerstore.ProtectionPolicy{
+				{
+					ID:               "policy-1",
+					ReplicationRules: []gopowerstore.ReplicationRule{{ID: "rule-1"}},
+					Volumes:          []gopowerstore.Volume{{ID: "volume-1"}}, // only volume-1 is replicated
+				},
+			}, nil).Times(1)
+			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(), "volume-1").Return([]gopowerstore.VolumeMirrorTransferRateResponse{
+				{
+					ID:                       "1",
+					SynchronizationBandwidth: 1,
+					MirrorBandwidth:          1,
+					DataRemaining:            1,
+				},
+			}, nil).Times(1)
+			c.EXPECT().VolumeMirrorTransferRate(gomock.Any(), "volume-2").Times(0)
 			clients["127.0.0.1"] = c
 
 			service := service.PowerStoreService{
@@ -128,6 +231,13 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 					SynchronizationBandwidth: 1,
 					MirrorBandwidth:          1,
 					DataRemaining:            1,
+				},
+			}, nil).Times(1)
+			c.EXPECT().GetProtectionPolicies(gomock.Any()).Return([]gopowerstore.ProtectionPolicy{
+				{
+					ID:               "policy-1",
+					ReplicationRules: []gopowerstore.ReplicationRule{{ID: "rule-1"}},
+					Volumes:          []gopowerstore.Volume{{ID: "volume-1"}},
 				},
 			}, nil).Times(1)
 			clients["127.0.0.1"] = c
@@ -275,7 +385,6 @@ func Test_ExportVolumeStatistics(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			service, ctrl := tc(t)
-			service.Logger = logrus.New()
 			service.ExportVolumeStatistics(context.Background())
 			ctrl.Finish()
 		})
@@ -498,7 +607,6 @@ func Test_ExportSpaceVolumeMetrics(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			service, ctrl := tc(t)
-			service.Logger = logrus.New()
 			service.ExportSpaceVolumeMetrics(context.Background())
 			ctrl.Finish()
 		})
@@ -728,7 +836,6 @@ func Test_ExportArraySpaceMetrics(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			service, ctrl := tc(t)
-			service.Logger = logrus.New()
 			service.ExportArraySpaceMetrics(context.Background())
 			ctrl.Finish()
 		})
@@ -771,7 +878,110 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 					DataRemaining:            1,
 				},
 			}, nil).Times(1)
+			c.EXPECT().GetProtectionPolicies(gomock.Any()).Return([]gopowerstore.ProtectionPolicy{
+				{
+					ID:               "policy-1",
+					ReplicationRules: []gopowerstore.ReplicationRule{{ID: "rule-1"}},
+					FileSystems:      []gopowerstore.FileSystems{{ID: "volume-1"}},
+				},
+			}, nil).Times(1)
 
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
+		"replication metrics not collected when disabled": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().RecordFileSystemMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "volume-1/127.0.0.1/nfs",
+				},
+			}, nil).Times(1)
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().PerformanceMetricsByFileSystem(gomock.Any(), gomock.Any(), gomock.Any()).Return([]gopowerstore.PerformanceMetricsByFileSystemResponse{{}}, nil).Times(1)
+			c.EXPECT().FileSystemMirrorTransferRate(gomock.Any(), gomock.Any()).Times(0)
+			c.EXPECT().GetProtectionPolicies(gomock.Any()).Return([]gopowerstore.ProtectionPolicy{}, nil).Times(1)
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
+		"replication metrics not collected when GetProtectionPolicies fails": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().RecordFileSystemMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "volume-1/127.0.0.1/nfs",
+				},
+			}, nil).Times(1)
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().PerformanceMetricsByFileSystem(gomock.Any(), gomock.Any(), gomock.Any()).Return([]gopowerstore.PerformanceMetricsByFileSystemResponse{{}}, nil).Times(1)
+			c.EXPECT().FileSystemMirrorTransferRate(gomock.Any(), gomock.Any()).Times(0)
+			c.EXPECT().GetProtectionPolicies(gomock.Any()).Return(nil, fmt.Errorf("API error")).Times(1)
+			clients["127.0.0.1"] = c
+
+			service := service.PowerStoreService{
+				MetricsWrapper:    metrics,
+				VolumeFinder:      volFinder,
+				PowerStoreClients: clients,
+			}
+			return service, ctrl
+		},
+		"multi-filesystem partial replication": func(*testing.T) (service.PowerStoreService, *gomock.Controller) {
+			ctrl := gomock.NewController(t)
+			metrics := mocks.NewMockMetricsRecorder(ctrl)
+			metrics.EXPECT().RecordFileSystemMetrics(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
+
+			volFinder := mocks.NewMockVolumeFinder(ctrl)
+			volFinder.EXPECT().GetPersistentVolumes(gomock.Any()).Return([]k8s.VolumeInfo{
+				{
+					PersistentVolume: "pv-1",
+					VolumeHandle:     "volume-1/127.0.0.1/nfs",
+				},
+				{
+					PersistentVolume: "pv-2",
+					VolumeHandle:     "volume-2/127.0.0.1/nfs",
+				},
+			}, nil).Times(1)
+			clients := make(map[string]service.PowerStoreClient)
+			c := mocks.NewMockPowerStoreClient(ctrl)
+			c.EXPECT().PerformanceMetricsByFileSystem(gomock.Any(), gomock.Any(), gomock.Any()).Return([]gopowerstore.PerformanceMetricsByFileSystemResponse{{}}, nil).Times(2)
+			c.EXPECT().GetProtectionPolicies(gomock.Any()).Return([]gopowerstore.ProtectionPolicy{
+				{
+					ID:               "policy-1",
+					ReplicationRules: []gopowerstore.ReplicationRule{{ID: "rule-1"}},
+					FileSystems:      []gopowerstore.FileSystems{{ID: "volume-1"}}, // only volume-1 is replicated
+				},
+			}, nil).Times(1)
+			c.EXPECT().FileSystemMirrorTransferRate(gomock.Any(), "volume-1").Return([]gopowerstore.VolumeMirrorTransferRateResponse{
+				{
+					ID:                       "1",
+					SynchronizationBandwidth: 1,
+					MirrorBandwidth:          1,
+					DataRemaining:            1,
+				},
+			}, nil).Times(1)
+			c.EXPECT().FileSystemMirrorTransferRate(gomock.Any(), "volume-2").Times(0)
 			clients["127.0.0.1"] = c
 
 			service := service.PowerStoreService{
@@ -823,6 +1033,13 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 			c := mocks.NewMockPowerStoreClient(ctrl)
 			c.EXPECT().PerformanceMetricsByFileSystem(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 			c.EXPECT().FileSystemMirrorTransferRate(gomock.Any(), gomock.Any()).Times(1)
+			c.EXPECT().GetProtectionPolicies(gomock.Any()).Return([]gopowerstore.ProtectionPolicy{
+				{
+					ID:               "policy-1",
+					ReplicationRules: []gopowerstore.ReplicationRule{{ID: "rule-1"}},
+					FileSystems:      []gopowerstore.FileSystems{{ID: "volume-1"}},
+				},
+			}, nil).Times(1)
 			clients["127.0.0.1"] = c
 
 			service := service.PowerStoreService{
@@ -968,7 +1185,6 @@ func Test_ExportFileSystemStatistics(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			service, ctrl := tc(t)
-			service.Logger = logrus.New()
 			service.ExportFileSystemStatistics(context.Background())
 			ctrl.Finish()
 		})
@@ -1020,7 +1236,6 @@ func Test_ExportTopologyMetrics(t *testing.T) {
 			service := service.PowerStoreService{
 				MetricsWrapper: metrics,
 				VolumeFinder:   volFinder,
-				Logger:         logrus.New(),
 			}
 			return service, ctrl
 		},
@@ -1035,7 +1250,6 @@ func Test_ExportTopologyMetrics(t *testing.T) {
 			service := service.PowerStoreService{
 				MetricsWrapper: metrics,
 				VolumeFinder:   volFinder,
-				Logger:         logrus.New(),
 			}
 			return service, ctrl
 		},
@@ -1048,7 +1262,6 @@ func Test_ExportTopologyMetrics(t *testing.T) {
 			service := service.PowerStoreService{
 				MetricsWrapper: nil,
 				VolumeFinder:   volFinder,
-				Logger:         logrus.New(),
 			}
 			return service, ctrl
 		},
@@ -1069,7 +1282,6 @@ func Test_ExportTopologyMetrics(t *testing.T) {
 			service := service.PowerStoreService{
 				MetricsWrapper: metrics,
 				VolumeFinder:   volFinder,
-				Logger:         logrus.New(),
 			}
 			return service, ctrl
 		},

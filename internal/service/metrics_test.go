@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2025-2026 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -19,13 +19,45 @@ package service_test
 import (
 	"context"
 	"testing"
-
-	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
+	"time"
 
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
+
+func init() {
+	// Set up a MeterProvider with a fast periodic reader so callbacks fire quickly during tests
+	exporter := &noopExporter{}
+	reader := metric.NewPeriodicReader(exporter, metric.WithInterval(10*time.Millisecond))
+	provider := metric.NewMeterProvider(metric.WithReader(reader))
+	otel.SetMeterProvider(provider)
+}
+
+// noopExporter is a no-op exporter for tests
+type noopExporter struct{}
+
+func (e *noopExporter) Temporality(metric.InstrumentKind) metricdata.Temporality {
+	return metricdata.CumulativeTemporality
+}
+
+func (e *noopExporter) Aggregation(metric.InstrumentKind) metric.Aggregation {
+	return metric.AggregationDefault{}
+}
+
+func (e *noopExporter) Export(context.Context, *metricdata.ResourceMetrics) error {
+	return nil
+}
+
+func (e *noopExporter) ForceFlush(context.Context) error {
+	return nil
+}
+
+func (e *noopExporter) Shutdown(context.Context) error {
+	return nil
+}
 
 func TestMetricsWrapper_Record(t *testing.T) {
 	mw := &service.MetricsWrapper{
@@ -40,12 +72,6 @@ func TestMetricsWrapper_Record(t *testing.T) {
 		&service.SpaceVolumeMeta{
 			ID: "123",
 		},
-	}
-
-	exporter := &otlexporters.OtlCollectorExporter{}
-	err := exporter.InitExporter()
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	type args struct {
@@ -116,12 +142,6 @@ func TestMetricsWrapper_Record(t *testing.T) {
 func TestMetricsWrapper_Record_Label_Update(t *testing.T) {
 	mw := &service.MetricsWrapper{
 		Meter: otel.Meter("powerstore-test"),
-	}
-
-	exporter := &otlexporters.OtlCollectorExporter{}
-	err := exporter.InitExporter()
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	metaFirst := &service.VolumeMeta{
@@ -232,12 +252,6 @@ func TestMetricsWrapper_RecordSpaceMetrics(t *testing.T) {
 		},
 	}
 
-	exporter := &otlexporters.OtlCollectorExporter{}
-	err := exporter.InitExporter()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	type args struct {
 		ctx                context.Context
 		meta               interface{}
@@ -299,14 +313,14 @@ func TestMetricsWrapper_RecordSpaceMetrics_Label_Update(t *testing.T) {
 	}
 	metaFirst := &service.SpaceVolumeMeta{
 		ID:           "123",
-		ArrayID:      "arr123",
+		ArrayID:      "2001:db8::1",
 		StorageClass: "powerstore",
 		Protocol:     "scsi",
 	}
 
 	metaSecond := &service.SpaceVolumeMeta{
 		ID:           "123",
-		ArrayID:      "arr123",
+		ArrayID:      "2001:db8::1",
 		StorageClass: "powerstore",
 		Protocol:     "scsi",
 	}
@@ -318,17 +332,12 @@ func TestMetricsWrapper_RecordSpaceMetrics_Label_Update(t *testing.T) {
 		Protocol:     "scsi",
 	}
 
-	exporter := &otlexporters.OtlCollectorExporter{}
-	err := exporter.InitExporter()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	expectedLables := []attribute.KeyValue{
 		attribute.String("VolumeID", metaSecond.ID),
 		attribute.String("PersistentVolumeName", metaSecond.PersistentVolumeName),
 		attribute.String("PersistentVolumeClaimName", metaSecond.PersistentVolumeClaimName),
 		attribute.String("Namespace", metaSecond.Namespace),
+		attribute.String("Protocol", metaSecond.Protocol),
 		attribute.String("PlotWithMean", "No"),
 	}
 
@@ -354,13 +363,18 @@ func TestMetricsWrapper_RecordSpaceMetrics_Label_Update(t *testing.T) {
 			t.Errorf("expected labels to exist for %v, but did not find them", metaFirst.ID)
 		}
 		labels := newLabels.([]attribute.KeyValue)
-		for _, l := range labels {
-			for _, e := range expectedLables {
-				if l.Key == e.Key {
-					if l.Value.AsString() != e.Value.AsString() {
-						t.Errorf("expected label %v to be updated to %v, but the value was %v", e.Key, e.Value.AsString(), l.Value.AsString())
+		for _, expected := range expectedLables {
+			found := false
+			for _, label := range labels {
+				if label.Key == expected.Key {
+					found = true
+					if label.Value.AsString() != expected.Value.AsString() {
+						t.Errorf("expected label %v to be updated to %v, but the value was %v", expected.Key, expected.Value.AsString(), label.Value.AsString())
 					}
 				}
+			}
+			if !found {
+				t.Errorf("expected label %v was not recorded", expected.Key)
 			}
 		}
 	})
@@ -395,12 +409,6 @@ func TestMetricsWrapper_RecordSpaceMetrics_Label_Update(t *testing.T) {
 func TestMetricsWrapper_RecordArraySpaceMetrics(t *testing.T) {
 	mw := &service.MetricsWrapper{
 		Meter: otel.Meter("powerstore-test"),
-	}
-
-	exporter := &otlexporters.OtlCollectorExporter{}
-	err := exporter.InitExporter()
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	type args struct {
@@ -441,12 +449,6 @@ func TestMetricsWrapper_RecordArraySpaceMetrics(t *testing.T) {
 func TestMetricsWrapper_RecordArraySpaceMetrics_Label_Update(t *testing.T) {
 	mw := &service.MetricsWrapper{
 		Meter: otel.Meter("powerstore-test"),
-	}
-
-	exporter := &otlexporters.OtlCollectorExporter{}
-	err := exporter.InitExporter()
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	array1 := "123"
@@ -553,12 +555,6 @@ func TestMetricsWrapper_RecordStorageClassSpaceMetrics(t *testing.T) {
 		Meter: otel.Meter("powerstore-test"),
 	}
 
-	exporter := &otlexporters.OtlCollectorExporter{}
-	err := exporter.InitExporter()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	type args struct {
 		ctx                context.Context
 		storageclass       string
@@ -597,12 +593,6 @@ func TestMetricsWrapper_RecordStorageClassSpaceMetrics(t *testing.T) {
 func TestMetricsWrapper_RecordStorageClassSpaceMetrics_Label_Update(t *testing.T) {
 	mw := &service.MetricsWrapper{
 		Meter: otel.Meter("powerstore-test"),
-	}
-
-	exporter := &otlexporters.OtlCollectorExporter{}
-	err := exporter.InitExporter()
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	array1 := "storageclass"
@@ -719,12 +709,6 @@ func TestMetricsWrapper_RecordFileSystemMetrics(t *testing.T) {
 		},
 	}
 
-	exporter := &otlexporters.OtlCollectorExporter{}
-	err := exporter.InitExporter()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	type args struct {
 		ctx           context.Context
 		meta          interface{}
@@ -793,12 +777,6 @@ func TestMetricsWrapper_RecordFileSystemMetrics(t *testing.T) {
 func TestMetricsWrapper_RecordFileSystemMetrics_Label_Update(t *testing.T) {
 	mw := &service.MetricsWrapper{
 		Meter: otel.Meter("powerstore-test"),
-	}
-
-	exporter := &otlexporters.OtlCollectorExporter{}
-	err := exporter.InitExporter()
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	metaFirst := &service.VolumeMeta{
@@ -894,12 +872,6 @@ func TestMetricsWrapper_RecordFileSystemMetrics_Label_Update(t *testing.T) {
 func TestMetricsWrapper_RecordTopologyMetrics(t *testing.T) {
 	mw := &service.MetricsWrapper{
 		Meter: otel.Meter("powerstore-topology-test"),
-	}
-
-	exporter := &otlexporters.OtlCollectorExporter{}
-	err := exporter.InitExporter()
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	// Pre-populate sync.Maps to cover the else branch in the method
