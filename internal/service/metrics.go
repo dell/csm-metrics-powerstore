@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2025-2026 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"errors"
+	"net/netip"
 	"sync"
 
 	"go.opentelemetry.io/otel/metric"
@@ -145,6 +146,14 @@ func (mw *MetricsWrapper) Record(_ context.Context, meta interface{},
 	switch v := meta.(type) {
 	case *VolumeMeta:
 		prefix, metaID = "powerstore_volume_", v.ID
+		// FR-10.1: Add protocol label to metrics
+		protocol := inferProtocol(v.ArrayIP)
+		if protocol == "unknown" && v.ArrayProtocol != "" {
+			protocol = v.ArrayProtocol
+		}
+		if protocol == "unknown" {
+			protocol = inferProtocol(v.ArrayID)
+		}
 		labels = []attribute.KeyValue{
 			attribute.String("VolumeID", v.ID),
 			attribute.String("ArrayID", v.ArrayID),
@@ -152,6 +161,7 @@ func (mw *MetricsWrapper) Record(_ context.Context, meta interface{},
 			attribute.String("PersistentVolumeClaimName", v.PersistentVolumeClaimName),
 			attribute.String("Namespace", v.Namespace),
 			attribute.String("PlotWithMean", "No"),
+			attribute.String("Protocol", protocol),
 		}
 	default:
 		return errors.New("unknown MetaData type")
@@ -255,6 +265,13 @@ func (mw *MetricsWrapper) RecordSpaceMetrics(_ context.Context, meta interface{}
 	var labels []attribute.KeyValue
 	switch v := meta.(type) {
 	case *SpaceVolumeMeta:
+		protocol := inferProtocol(v.ArrayIP)
+		if protocol == "unknown" && v.ArrayProtocol != "" {
+			protocol = v.ArrayProtocol
+		}
+		if protocol == "unknown" {
+			protocol = inferProtocol(v.ArrayID)
+		}
 		switch v.Protocol {
 		case nfsProtocol:
 			prefix, metaID = "powerstore_filesystem_", v.ID
@@ -375,6 +392,7 @@ func (mw *MetricsWrapper) RecordArraySpaceMetrics(_ context.Context, arrayID, dr
 	labels = []attribute.KeyValue{
 		attribute.String("ArrayID", arrayID),
 		attribute.String("Driver", driver),
+		attribute.String("Protocol", inferProtocol(arrayID)),
 		attribute.String("PlotWithMean", "No"),
 	}
 
@@ -448,6 +466,7 @@ func (mw *MetricsWrapper) RecordStorageClassSpaceMetrics(_ context.Context, stor
 	labels = []attribute.KeyValue{
 		attribute.String("StorageClass", storageclass),
 		attribute.String("Driver", driver),
+		attribute.String("Protocol", "unknown"),
 		attribute.String("PlotWithMean", "No"),
 	}
 
@@ -557,6 +576,13 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(_ context.Context, meta interf
 	switch v := meta.(type) {
 	case *VolumeMeta:
 		prefix, metaID = "powerstore_filesystem_", v.ID
+		protocol := inferProtocol(v.ArrayIP)
+		if protocol == "unknown" && v.ArrayProtocol != "" {
+			protocol = v.ArrayProtocol
+		}
+		if protocol == "unknown" {
+			protocol = inferProtocol(v.ArrayID)
+		}
 		labels = []attribute.KeyValue{
 			attribute.String("FileSystemID", v.ID),
 			attribute.String("ArrayID", v.ArrayID),
@@ -564,6 +590,7 @@ func (mw *MetricsWrapper) RecordFileSystemMetrics(_ context.Context, meta interf
 			attribute.String("PersistentVolumeClaimName", v.PersistentVolumeClaimName),
 			attribute.String("Namespace", v.Namespace),
 			attribute.String("StorageClass", v.StorageClass),
+			attribute.String("Protocol", protocol),
 			attribute.String("PlotWithMean", "No"),
 		}
 	default:
@@ -734,4 +761,26 @@ func (mw *MetricsWrapper) RecordTopologyMetrics(_ context.Context, meta interfac
 	_ = reg.Unregister()
 
 	return nil
+}
+
+// inferProtocol determines the IP protocol (ipv4 or ipv6) from an address string
+// FR-10.1: Helper function to classify IP addresses for metrics labeling
+func inferProtocol(ip string) string {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return "unknown"
+	}
+
+	if addr.Is4() {
+		return "ipv4"
+	}
+	if addr.Is6() && !addr.Is4In6() {
+		return "ipv6"
+	}
+	if addr.Is4In6() {
+		// IPv4-mapped IPv6 addresses should be classified as ipv6
+		return "ipv6"
+	}
+
+	return "unknown"
 }

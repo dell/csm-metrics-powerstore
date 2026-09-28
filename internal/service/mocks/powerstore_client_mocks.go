@@ -56,6 +56,21 @@ func (mr *MockPowerStoreClientMockRecorder) FileSystemMirrorTransferRate(ctx, id
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FileSystemMirrorTransferRate", reflect.TypeOf((*MockPowerStoreClient)(nil).FileSystemMirrorTransferRate), ctx, id)
 }
 
+// GetProtectionPolicies mocks base method.
+func (m *MockPowerStoreClient) GetProtectionPolicies(ctx context.Context) ([]gopowerstore.ProtectionPolicy, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProtectionPolicies", ctx)
+	ret0, _ := ret[0].([]gopowerstore.ProtectionPolicy)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProtectionPolicies indicates an expected call of GetProtectionPolicies.
+func (mr *MockPowerStoreClientMockRecorder) GetProtectionPolicies(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProtectionPolicies", reflect.TypeOf((*MockPowerStoreClient)(nil).GetProtectionPolicies), ctx)
+}
+
 // GetFS mocks base method.
 func (m *MockPowerStoreClient) GetFS(arg0 context.Context, arg1 string) (gopowerstore.FileSystem, error) {
 	m.ctrl.T.Helper()

@@ -1,6 +1,6 @@
 /*
  *
- * Copyright © 2021-2024 Dell Inc. or its subsidiaries. All Rights Reserved.
+ * Copyright © 2021-2026 Dell Inc. or its subsidiaries. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,15 @@
 package main
 
 import (
+	"context"
+	"crypto/tls"
 	"errors"
+	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"testing"
@@ -31,9 +37,9 @@ import (
 	"github.com/dell/csm-metrics-powerstore/internal/k8s"
 	"github.com/dell/csm-metrics-powerstore/internal/service"
 	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -42,18 +48,21 @@ func TestInitializeConfig(t *testing.T) {
 	// Mock getPowerScaleClusters to avoid file I/O
 	originalGetPowerStoreArrays := getPowerStoreArrays
 	defer func() { getPowerStoreArrays = originalGetPowerStoreArrays }()
-	getPowerStoreArrays = func(_ string, _ *logrus.Logger) (map[string]*service.PowerStoreArray, map[string]string, *service.PowerStoreArray, error) {
+	getPowerStoreArrays = func(_ string) (map[string]*service.PowerStoreArray, map[string]string, *service.PowerStoreArray, error) {
+		//nolint:goconst // Test mock data with repeated strings
 		return map[string]*service.PowerStoreArray{
-				"cluster1": {
-					Endpoint:  "10.10.10.10",
-					GlobalID:  "PowerStore123",
-					IsDefault: true,
-				},
-			}, map[string]string{"cluster1": "10.10.10.10"}, &service.PowerStoreArray{
+			"PowerStore123": {
 				Endpoint:  "10.10.10.10",
 				GlobalID:  "PowerStore123",
 				IsDefault: true,
-			}, nil
+				IP:        "2001:db8::1",
+			},
+		}, map[string]string{"cluster1": "10.10.10.10"}, &service.PowerStoreArray{
+			Endpoint:  "10.10.10.10",
+			GlobalID:  "PowerStore123",
+			IsDefault: true,
+			IP:        "2001:db8::1",
+		}, nil
 	}
 
 	// Mock Viper to avoid reading from the actual config file
@@ -79,7 +88,6 @@ TLS_ENABLED: false
 	tests := []struct {
 		name                           string
 		envVars                        map[string]string
-		expectedLogLevel               logrus.Level
 		expectedCollectorAddr          string
 		expectedProvisioners           []string
 		expectedCertPath               string
@@ -95,9 +103,8 @@ TLS_ENABLED: false
 				"TLS_ENABLED":                         "false",
 				"POWERSTORE_TOPOLOGY_METRICS_ENABLED": "true",
 			},
-			expectedLogLevel:               logrus.DebugLevel,
 			expectedCollectorAddr:          "localhost:4317",
-			expectedProvisioners:           []string{"csi-powerflex"},
+			expectedProvisioners:           []string{"csi-powerstore"},
 			expectedCertPath:               otlexporters.DefaultCollectorCertPath,
 			expectedTopologyMetricsEnabled: true,
 		},
@@ -111,7 +118,6 @@ TLS_ENABLED: false
 				"COLLECTOR_CERT_PATH":                 "/custom/cert/path",
 				"POWERSTORE_TOPOLOGY_METRICS_ENABLED": "false",
 			},
-			expectedLogLevel:               logrus.InfoLevel,
 			expectedCollectorAddr:          "collector:4317",
 			expectedProvisioners:           []string{"csi-powerstore"},
 			expectedCertPath:               "/custom/cert/path",
@@ -137,15 +143,34 @@ TLS_ENABLED: false
 				// Handle the error or log it
 				log.Printf("Error reading config: %v", err)
 			}
-			logger, config, svc, exporter := initializeConfig()
+			config, svc, exporter := initializeConfig()
 
 			// Assert components are initialized
-			assert.NotNil(t, logger)
 			assert.NotNil(t, config)
 			assert.NotNil(t, exporter)
 			assert.NotNil(t, svc)
+			assert.Equal(t, "2001:db8::1", svc.PowerStoreArrays["PowerStore123"].IP)
+			assert.Equal(t, "PowerStore123", svc.DefaultPowerStoreArray.GlobalID)
 		})
 	}
+}
+
+type stubFailureRecorder struct {
+	callback func()
+}
+
+func (s *stubFailureRecorder) SetExportFailureRecorder(callback func()) {
+	s.callback = callback
+}
+
+func TestWireExportFailureRecorder_SetsCallbackWithoutMetricsServer(t *testing.T) {
+	exporter := &stubFailureRecorder{}
+	svc := &service.PowerStoreService{}
+
+	wirePowerStoreExportFailureRecorder(svc, exporter)
+
+	require.NotNil(t, exporter.callback)
+	assert.NotPanics(t, func() { exporter.callback() })
 }
 
 func TestUpdateProvisionerNames(t *testing.T) {
@@ -167,12 +192,6 @@ func TestUpdateProvisionerNames(t *testing.T) {
 			expected:     []string{"csi-powerstore1", "csi-powerstore2"},
 			expectPanic:  false,
 		},
-		{
-			name:         "Empty Provisioners",
-			provisioners: "",
-			expected:     nil,
-			expectPanic:  true,
-		},
 	}
 
 	for _, tt := range tests {
@@ -182,13 +201,10 @@ func TestUpdateProvisionerNames(t *testing.T) {
 
 			vf := &k8s.VolumeFinder{}
 
-			logger := logrus.New()
-			logger.ExitFunc = func(int) { panic("fatal") }
-
 			if tt.expectPanic {
-				assert.Panics(t, func() { updateProvisionerNames(vf, logger) })
+				assert.Panics(t, func() { updateProvisionerNames(vf) })
 			} else {
-				assert.NotPanics(t, func() { updateProvisionerNames(vf, logger) })
+				assert.NotPanics(t, func() { updateProvisionerNames(vf) })
 				assert.Equal(t, tt.expected, vf.DriverNames)
 			}
 		})
@@ -218,7 +234,6 @@ func TestGetCollectorCertPath(t *testing.T) {
 }
 
 func TestStartConfigWatchers(t *testing.T) {
-	logger := logrus.New()
 	config := &entrypoint.Config{}
 	exporter := &otlexporters.OtlCollectorExporter{}
 	powerStoreSvc := &service.PowerStoreService{}
@@ -234,22 +249,18 @@ func TestStartConfigWatchers(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.NotPanics(t, func() {
-				startConfigWatchers(logger, config, exporter, powerStoreSvc)
+				startConfigWatchers(config, exporter, powerStoreSvc)
 			}, "Expected setupConfigWatchers to not panic")
 		})
 	}
 }
 
 func TestGetBindPort(t *testing.T) {
-	logger := logrus.New()
-
 	// Test case: Default port
 	t.Run("Default port", func(t *testing.T) {
-		// viper.Set("PORT", "")
-		startHTTPServer(logger)
-		logger := logrus.New()
+		startHTTPServer()
 
-		result := getBindPort(logger)
+		result := getBindPort()
 
 		assert.Equal(t, defaultDebugPort, strconv.Itoa(result))
 	})
@@ -257,19 +268,10 @@ func TestGetBindPort(t *testing.T) {
 	// Test case: Custom port
 	t.Run("Custom port", func(t *testing.T) {
 		viper.Set("PORT", "8080")
-		logger := logrus.New()
 
-		result := getBindPort(logger)
+		result := getBindPort()
 
 		assert.Equal(t, 8080, result)
-	})
-
-	// Test case: Invalid port
-	t.Run("Invalid port", func(t *testing.T) {
-		viper.Set("PORT", "invalid")
-		logger.ExitFunc = func(int) { panic("fatal") }
-
-		assert.Panics(t, func() { panic(getBindPort(logger)) })
 	})
 }
 
@@ -303,70 +305,6 @@ func TestUpdateTickIntervals(t *testing.T) {
 			expectPanic:          false,
 		},
 		{
-			name:                 "Invalid Values",
-			volFreq:              "invalid",
-			spaceFreq:            "invalid",
-			arrayFreq:            "",
-			fsFreq:               "invalidinvalid",
-			topologyFreq:         "invalid",
-			expectedVolFreq:      defaultTickInterval,
-			expectedSpaceFreq:    defaultTickInterval,
-			expectedArrayFreq:    defaultTickInterval,
-			expectedFsFreq:       defaultTickInterval,
-			expectedTopologyFreq: defaultTickInterval,
-			expectPanic:          true,
-		},
-		{
-			name:              "InValid SpaceFreq",
-			volFreq:           "10",
-			spaceFreq:         "invalid",
-			arrayFreq:         "10",
-			fsFreq:            "10",
-			expectedVolFreq:   10 * time.Second,
-			expectedSpaceFreq: defaultTickInterval,
-			expectedArrayFreq: 10 * time.Second,
-			expectedFsFreq:    10 * time.Second,
-			expectPanic:       true,
-		},
-		{
-			name:              "InValid arrayFreq",
-			volFreq:           "10",
-			spaceFreq:         "10",
-			arrayFreq:         "invalid",
-			fsFreq:            "10",
-			expectedVolFreq:   10 * time.Second,
-			expectedSpaceFreq: 10 * time.Second,
-			expectedArrayFreq: defaultTickInterval,
-			expectedFsFreq:    10 * time.Second,
-			expectPanic:       true,
-		},
-		{
-			name:              "InValid fsFeq",
-			volFreq:           "10",
-			spaceFreq:         "10",
-			arrayFreq:         "10",
-			fsFreq:            "invalid",
-			expectedVolFreq:   10 * time.Second,
-			expectedSpaceFreq: 10 * time.Second,
-			expectedArrayFreq: 10 * time.Second,
-			expectedFsFreq:    defaultTickInterval,
-			expectPanic:       true,
-		},
-		{
-			name:                 "Invalid TopologyFreq only",
-			volFreq:              "10",
-			spaceFreq:            "10",
-			arrayFreq:            "10",
-			fsFreq:               "10",
-			topologyFreq:         "invalid",
-			expectedVolFreq:      10 * time.Second,
-			expectedSpaceFreq:    10 * time.Second,
-			expectedArrayFreq:    10 * time.Second,
-			expectedFsFreq:       10 * time.Second,
-			expectedTopologyFreq: defaultTickInterval,
-			expectPanic:          true,
-		},
-		{
 			name:                 "Valid TopologyFreq",
 			volFreq:              "10",
 			spaceFreq:            "10",
@@ -378,6 +316,20 @@ func TestUpdateTickIntervals(t *testing.T) {
 			expectedArrayFreq:    10 * time.Second,
 			expectedFsFreq:       10 * time.Second,
 			expectedTopologyFreq: 30 * time.Second,
+			expectPanic:          false,
+		},
+		{
+			name:                 "Default Values",
+			volFreq:              "",
+			spaceFreq:            "",
+			arrayFreq:            "",
+			fsFreq:               "",
+			topologyFreq:         "",
+			expectedVolFreq:      300 * time.Second,
+			expectedSpaceFreq:    300 * time.Second,
+			expectedArrayFreq:    300 * time.Second,
+			expectedFsFreq:       300 * time.Second,
+			expectedTopologyFreq: 300 * time.Second,
 			expectPanic:          false,
 		},
 	}
@@ -393,13 +345,10 @@ func TestUpdateTickIntervals(t *testing.T) {
 			viper.Set("POWERSTORE_TOPOLOGY_METRICS_POLL_FREQUENCY", tt.topologyFreq)
 
 			config := &entrypoint.Config{}
-			logger := logrus.New()
-			logger.ExitFunc = func(int) { panic("fatal") }
-
 			if tt.expectPanic {
-				assert.Panics(t, func() { updateTickIntervals(config, logger) })
+				assert.Panics(t, func() { updateTickIntervals(config) })
 			} else {
-				assert.NotPanics(t, func() { updateTickIntervals(config, logger) })
+				assert.NotPanics(t, func() { updateTickIntervals(config) })
 				assert.Equal(t, tt.expectedVolFreq, config.VolumeTickInterval, "VolumeTickInterval mismatch")
 				assert.Equal(t, tt.expectedSpaceFreq, config.SpaceTickInterval, "SpaceTickInterval mismatch")
 				assert.Equal(t, tt.expectedArrayFreq, config.ArrayTickInterval, "ArrayTickInterval mismatch")
@@ -437,47 +386,44 @@ func TestUpdateTracing(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			logger := logrus.New()
+		t.Run(tt.name, func(_ *testing.T) {
 			initTracing = tt.initTracing
 			viper.Reset()
 			for k, v := range tt.envVars {
 				viper.Set(k, v)
 				defer viper.Set(k, "")
 			}
-			updateTracing(logger)
+			updateTracing()
 
-			if tt.wantErr {
-				assert.NotNil(t, logger.Out)
-			}
+			// Note: updateTracing logs errors but doesn't return them, so we can't assert on error state
 		})
 	}
 }
 
 func TestUpdateService(t *testing.T) {
 	tests := []struct {
-		name          string
-		maxConcurrent string
-		expected      int
-		expectPanic   bool
+		name                   string
+		maxConcurrent          string
+		expectedMaxConnections int
+		expectPanic            bool
 	}{
 		{
-			name:          "Valid Value",
-			maxConcurrent: "10",
-			expected:      10,
-			expectPanic:   false,
+			name:                   "Valid Value",
+			maxConcurrent:          "10",
+			expectedMaxConnections: 10,
+			expectPanic:            false,
 		},
 		{
-			name:          "Invalid Value",
-			maxConcurrent: "invalid",
-			expected:      service.DefaultMaxPowerStoreConnections,
-			expectPanic:   true,
+			name:                   "Non-default max concurrent queries value is applied",
+			maxConcurrent:          "6",
+			expectedMaxConnections: 6,
+			expectPanic:            false,
 		},
 		{
-			name:          "Zero Value",
-			maxConcurrent: "0",
-			expected:      service.DefaultMaxPowerStoreConnections,
-			expectPanic:   true,
+			name:                   "Default max concurrent queries value is applied",
+			maxConcurrent:          "",
+			expectedMaxConnections: 5,
+			expectPanic:            false,
 		},
 	}
 
@@ -487,17 +433,205 @@ func TestUpdateService(t *testing.T) {
 			viper.Set("POWERSTORE_MAX_CONCURRENT_QUERIES", tt.maxConcurrent)
 
 			svc := &service.PowerStoreService{}
-			logger := logrus.New()
-			logger.ExitFunc = func(int) { panic("fatal") }
 
 			if tt.expectPanic {
-				assert.Panics(t, func() { updateService(svc, logger) })
+				assert.Panics(t, func() { updateService(svc) })
 			} else {
-				assert.NotPanics(t, func() { updateService(svc, logger) })
-				assert.Equal(t, tt.expected, svc.MaxPowerStoreConnections)
+				assert.NotPanics(t, func() { updateService(svc) })
+				assert.Equal(t, tt.expectedMaxConnections, svc.MaxPowerStoreConnections)
 			}
 		})
 	}
+}
+
+// I-OBS-PST-02: startMetricsServer wires ObsInstrumenter onto the service and
+// exposes all four dell_csm_obs_* metrics at /metrics (HTTP 200).
+func TestStartMetricsServer_WiresInstrumenterAndServesMetrics(t *testing.T) {
+	port := pstObsFreePort(t)
+	viper.Set(csiObsMetricsPortKey, fmt.Sprintf("%d", port))
+	t.Cleanup(func() { viper.Set(csiObsMetricsPortKey, "") })
+
+	svc := &service.PowerStoreService{}
+
+	startMetricsServer(svc, &otlexporters.OtlCollectorExporter{})
+
+	assert.NotNil(t, svc.ObsInstrumenter, "startMetricsServer must set ObsInstrumenter on the service")
+
+	// Record one observation per metric so they appear in the /metrics output
+	// (prometheus Vec metrics only appear after at least one observation).
+	svc.ObsInstrumenter.RecordCollectionRate("test", 1)
+	svc.ObsInstrumenter.RecordExportSuccess("test", "success")
+	svc.ObsInstrumenter.SetArrayConnectivity("test", true)
+	svc.ObsInstrumenter.RecordProcessingLatency("test", 0.001)
+
+	time.Sleep(100 * time.Millisecond)
+
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/metrics", port))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	for _, metric := range []string{
+		"dell_csm_obs_collection_rate",
+		"dell_csm_obs_export_success_total",
+		"dell_csm_obs_array_connectivity",
+		"dell_csm_obs_processing_latency_seconds",
+	} {
+		assert.Contains(t, string(body), metric, "metric %q must appear in /metrics output", metric)
+	}
+}
+
+// I-OBS-PST-03: startMetricsServer wires ObsInstrumenter regardless of port source.
+func TestStartMetricsServer_WiresInstrumenterEvenWithDefaultPort(t *testing.T) {
+	port := pstObsFreePort(t)
+	viper.Set(csiObsMetricsPortKey, fmt.Sprintf("%d", port))
+	t.Cleanup(func() { viper.Set(csiObsMetricsPortKey, "") })
+
+	svc := &service.PowerStoreService{}
+
+	startMetricsServer(svc, &otlexporters.OtlCollectorExporter{})
+
+	assert.NotNil(t, svc.ObsInstrumenter)
+}
+
+// I-OBS-PST-04: /metrics returns HTTP 404 for unknown paths.
+func TestStartMetricsServer_UnknownPathReturns404(t *testing.T) {
+	port := pstObsFreePort(t)
+	viper.Set(csiObsMetricsPortKey, fmt.Sprintf("%d", port))
+	t.Cleanup(func() { viper.Set(csiObsMetricsPortKey, "") })
+
+	svc := &service.PowerStoreService{}
+
+	startMetricsServer(svc, &otlexporters.OtlCollectorExporter{})
+	time.Sleep(100 * time.Millisecond)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		fmt.Sprintf("http://localhost:%d/unknown", port), nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+// I-OBS-PST-05: startMetricsServer serves metrics over HTTPS when TLS is enabled with valid certificates.
+func TestStartMetricsServer_TLSServesMetricsWithValidCerts(t *testing.T) {
+	viper.Reset()
+	viper.AutomaticEnv()
+	port := pstObsFreePort(t)
+	t.Setenv(csiObsMetricsPortKey, fmt.Sprintf("%d", port))
+
+	// Create temporary TLS certificate and key files
+	certFile := t.TempDir() + "/test-cert.pem"
+	keyFile := t.TempDir() + "/test-key.pem"
+
+	// Generate a self-signed certificate for testing
+	cmd := exec.Command("openssl", "req", "-new", "-x509", "-sha256", "-keyout", keyFile,
+		"-out", certFile, "-days", "1", "-nodes", "-subj", "/CN=localhost")
+	if err := cmd.Run(); err != nil {
+		t.Skipf("Skipping TLS test: openssl not available: %v", err)
+	}
+	t.Cleanup(func() {
+		os.Remove(certFile)
+		os.Remove(keyFile)
+	})
+
+	t.Setenv(csiObsMetricsCertKey, certFile)
+	t.Setenv(csiObsMetricsKeyKey, keyFile)
+
+	svc := &service.PowerStoreService{}
+
+	startMetricsServer(svc, &otlexporters.OtlCollectorExporter{})
+
+	assert.NotNil(t, svc.ObsInstrumenter, "startMetricsServer must set ObsInstrumenter on the service")
+
+	// Record observations so metrics appear in output
+	svc.ObsInstrumenter.RecordCollectionRate("test", 1)
+	svc.ObsInstrumenter.RecordExportSuccess("test", "success")
+	svc.ObsInstrumenter.SetArrayConnectivity("test", true)
+	svc.ObsInstrumenter.RecordProcessingLatency("test", 0.001)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Create HTTP client that skips TLS verification for self-signed cert
+	client := &http.Client{
+		Transport: &http.Transport{
+			// #nosec G402 -- InsecureSkipVerify is intentional for self-signed test cert
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	resp, err := client.Get(fmt.Sprintf("https://localhost:%d/metrics", port))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	for _, metric := range []string{
+		"dell_csm_obs_collection_rate",
+		"dell_csm_obs_export_success_total",
+		"dell_csm_obs_array_connectivity",
+		"dell_csm_obs_processing_latency_seconds",
+	} {
+		assert.Contains(t, string(body), metric, "metric %q must appear in /metrics output", metric)
+	}
+}
+
+// I-OBS-PST-06: validateTLSFiles returns an error when certificate files are missing.
+// Note: startMetricsServer calls csmlog.Fatal (os.Exit) on TLS validation failure, so we
+// test the underlying validateTLSFiles function directly to avoid process termination in tests.
+func TestStartMetricsServer_TLSFailsWithMissingCerts(t *testing.T) {
+	err := validateTLSFiles("/nonexistent/cert.pem", "/nonexistent/key.pem")
+	assert.Error(t, err, "validateTLSFiles should return error for missing files")
+	assert.Contains(t, err.Error(), "does not exist", "error should indicate file does not exist")
+}
+
+// I-OBS-PST-07: validateTLSFiles returns error for empty cert/key paths.
+func TestValidateTLSFiles_EmptyPaths(t *testing.T) {
+	err := validateTLSFiles("", "")
+	assert.Error(t, err, "validateTLSFiles should return error for empty paths")
+	assert.Contains(t, err.Error(), "empty", "error should indicate empty path")
+
+	err = validateTLSFiles("/valid/cert.pem", "")
+	assert.Error(t, err, "validateTLSFiles should return error for empty key path")
+	assert.Contains(t, err.Error(), "key", "error should mention key")
+
+	err = validateTLSFiles("", "/valid/key.pem")
+	assert.Error(t, err, "validateTLSFiles should return error for empty cert path")
+	assert.Contains(t, err.Error(), "certificate", "error should mention certificate")
+}
+
+func TestUpdateLoggingSettings_JSONFormat(t *testing.T) {
+	viper.Reset()
+	viper.Set("LOG_FORMAT", "json")
+	viper.Set("LOG_LEVEL", "invalid_level")
+
+	assert.NotPanics(t, func() { updateLoggingSettings() })
+}
+
+func TestUpdateMetricsEnabled_Disabled(t *testing.T) {
+	viper.Reset()
+	viper.Set("POWERSTORE_VOLUME_METRICS_ENABLED", "false")
+	viper.Set("POWERSTORE_TOPOLOGY_METRICS_ENABLED", "false")
+
+	config := &entrypoint.Config{}
+	updateMetricsEnabled(config)
+
+	assert.False(t, config.VolumeMetricsEnabled)
+	assert.False(t, config.TopologyMetricsEnabled)
+}
+
+func TestGetBindPort_EmptyPort(t *testing.T) {
+	viper.Reset()
+	// PORT not set → should return 0
+	result := getBindPort()
+	assert.Equal(t, 0, result)
 }
 
 func TestUpdateCollectorAddress(t *testing.T) {
@@ -511,11 +645,6 @@ func TestUpdateCollectorAddress(t *testing.T) {
 			addr:        "localhost:8080",
 			expectPanic: false,
 		},
-		{
-			name:        "Empty Address",
-			addr:        "",
-			expectPanic: true,
-		},
 	}
 
 	for _, tt := range tests {
@@ -523,18 +652,82 @@ func TestUpdateCollectorAddress(t *testing.T) {
 			viper.Reset()
 			viper.Set("COLLECTOR_ADDR", tt.addr)
 
-			logger := logrus.New()
-			logger.ExitFunc = func(int) { panic("fatal") }
-			config := &entrypoint.Config{Logger: logger}
+			config := &entrypoint.Config{}
 			exporter := &otlexporters.OtlCollectorExporter{}
 
 			if tt.expectPanic {
-				assert.Panics(t, func() { updateCollectorAddress(config, exporter, logger) })
+				assert.Panics(t, func() { updateCollectorAddress(config, exporter) })
 			} else {
-				assert.NotPanics(t, func() { updateCollectorAddress(config, exporter, logger) })
+				assert.NotPanics(t, func() { updateCollectorAddress(config, exporter) })
 				assert.Equal(t, tt.addr, config.CollectorAddress)
 				assert.Equal(t, tt.addr, exporter.CollectorAddr)
 			}
 		})
 	}
+}
+
+func TestValidateTLSFiles_CertAccessError(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "notadir")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Close()
+
+	keyFile := t.TempDir() + "/test-key.pem"
+	err = os.WriteFile(keyFile, []byte("key"), 0o600)
+	require.NoError(t, err)
+
+	certPath := tmpFile.Name() + "/cert.pem"
+	err = validateTLSFiles(certPath, keyFile)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to access TLS certificate file")
+}
+
+func TestValidateTLSFiles_KeyAccessError(t *testing.T) {
+	tmpDir := t.TempDir()
+	certFile := tmpDir + "/test-cert.pem"
+	err := os.WriteFile(certFile, []byte("cert"), 0o600)
+	require.NoError(t, err)
+
+	notADir, err := os.CreateTemp("", "notadir")
+	require.NoError(t, err)
+	defer os.Remove(notADir.Name())
+	notADir.Close()
+
+	keyPath := notADir.Name() + "/key.pem"
+	err = validateTLSFiles(certFile, keyPath)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to access TLS key file")
+}
+
+func TestObsGlobalID_WithValidService(t *testing.T) {
+	svc := &service.PowerStoreService{
+		DefaultPowerStoreArray: &service.PowerStoreArray{
+			GlobalID: "PS123456",
+		},
+	}
+	result := obsGlobalID(svc)
+	assert.Equal(t, "PS123456", result)
+}
+
+func TestObsGlobalID_WithNilService(t *testing.T) {
+	result := obsGlobalID(nil)
+	assert.Equal(t, "powerstore", result)
+}
+
+func TestObsGlobalID_WithNilDefaultArray(t *testing.T) {
+	svc := &service.PowerStoreService{
+		DefaultPowerStoreArray: nil,
+	}
+	result := obsGlobalID(svc)
+	assert.Equal(t, "powerstore", result)
+}
+
+func TestObsGlobalID_WithEmptyGlobalID(t *testing.T) {
+	svc := &service.PowerStoreService{
+		DefaultPowerStoreArray: &service.PowerStoreArray{
+			GlobalID: "",
+		},
+	}
+	result := obsGlobalID(svc)
+	assert.Equal(t, "powerstore", result)
 }

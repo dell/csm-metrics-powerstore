@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
+ Copyright (c) 2025-2026 Dell Inc. or its subsidiaries. All Rights Reserved.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -28,12 +28,12 @@ import (
 	"github.com/dell/gopowerstore"
 
 	"github.com/dell/csm-metrics-powerstore/internal/k8s"
-	"github.com/sirupsen/logrus"
+	"github.com/dell/csmlog"
 )
 
 const (
 	// DefaultMaxPowerStoreConnections is the number of workers that can query powerstore at a time
-	DefaultMaxPowerStoreConnections = 10
+	DefaultMaxPowerStoreConnections = 5
 	// ExpectedVolumeHandleProperties is the number of properties that the VolumeHandle contains
 	ExpectedVolumeHandleProperties = 3
 	// ExpectedVolumeHandleMetroProperties is the number of properties that the VolumeHandle of metro volumes contains
@@ -44,11 +44,32 @@ const (
 
 var _ Service = (*PowerStoreService)(nil)
 
+func (s *PowerStoreService) obsGlobalID() string {
+	if s.DefaultPowerStoreArray != nil && s.DefaultPowerStoreArray.GlobalID != "" {
+		return s.DefaultPowerStoreArray.GlobalID
+	}
+	return "powerstore"
+}
+
 func (s *PowerStoreService) getPowerStoreClient(_ context.Context, arrayIP string) (PowerStoreClient, error) {
 	if goPowerStoreClient, ok := s.PowerStoreClients[arrayIP]; ok {
 		return goPowerStoreClient, nil
 	}
 	return nil, fmt.Errorf("unable to find client")
+}
+
+func (s *PowerStoreService) arrayIP(arrayID string) string {
+	if array, ok := s.PowerStoreArrays[arrayID]; ok && array.IP != "" {
+		return array.IP
+	}
+	return arrayID
+}
+
+func (s *PowerStoreService) arrayProtocol(arrayID string) string {
+	if array, ok := s.PowerStoreArrays[arrayID]; ok && array.NetworkProtocol != "" {
+		return array.NetworkProtocol
+	}
+	return "unknown"
 }
 
 func toMegabytes(bytes float32) float32 {
@@ -65,10 +86,17 @@ func toMilliseconds(microseconds float32) float32 {
 
 // timeSince will log the amount of time spent in a given function
 func (s *PowerStoreService) timeSince(start time.Time, fName string) {
-	s.Logger.WithFields(logrus.Fields{
+	csmlog.WithFields(csmlog.Fields{
 		"duration": fmt.Sprintf("%v", time.Since(start)),
 		"function": fName,
 	}).Info("function duration")
+}
+
+func collectionRatePerSecond(metricCount int, elapsed time.Duration) float64 {
+	if metricCount <= 0 || elapsed <= 0 {
+		return 0
+	}
+	return float64(metricCount) / elapsed.Seconds()
 }
 
 // Service contains operations that would be used to interact with a PowerStore system
@@ -92,16 +120,18 @@ type PowerStoreClient interface {
 	GetFS(context.Context, string) (gopowerstore.FileSystem, error)
 	VolumeMirrorTransferRate(ctx context.Context, id string) ([]gopowerstore.VolumeMirrorTransferRateResponse, error)
 	FileSystemMirrorTransferRate(ctx context.Context, id string) ([]gopowerstore.VolumeMirrorTransferRateResponse, error)
+	GetProtectionPolicies(ctx context.Context) ([]gopowerstore.ProtectionPolicy, error)
 }
 
 // PowerStoreService represents the service for getting metrics data for a PowerStore system
 type PowerStoreService struct {
 	MetricsWrapper           MetricsRecorder
 	MaxPowerStoreConnections int
-	Logger                   *logrus.Logger
 	PowerStoreClients        map[string]PowerStoreClient
+	PowerStoreArrays         map[string]*PowerStoreArray
 	DefaultPowerStoreArray   *PowerStoreArray
 	VolumeFinder             VolumeFinder
+	ObsInstrumenter          *PSTObsInstrumenter
 }
 
 // VolumeFinder is used to find volume information in kubernetes
@@ -155,24 +185,36 @@ func (s *PowerStoreService) ExportVolumeStatistics(ctx context.Context) {
 	defer s.timeSince(start, "ExportVolumeStatistics")
 
 	if s.MetricsWrapper == nil {
-		s.Logger.Warn("no MetricsWrapper provided for getting ExportVolumeStatistics")
+		csmlog.Warn("no MetricsWrapper provided for getting ExportVolumeStatistics")
 		return
 	}
 
 	if s.MaxPowerStoreConnections == 0 {
-		s.Logger.Debug("Using DefaultMaxPowerStoreConnections")
+		csmlog.Debug("Using DefaultMaxPowerStoreConnections")
 		s.MaxPowerStoreConnections = DefaultMaxPowerStoreConnections
 	}
 
 	pvs, err := s.VolumeFinder.GetPersistentVolumes(ctx)
 	if err != nil {
-		s.Logger.WithError(err).Error("getting persistent volumes")
+		csmlog.WithFields(csmlog.Fields{"error": err}).Error("getting persistent volumes")
+		if s.ObsInstrumenter != nil {
+			s.ObsInstrumenter.RecordExportSuccess(s.obsGlobalID(), "failure")
+		}
 		return
 	}
 
+	count := 0
 	for range s.pushVolumeMetrics(ctx, s.gatherVolumeMetrics(ctx, s.volumeServer(ctx, pvs))) {
+		count++
 		// consume the channel until it is empty and closed
 	} // revive:disable-line:empty-block
+	if s.ObsInstrumenter != nil {
+		globalID := s.obsGlobalID()
+		elapsed := time.Since(start)
+		s.ObsInstrumenter.RecordCollectionRate(globalID, collectionRatePerSecond(count, elapsed))
+		s.ObsInstrumenter.RecordProcessingLatency(globalID, elapsed.Seconds())
+		s.ObsInstrumenter.RecordExportSuccess(globalID, "success")
+	}
 }
 
 // volumeServer will return a channel of volumes that can provide statistics about each volume
@@ -199,10 +241,37 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, s.MaxPowerStoreConnections)
 
-	var volumeID, arrayID, protocol string
 	go func() {
 		ctx, span := tracer.GetTracer(ctx, "gatherVolumeMetrics")
 		defer span.End()
+
+		var (
+			replicatedMu    sync.Mutex
+			replicatedCache = make(map[string]map[string]struct{})
+		)
+		getReplicatedVolumeIDs := func(arrayIP string, client PowerStoreClient) map[string]struct{} {
+			replicatedMu.Lock()
+			defer replicatedMu.Unlock()
+			if cached, ok := replicatedCache[arrayIP]; ok {
+				return cached
+			}
+			policies, err := client.GetProtectionPolicies(ctx)
+			volIDs := make(map[string]struct{})
+			if err != nil {
+				csmlog.WithFields(csmlog.Fields{"error": err, "array_ip": arrayIP}).Warn("failed to get protection policies; replication metrics will not be collected for this array")
+			} else {
+				for _, policy := range policies {
+					if len(policy.ReplicationRules) == 0 {
+						continue
+					}
+					for _, vol := range policy.Volumes {
+						volIDs[vol.ID] = struct{}{}
+					}
+				}
+			}
+			replicatedCache[arrayIP] = volIDs
+			return volIDs
+		}
 
 		exported := false
 		for volume := range volumes {
@@ -215,6 +284,8 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 					<-sem
 				}()
 
+				var volumeID, arrayID, protocol string
+
 				// VolumeHandle is of the format "volume-id/array-ip/protocol"
 				volumeProperties := strings.Split(volume.VolumeHandle, "/")
 				if len(volumeProperties) == ExpectedVolumeHandleProperties {
@@ -226,13 +297,13 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 					arrayID = volumeProperties[1]
 					protocol = strings.Split(volumeProperties[2], ":")[0]
 				} else {
-					s.Logger.WithField("volume_handle", volume.VolumeHandle).Warn("unable to get Volume ID and Array IP from volume handle")
+					csmlog.WithFields(csmlog.Fields{"volume_handle": volume.VolumeHandle}).Warn("unable to get Volume ID and Array IP from volume handle")
 					return
 				}
 
 				// skip Persistent Volumes that don't have a protocol of 'scsi', such as nfs file systems
 				if !strings.EqualFold(protocol, scsiProtocol) {
-					s.Logger.WithFields(logrus.Fields{"protocol": protocol, "persistent_volume": volume.PersistentVolume}).Debugf("persistent volume is not %s", scsiProtocol)
+					csmlog.WithFields(csmlog.Fields{"protocol": protocol, "persistent_volume": volume.PersistentVolume}).Debugf("persistent volume is not %s", scsiProtocol)
 					return
 				}
 
@@ -242,27 +313,35 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 					PersistentVolumeClaimName: volume.VolumeClaimName,
 					Namespace:                 volume.Namespace,
 					ArrayID:                   arrayID,
+					ArrayIP:                   s.arrayIP(arrayID),
+					ArrayProtocol:             s.arrayProtocol(arrayID),
 				}
 
 				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)
 				if err != nil {
-					s.Logger.WithError(err).WithField("ip", arrayID).Warn("no client found for PowerStore with IP")
+					csmlog.WithFields(csmlog.Fields{"error": err, "ip": arrayID}).Warn("no client found for PowerStore with IP")
+					if s.ObsInstrumenter != nil {
+						s.ObsInstrumenter.SetArrayConnectivity(arrayID, false)
+					}
 					return
 				}
+				if s.ObsInstrumenter != nil {
+					s.ObsInstrumenter.SetArrayConnectivity(arrayID, true)
+				}
 
-				s.Logger.WithFields(logrus.Fields{
+				csmlog.WithFields(csmlog.Fields{
 					"volume_id": volumeID,
 				}).Infof("Getting the Performance Metrics")
 
 				metrics, err := goPowerStoreClient.PerformanceMetricsByVolume(ctx, volumeID, gopowerstore.TwentySec)
 				if err != nil {
-					s.Logger.WithError(err).WithField("volume_id", volumeID).Error("getting performance metrics for volume")
+					csmlog.WithFields(csmlog.Fields{"error": err, "volume_id": volumeID}).Error("getting performance metrics for volume")
 					return
 				}
 
 				var readBW, writeBW, readIOPS, writeIOPS, readLatency, writeLatency, syncBW, mirrorBW, remainingData float32
 
-				s.Logger.WithFields(logrus.Fields{
+				csmlog.WithFields(csmlog.Fields{
 					"volume_performance_metrics": len(metrics),
 					"volume_id":                  volumeMeta.ID,
 					"array_ip":                   volumeMeta.ArrayID,
@@ -278,23 +357,28 @@ func (s *PowerStoreService) gatherVolumeMetrics(ctx context.Context, volumes <-c
 					writeLatency = toMilliseconds(latestMetric.AvgWriteLatency)
 				}
 
-				// Read the replication parameter
-				replicationMetrics, err := goPowerStoreClient.VolumeMirrorTransferRate(ctx, volumeID)
+				if _, isReplicated := getReplicatedVolumeIDs(arrayID, goPowerStoreClient)[volumeID]; isReplicated {
+					// Read the replication parameter
+					replicationMetrics, err := goPowerStoreClient.VolumeMirrorTransferRate(ctx, volumeID)
+					if err != nil {
+						csmlog.WithFields(csmlog.Fields{"error": err, "volume_id": volumeMeta.ID, "array_ip": volumeMeta.ArrayID}).Error("getting replication metrics for volume")
+					} else {
+						csmlog.WithFields(csmlog.Fields{
+							"volume_replication_metrics": len(replicationMetrics),
+							"volume_id":                  volumeMeta.ID,
+							"array_ip":                   volumeMeta.ArrayID,
+						}).Debug("volume replication metrics returned for volume")
 
-				s.Logger.WithFields(logrus.Fields{
-					"volume_replication_metrics": len(replicationMetrics),
-					"volume_id":                  volumeMeta.ID,
-					"array_ip":                   volumeMeta.ArrayID,
-				}).Debug("volume replication metrics returned for volume")
-
-				if len(replicationMetrics) > 0 {
-					latestRepMetrics := replicationMetrics[len(replicationMetrics)-1]
-					syncBW = toMegabytes(latestRepMetrics.SynchronizationBandwidth)
-					mirrorBW = toMegabytes(latestRepMetrics.MirrorBandwidth)
-					remainingData = toMegabytes(latestRepMetrics.DataRemaining)
+						if len(replicationMetrics) > 0 {
+							latestRepMetrics := replicationMetrics[len(replicationMetrics)-1]
+							syncBW = toMegabytes(latestRepMetrics.SynchronizationBandwidth)
+							mirrorBW = toMegabytes(latestRepMetrics.MirrorBandwidth)
+							remainingData = toMegabytes(latestRepMetrics.DataRemaining)
+						}
+					}
 				}
 
-				s.Logger.WithFields(logrus.Fields{
+				csmlog.WithFields(csmlog.Fields{
 					"volume_meta":              volumeMeta,
 					"read_bandwidth":           readBW,
 					"write_bandwidth":          writeBW,
@@ -358,7 +442,7 @@ func (s *PowerStoreService) pushVolumeMetrics(ctx context.Context, volumeMetrics
 					metrics.synchronizationBW, metrics.mirrorBW, metrics.remainingData,
 				)
 				if err != nil {
-					s.Logger.WithError(err).WithField("volume_id", metrics.volumeMeta.ID).Error("recording statistics for volume")
+					csmlog.WithFields(csmlog.Fields{"error": err, "volume_id": metrics.volumeMeta.ID}).Error("recording statistics for volume")
 				} else {
 					ch <- metrics.volumeMeta.ID
 				}
@@ -400,7 +484,7 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 				// VolumeHandle is of the format "volume-id/array-ip/protocol"
 				volumeProperties := strings.Split(volume.VolumeHandle, "/")
 				if len(volumeProperties) != ExpectedVolumeHandleProperties {
-					s.Logger.WithField("volume_handle", volume.VolumeHandle).Warn("unable to get Volume ID and Array IP from volume handle")
+					csmlog.WithFields(csmlog.Fields{"volume_handle": volume.VolumeHandle}).Warn("unable to get Volume ID and Array IP from volume handle")
 					return
 				}
 
@@ -414,6 +498,8 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 					PersistentVolumeClaimName: volume.VolumeClaimName,
 					Namespace:                 volume.Namespace,
 					ArrayID:                   arrayID,
+					ArrayIP:                   s.arrayIP(arrayID),
+					ArrayProtocol:             s.arrayProtocol(arrayID),
 					StorageClass:              volume.StorageClass,
 					Driver:                    volume.Driver,
 					Protocol:                  protocol,
@@ -421,26 +507,32 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 
 				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)
 				if err != nil {
-					s.Logger.WithError(err).WithField("ip", arrayID).Warn("no client found for PowerStore with IP")
+					csmlog.WithFields(csmlog.Fields{"error": err, "ip": arrayID}).Warn("no client found for PowerStore with IP")
+					if s.ObsInstrumenter != nil {
+						s.ObsInstrumenter.SetArrayConnectivity(arrayID, false)
+					}
 					return
+				}
+				if s.ObsInstrumenter != nil {
+					s.ObsInstrumenter.SetArrayConnectivity(arrayID, true)
 				}
 
 				switch protocol {
 				case nfsProtocol: // nfs space metrics
 					fs, err := goPowerStoreClient.GetFS(ctx, volumeID)
 					if err != nil {
-						s.Logger.WithError(err).WithField("filesystem_id", volumeID).Error("getting space metrics for filesystem")
+						csmlog.WithFields(csmlog.Fields{"error": err, "filesystem_id": volumeID}).Error("getting space metrics for filesystem")
 						return
 					}
 
 					logicalProvisioned = toMegabytesInt64(fs.SizeTotal)
 					logicalUsed = toMegabytesInt64(fs.SizeUsed)
-					s.Logger.WithFields(logrus.Fields{"filesystem": volumeID, "persistent_volume": volume.PersistentVolume}).Debugf("got data %d %d", logicalProvisioned, logicalUsed)
+					csmlog.WithFields(csmlog.Fields{"filesystem": volumeID, "persistent_volume": volume.PersistentVolume}).Debugf("got data %d %d", logicalProvisioned, logicalUsed)
 
 				default: // space metrics for Persistent Volumes
 					metrics, err := goPowerStoreClient.SpaceMetricsByVolume(ctx, volumeID, gopowerstore.FiveMins)
 					if err != nil {
-						s.Logger.WithError(err).WithField("volume_id", spaceMeta.ID).Error("getting space metrics for volume")
+						csmlog.WithFields(csmlog.Fields{"error": err, "volume_id": spaceMeta.ID}).Error("getting space metrics for volume")
 						return
 					}
 					if len(metrics) > 0 {
@@ -448,7 +540,7 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 						logicalProvisioned = toMegabytesInt64(*latestMetric.LogicalProvisioned)
 						logicalUsed = toMegabytesInt64(*latestMetric.LogicalUsed)
 					}
-					s.Logger.WithFields(logrus.Fields{
+					csmlog.WithFields(csmlog.Fields{
 						"space_metrics": len(metrics),
 						"id":            spaceMeta.ID,
 						"array_id":      spaceMeta.ArrayID,
@@ -456,7 +548,7 @@ func (s *PowerStoreService) gatherSpaceVolumeMetrics(ctx context.Context, volume
 					}).Debug("volume space metrics returned for volume")
 				}
 
-				s.Logger.WithFields(logrus.Fields{
+				csmlog.WithFields(csmlog.Fields{
 					"space_meta":          spaceMeta,
 					"logical_provisioned": logicalProvisioned,
 					"logical_used":        logicalUsed,
@@ -507,7 +599,7 @@ func (s *PowerStoreService) pushSpaceVolumeMetrics(ctx context.Context, volumeSp
 					metrics.logicalUsed,
 				)
 				if err != nil {
-					s.Logger.WithError(err).WithField("id", metrics.spaceMeta.ID).Error("recording statistics for volume")
+					csmlog.WithFields(csmlog.Fields{"error": err, "id": metrics.spaceMeta.ID}).Error("recording statistics for volume")
 				} else {
 					ch <- metrics.spaceMeta.ID
 				}
@@ -529,24 +621,36 @@ func (s *PowerStoreService) ExportSpaceVolumeMetrics(ctx context.Context) {
 	defer s.timeSince(start, "ExportSpaceVolumeMetrics")
 
 	if s.MetricsWrapper == nil {
-		s.Logger.Warn("no MetricsWrapper provided for getting ExportSpaceVolumeMetrics")
+		csmlog.Warn("no MetricsWrapper provided for getting ExportSpaceVolumeMetrics")
 		return
 	}
 
 	if s.MaxPowerStoreConnections == 0 {
-		s.Logger.Debug("Using DefaultMaxPowerStoreConnections")
+		csmlog.Debug("Using DefaultMaxPowerStoreConnections")
 		s.MaxPowerStoreConnections = DefaultMaxPowerStoreConnections
 	}
 
 	pvs, err := s.VolumeFinder.GetPersistentVolumes(ctx)
 	if err != nil {
-		s.Logger.WithError(err).Error("getting persistent volumes")
+		csmlog.WithFields(csmlog.Fields{"error": err}).Error("getting persistent volumes")
+		if s.ObsInstrumenter != nil {
+			s.ObsInstrumenter.RecordExportSuccess(s.obsGlobalID(), "failure")
+		}
 		return
 	}
 
+	count := 0
 	for range s.pushSpaceVolumeMetrics(ctx, s.gatherSpaceVolumeMetrics(ctx, s.volumeServer(ctx, pvs))) {
+		count++
 		// consume the channel until it is empty and closed
 	} // revive:disable-line:empty-block
+	if s.ObsInstrumenter != nil {
+		globalID := s.obsGlobalID()
+		elapsed := time.Since(start)
+		s.ObsInstrumenter.RecordCollectionRate(globalID, collectionRatePerSecond(count, elapsed))
+		s.ObsInstrumenter.RecordProcessingLatency(globalID, elapsed.Seconds())
+		s.ObsInstrumenter.RecordExportSuccess(globalID, "success")
+	}
 }
 
 // gatherArraySpaceMetrics will return a channel of array space metrics based on the input of volumes
@@ -577,7 +681,7 @@ func (s *PowerStoreService) gatherArraySpaceMetrics(ctx context.Context, volumes
 				// VolumeHandle is of the format "volume-id/array-ip/protocol"
 				volumeProperties := strings.Split(volume.VolumeHandle, "/")
 				if len(volumeProperties) != ExpectedVolumeHandleProperties {
-					s.Logger.WithField("volume_handle", volume.VolumeHandle).Warn("unable to get Volume ID and Array IP from volume handle")
+					csmlog.WithFields(csmlog.Fields{"volume_handle": volume.VolumeHandle}).Warn("unable to get Volume ID and Array IP from volume handle")
 					return
 				}
 
@@ -587,8 +691,14 @@ func (s *PowerStoreService) gatherArraySpaceMetrics(ctx context.Context, volumes
 
 				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)
 				if err != nil {
-					s.Logger.WithError(err).WithField("ip", arrayID).Warn("no client found for PowerStore with IP")
+					csmlog.WithFields(csmlog.Fields{"error": err, "ip": arrayID}).Warn("no client found for PowerStore with IP")
+					if s.ObsInstrumenter != nil {
+						s.ObsInstrumenter.SetArrayConnectivity(arrayID, false)
+					}
 					return
+				}
+				if s.ObsInstrumenter != nil {
+					s.ObsInstrumenter.SetArrayConnectivity(arrayID, true)
 				}
 
 				var logicalProvisioned, logicalUsed int64
@@ -597,19 +707,19 @@ func (s *PowerStoreService) gatherArraySpaceMetrics(ctx context.Context, volumes
 				case nfsProtocol:
 					fs, err := goPowerStoreClient.GetFS(ctx, volumeID)
 					if err != nil {
-						s.Logger.WithError(err).WithField("filesystem_id", volumeID).Error("getting space metrics for filesystem")
+						csmlog.WithFields(csmlog.Fields{"error": err, "filesystem_id": volumeID}).Error("getting space metrics for filesystem")
 						return
 					}
 
 					logicalProvisioned = toMegabytesInt64(fs.SizeTotal)
 					logicalUsed = toMegabytesInt64(fs.SizeUsed)
-					s.Logger.WithFields(logrus.Fields{"filesystem": volumeID, "persistent_volume": volume.PersistentVolume}).Debugf("got data %d %d", logicalProvisioned, logicalUsed)
+					csmlog.WithFields(csmlog.Fields{"filesystem": volumeID, "persistent_volume": volume.PersistentVolume}).Debugf("got data %d %d", logicalProvisioned, logicalUsed)
 
 					// volume space metrics: scsi as default protocol
 				default:
 					metrics, err := goPowerStoreClient.SpaceMetricsByVolume(ctx, volumeID, gopowerstore.FiveMins)
 					if err != nil {
-						s.Logger.WithError(err).WithField("volume_id", volumeID).Error("getting space metrics for volume")
+						csmlog.WithFields(csmlog.Fields{"error": err, "volume_id": volumeID}).Error("getting space metrics for volume")
 						return
 					}
 					if len(metrics) > 0 {
@@ -626,7 +736,7 @@ func (s *PowerStoreService) gatherArraySpaceMetrics(ctx context.Context, volumes
 					logicalProvisioned: logicalProvisioned,
 					logicalUsed:        logicalUsed,
 				}
-				s.Logger.WithFields(logrus.Fields{
+				csmlog.WithFields(csmlog.Fields{
 					"array_id":                  arrayID,
 					"storageClass":              volume.StorageClass,
 					"driver":                    volume.Driver,
@@ -682,7 +792,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 				volMetrics.logicalProvisioned = volMetrics.logicalProvisioned + metrics.logicalProvisioned
 				volMetrics.logicalUsed = volMetrics.logicalUsed + metrics.logicalUsed
 				arrayIDMap[metrics.arrayID] = volMetrics
-				s.Logger.WithFields(logrus.Fields{
+				csmlog.WithFields(csmlog.Fields{
 					"array_id":                             metrics.arrayID,
 					"driver":                               metrics.driver,
 					"cumulative_array_logical_provisioned": volMetrics.logicalProvisioned,
@@ -702,7 +812,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 				volMetrics.logicalProvisioned = volMetrics.logicalProvisioned + metrics.logicalProvisioned
 				volMetrics.logicalUsed = volMetrics.logicalUsed + metrics.logicalUsed
 				storageClassMap[metrics.storageclass] = volMetrics
-				s.Logger.WithFields(logrus.Fields{
+				csmlog.WithFields(csmlog.Fields{
 					"storage_class": metrics.storageclass,
 					"driver":        metrics.driver,
 					"cumulative_storage_class_logical_provisioned": volMetrics.logicalProvisioned,
@@ -722,7 +832,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 					metrics.logicalUsed,
 				)
 				if err != nil {
-					s.Logger.WithError(err).WithField("array_id", metrics.arrayID).Error("recording statistics for array")
+					csmlog.WithFields(csmlog.Fields{"error": err, "array_id": metrics.arrayID}).Error("recording statistics for array")
 				} else {
 					ch <- metrics.arrayID
 				}
@@ -740,7 +850,7 @@ func (s *PowerStoreService) pushArraySpaceMetrics(ctx context.Context, volumeSpa
 					metrics.logicalUsed,
 				)
 				if err != nil {
-					s.Logger.WithError(err).WithField("storage_class", metrics.storageclass).Error("recording statistics for storage class")
+					csmlog.WithFields(csmlog.Fields{"error": err, "storage_class": metrics.storageclass}).Error("recording statistics for storage class")
 				} else {
 					ch <- metrics.storageclass
 				}
@@ -762,24 +872,36 @@ func (s *PowerStoreService) ExportArraySpaceMetrics(ctx context.Context) {
 	defer s.timeSince(start, "ExportArraySpaceMetrics")
 
 	if s.MetricsWrapper == nil {
-		s.Logger.Warn("no MetricsWrapper provided for getting ExportArraySpaceMetrics")
+		csmlog.Warn("no MetricsWrapper provided for getting ExportArraySpaceMetrics")
 		return
 	}
 
 	if s.MaxPowerStoreConnections == 0 {
-		s.Logger.Debug("Using DefaultMaxPowerStoreConnections")
+		csmlog.Debug("Using DefaultMaxPowerStoreConnections")
 		s.MaxPowerStoreConnections = DefaultMaxPowerStoreConnections
 	}
 
 	pvs, err := s.VolumeFinder.GetPersistentVolumes(ctx)
 	if err != nil {
-		s.Logger.WithError(err).Error("getting persistent volumes")
+		csmlog.WithFields(csmlog.Fields{"error": err}).Error("getting persistent volumes")
+		if s.ObsInstrumenter != nil {
+			s.ObsInstrumenter.RecordExportSuccess(s.obsGlobalID(), "failure")
+		}
 		return
 	}
 
+	count := 0
 	for range s.pushArraySpaceMetrics(ctx, s.gatherArraySpaceMetrics(ctx, s.volumeServer(ctx, pvs))) {
+		count++
 		// consume the channel until it is empty and closed
 	} // revive:disable-line:empty-block
+	if s.ObsInstrumenter != nil {
+		globalID := s.obsGlobalID()
+		elapsed := time.Since(start)
+		s.ObsInstrumenter.RecordCollectionRate(globalID, collectionRatePerSecond(count, elapsed))
+		s.ObsInstrumenter.RecordProcessingLatency(globalID, elapsed.Seconds())
+		s.ObsInstrumenter.RecordExportSuccess(globalID, "success")
+	}
 }
 
 // ExportFileSystemStatistics records I/O statistics for the given list of Volumes
@@ -791,24 +913,36 @@ func (s *PowerStoreService) ExportFileSystemStatistics(ctx context.Context) {
 	defer s.timeSince(start, "ExportFileSystemStatistics")
 
 	if s.MetricsWrapper == nil {
-		s.Logger.Warn("no MetricsWrapper provided for getting ExportFileSystemStatistics")
+		csmlog.Warn("no MetricsWrapper provided for getting ExportFileSystemStatistics")
 		return
 	}
 
 	if s.MaxPowerStoreConnections == 0 {
-		s.Logger.Debug("Using DefaultMaxPowerStoreConnections")
+		csmlog.Debug("Using DefaultMaxPowerStoreConnections")
 		s.MaxPowerStoreConnections = DefaultMaxPowerStoreConnections
 	}
 
 	pvs, err := s.VolumeFinder.GetPersistentVolumes(ctx)
 	if err != nil {
-		s.Logger.WithError(err).Error("getting persistent volumes")
+		csmlog.WithFields(csmlog.Fields{"error": err}).Error("getting persistent volumes")
+		if s.ObsInstrumenter != nil {
+			s.ObsInstrumenter.RecordExportSuccess(s.obsGlobalID(), "failure")
+		}
 		return
 	}
 
+	count := 0
 	for range s.pushFileSystemMetrics(ctx, s.gatherFileSystemMetrics(ctx, s.volumeServer(ctx, pvs))) {
+		count++
 		// consume the channel until it is empty and closed
 	} // revive:disable-line:empty-block
+	if s.ObsInstrumenter != nil {
+		globalID := s.obsGlobalID()
+		elapsed := time.Since(start)
+		s.ObsInstrumenter.RecordCollectionRate(globalID, collectionRatePerSecond(count, elapsed))
+		s.ObsInstrumenter.RecordProcessingLatency(globalID, elapsed.Seconds())
+		s.ObsInstrumenter.RecordExportSuccess(globalID, "success")
+	}
 }
 
 // gatherFileSystemMetrics will return a channel of filesystem metrics based on the input of volumes
@@ -823,6 +957,34 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 	go func() {
 		ctx, span := tracer.GetTracer(ctx, "gatherFileSystemMetrics")
 		defer span.End()
+
+		var (
+			replicatedFSMu    sync.Mutex
+			replicatedFSCache = make(map[string]map[string]struct{})
+		)
+		getReplicatedFSIDs := func(arrayIP string, client PowerStoreClient) map[string]struct{} {
+			replicatedFSMu.Lock()
+			defer replicatedFSMu.Unlock()
+			if cached, ok := replicatedFSCache[arrayIP]; ok {
+				return cached
+			}
+			policies, err := client.GetProtectionPolicies(ctx)
+			fsIDs := make(map[string]struct{})
+			if err != nil {
+				csmlog.WithFields(csmlog.Fields{"error": err, "array_ip": arrayIP}).Warn("failed to get protection policies; replication metrics will not be collected for this array")
+			} else {
+				for _, policy := range policies {
+					if len(policy.ReplicationRules) == 0 {
+						continue
+					}
+					for _, fs := range policy.FileSystems {
+						fsIDs[fs.ID] = struct{}{}
+					}
+				}
+			}
+			replicatedFSCache[arrayIP] = fsIDs
+			return fsIDs
+		}
 
 		exported := false
 		for volume := range volumes {
@@ -848,13 +1010,13 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 					arrayID = volumeProperties[1]
 					protocol = strings.Split(volumeProperties[2], ":")[0]
 				} else {
-					s.Logger.WithField("volume_handle", volume.VolumeHandle).Warn("unable to get Volume ID and Array IP from volume handle")
+					csmlog.WithFields(csmlog.Fields{"volume_handle": volume.VolumeHandle}).Warn("unable to get Volume ID and Array IP from volume handle")
 					return
 				}
 
 				// skip Persistent Volumes that don't have a protocol of 'nfs'
 				if !strings.EqualFold(protocol, nfsProtocol) {
-					s.Logger.WithFields(logrus.Fields{"protocol": protocol, "persistent_volume": volume.PersistentVolume}).Debugf("persistent volume is not %s", nfsProtocol)
+					csmlog.WithFields(csmlog.Fields{"protocol": protocol, "persistent_volume": volume.PersistentVolume}).Debugf("persistent volume is not %s", nfsProtocol)
 					return
 				}
 
@@ -864,24 +1026,32 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 					PersistentVolumeClaimName: volume.VolumeClaimName,
 					Namespace:                 volume.Namespace,
 					ArrayID:                   arrayID,
+					ArrayIP:                   s.arrayIP(arrayID),
+					ArrayProtocol:             s.arrayProtocol(arrayID),
 					StorageClass:              volume.StorageClass,
 				}
 
 				goPowerStoreClient, err := s.getPowerStoreClient(ctx, arrayID)
 				if err != nil {
-					s.Logger.WithError(err).WithField("ip", arrayID).Warn("no client found for PowerStore with IP")
+					csmlog.WithFields(csmlog.Fields{"error": err, "ip": arrayID}).Warn("no client found for PowerStore with IP")
+					if s.ObsInstrumenter != nil {
+						s.ObsInstrumenter.SetArrayConnectivity(arrayID, false)
+					}
 					return
+				}
+				if s.ObsInstrumenter != nil {
+					s.ObsInstrumenter.SetArrayConnectivity(arrayID, true)
 				}
 
 				metrics, err := goPowerStoreClient.PerformanceMetricsByFileSystem(ctx, volumeID, gopowerstore.TwentySec)
 				if err != nil {
-					s.Logger.WithError(err).WithField("volume_id", volumeMeta.ID).Error("getting performance metrics for volume")
+					csmlog.WithFields(csmlog.Fields{"error": err, "volume_id": volumeMeta.ID}).Error("getting performance metrics for volume")
 					return
 				}
 
 				var readBW, writeBW, readIOPS, writeIOPS, readLatency, writeLatency, syncBW, mirrorBW, remainingData float32
 
-				s.Logger.WithFields(logrus.Fields{
+				csmlog.WithFields(csmlog.Fields{
 					"filesystem_performance_metrics": len(metrics),
 					"filesystem_id":                  volumeMeta.ID,
 					"array_ip":                       volumeMeta.ArrayID,
@@ -897,23 +1067,28 @@ func (s *PowerStoreService) gatherFileSystemMetrics(ctx context.Context, volumes
 					writeLatency = toMilliseconds(latestMetric.AvgWriteLatency)
 				}
 
-				// Read the replication parameter
-				replicationMetrics, err := goPowerStoreClient.FileSystemMirrorTransferRate(ctx, volumeID)
+				if _, isReplicated := getReplicatedFSIDs(arrayID, goPowerStoreClient)[volumeID]; isReplicated {
+					// Read the replication parameter
+					replicationMetrics, err := goPowerStoreClient.FileSystemMirrorTransferRate(ctx, volumeID)
+					if err != nil {
+						csmlog.WithFields(csmlog.Fields{"error": err, "volume_id": volumeMeta.ID, "array_ip": volumeMeta.ArrayID}).Error("getting replication metrics for filesystem")
+					} else {
+						csmlog.WithFields(csmlog.Fields{
+							"volume_replication_metrics": len(replicationMetrics),
+							"volume_id":                  volumeMeta.ID,
+							"array_ip":                   volumeMeta.ArrayID,
+						}).Debug("filesystem replication metrics returned for volume")
 
-				s.Logger.WithFields(logrus.Fields{
-					"volume_replication_metrics": len(replicationMetrics),
-					"volume_id":                  volumeMeta.ID,
-					"array_ip":                   volumeMeta.ArrayID,
-				}).Debug("volume replication metrics returned for volume")
-
-				if len(replicationMetrics) > 0 {
-					latestRepMetrics := replicationMetrics[len(replicationMetrics)-1]
-					syncBW = toMegabytes(latestRepMetrics.SynchronizationBandwidth)
-					mirrorBW = toMegabytes(latestRepMetrics.MirrorBandwidth)
-					remainingData = toMegabytes(latestRepMetrics.DataRemaining)
+						if len(replicationMetrics) > 0 {
+							latestRepMetrics := replicationMetrics[len(replicationMetrics)-1]
+							syncBW = toMegabytes(latestRepMetrics.SynchronizationBandwidth)
+							mirrorBW = toMegabytes(latestRepMetrics.MirrorBandwidth)
+							remainingData = toMegabytes(latestRepMetrics.DataRemaining)
+						}
+					}
 				}
 
-				s.Logger.WithFields(logrus.Fields{
+				csmlog.WithFields(csmlog.Fields{
 					"volume_meta":              volumeMeta,
 					"read_bandwidth":           readBW,
 					"write_bandwidth":          writeBW,
@@ -977,7 +1152,7 @@ func (s *PowerStoreService) pushFileSystemMetrics(ctx context.Context, volumeMet
 					metrics.synchronizationBW, metrics.mirrorBW, metrics.remainingData,
 				)
 				if err != nil {
-					s.Logger.WithError(err).WithField("volume_id", metrics.volumeMeta.ID).Error("recording statistics for volume")
+					csmlog.WithFields(csmlog.Fields{"error": err, "volume_id": metrics.volumeMeta.ID}).Error("recording statistics for volume")
 				} else {
 					ch <- metrics.volumeMeta.ID
 				}
@@ -1010,7 +1185,7 @@ func (s *PowerStoreService) gatherTopologyMetrics(_ context.Context, volumes <-c
 				// VolumeHandle format: "volume-id/array-ip/protocol"
 				volumeProperties := strings.Split(volume.VolumeHandle, "/")
 				if len(volumeProperties) != ExpectedVolumeHandleProperties {
-					s.Logger.WithField("volume_handle", volume.VolumeHandle).Warn("unable to parse volume handle")
+					csmlog.WithFields(csmlog.Fields{"volume_handle": volume.VolumeHandle}).Warn("unable to parse volume handle")
 					return
 				}
 
@@ -1036,7 +1211,7 @@ func (s *PowerStoreService) gatherTopologyMetrics(_ context.Context, volumes <-c
 					PvAvailable:  pvAvailable,
 				}
 
-				s.Logger.Debugf("topology metrics - PV: %s, Provisioned: %s",
+				csmlog.Debugf("topology metrics - PV: %s, Provisioned: %s",
 					metric.TopologyMeta.PersistentVolume, topologyMeta.ProvisionedSize)
 
 				ch <- metric
@@ -1076,11 +1251,12 @@ func (s *PowerStoreService) pushTopologyMetrics(ctx context.Context, topologyMet
 
 				err := s.MetricsWrapper.RecordTopologyMetrics(ctx, metrics.TopologyMeta, metrics)
 				if err != nil {
-					s.Logger.WithError(err).
-						WithField("volume_id", metrics.TopologyMeta.PersistentVolume).
-						Error("recording topology metrics for volume")
+					csmlog.WithFields(csmlog.Fields{
+						"error":     err,
+						"volume_id": metrics.TopologyMeta.PersistentVolume,
+					}).Error("recording topology metrics for volume")
 				} else {
-					s.Logger.Debugf("recorded topology metrics for volume %s and size %s",
+					csmlog.Debugf("recorded topology metrics for volume %s and size %s",
 						metrics.TopologyMeta.PersistentVolume, metrics.TopologyMeta.ProvisionedSize)
 					ch <- metrics
 				}
@@ -1103,18 +1279,30 @@ func (s *PowerStoreService) ExportTopologyMetrics(ctx context.Context) {
 	defer s.timeSince(start, "ExportTopologyMetrics")
 
 	if s.MetricsWrapper == nil {
-		s.Logger.Warn("no MetricsWrapper provided for getting ExportTopologyMetrics")
+		csmlog.Warn("no MetricsWrapper provided for getting ExportTopologyMetrics")
 		return
 	}
 
 	pvs, err := s.VolumeFinder.GetPersistentVolumes(ctx)
 	if err != nil {
-		s.Logger.WithError(err).Error("getting persistent volumes")
+		csmlog.WithFields(csmlog.Fields{"error": err}).Error("getting persistent volumes")
+		if s.ObsInstrumenter != nil {
+			s.ObsInstrumenter.RecordExportSuccess(s.obsGlobalID(), "failure")
+		}
 		return
 	}
 
 	// Trigger metric collection and push
+	count := 0
 	for range s.pushTopologyMetrics(ctx, s.gatherTopologyMetrics(ctx, s.volumeServer(ctx, pvs))) {
+		count++
 		// consume the channel until it is empty and closed
 	} // revive:disable-line:empty-block
+	if s.ObsInstrumenter != nil {
+		globalID := s.obsGlobalID()
+		elapsed := time.Since(start)
+		s.ObsInstrumenter.RecordCollectionRate(globalID, collectionRatePerSecond(count, elapsed))
+		s.ObsInstrumenter.RecordProcessingLatency(globalID, elapsed.Seconds())
+		s.ObsInstrumenter.RecordExportSuccess(globalID, "success")
+	}
 }

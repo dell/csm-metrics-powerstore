@@ -22,6 +22,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
 func TestInitExporter(t *testing.T) {
@@ -111,4 +113,51 @@ func TestStopExporter(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRecordingExporter_RecordsFailureOnExportError(t *testing.T) {
+	collector := &OtlCollectorExporter{}
+	var statuses []string
+	collector.SetExportFailureRecorder(func() { statuses = append(statuses, "failure") })
+
+	wrapped := newRecordingExporter(&fakeMetricExporter{exportErr: errors.New("collector unavailable")}, collector)
+	err := wrapped.Export(context.Background(), &metricdata.ResourceMetrics{})
+	assert.Error(t, err)
+	assert.Equal(t, []string{"failure"}, statuses)
+}
+
+func TestRecordingExporter_DoesNotRecordFailureOnSuccess(t *testing.T) {
+	collector := &OtlCollectorExporter{}
+	var statuses []string
+	collector.SetExportFailureRecorder(func() { statuses = append(statuses, "failure") })
+
+	wrapped := newRecordingExporter(&fakeMetricExporter{}, collector)
+	err := wrapped.Export(context.Background(), &metricdata.ResourceMetrics{})
+	assert.NoError(t, err)
+	assert.Empty(t, statuses)
+}
+
+type fakeMetricExporter struct {
+	exportErr   error
+	shutdownErr error
+}
+
+func (f *fakeMetricExporter) Temporality(metric.InstrumentKind) metricdata.Temporality {
+	return metricdata.CumulativeTemporality
+}
+
+func (f *fakeMetricExporter) Aggregation(metric.InstrumentKind) metric.Aggregation {
+	return metric.AggregationDefault{}
+}
+
+func (f *fakeMetricExporter) Export(context.Context, *metricdata.ResourceMetrics) error {
+	return f.exportErr
+}
+
+func (f *fakeMetricExporter) ForceFlush(context.Context) error {
+	return nil
+}
+
+func (f *fakeMetricExporter) Shutdown(context.Context) error {
+	return f.shutdownErr
 }

@@ -26,7 +26,7 @@ import (
 	pstoreServices "github.com/dell/csm-metrics-powerstore/internal/service"
 	otlexporters "github.com/dell/csm-metrics-powerstore/opentelemetry/exporters"
 	tracer "github.com/dell/csm-metrics-powerstore/opentelemetry/tracers"
-	"github.com/sirupsen/logrus"
+	"github.com/dell/csmlog"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -56,7 +56,6 @@ type Config struct {
 	VolumeMetricsEnabled   bool
 	CollectorAddress       string
 	CollectorCertPath      string
-	Logger                 *logrus.Logger
 	TopologyMetricsEnabled bool
 }
 
@@ -66,7 +65,6 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 	if err != nil {
 		return err
 	}
-	logger := config.Logger
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -120,12 +118,12 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 		case <-volumeTicker.C:
 			ctx, span := tracer.GetTracer(ctx, "volume-metrics")
 			if !config.LeaderElector.IsLeader() {
-				logger.Info("not leader pod to collect metrics")
+				csmlog.Info("not leader pod to collect metrics")
 				span.End()
 				continue
 			}
 			if !config.VolumeMetricsEnabled {
-				logger.Info("powerstore volume metrics collection is disabled")
+				csmlog.Info("powerstore volume metrics collection is disabled")
 				span.End()
 				continue
 			}
@@ -135,12 +133,12 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 		case <-spaceTicker.C:
 			ctx, span := tracer.GetTracer(ctx, "volume-space-metrics")
 			if !config.LeaderElector.IsLeader() {
-				logger.Info("not leader pod to collect metrics")
+				csmlog.Info("not leader pod to collect metrics")
 				span.End()
 				continue
 			}
 			if !config.VolumeMetricsEnabled {
-				logger.Info("powerstore volume metrics collection is disabled")
+				csmlog.Info("powerstore volume metrics collection is disabled")
 				span.End()
 				continue
 			}
@@ -150,12 +148,12 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 		case <-arrayTicker.C:
 			ctx, span := tracer.GetTracer(ctx, "array-space-metrics")
 			if !config.LeaderElector.IsLeader() {
-				logger.Info("not leader pod to collect metrics")
+				csmlog.Info("not leader pod to collect metrics")
 				span.End()
 				continue
 			}
 			if !config.VolumeMetricsEnabled {
-				logger.Info("powerstore volume metrics collection is disabled")
+				csmlog.Info("powerstore volume metrics collection is disabled")
 				span.End()
 				continue
 			}
@@ -165,12 +163,12 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 		case <-filesystemTicker.C:
 			ctx, span := tracer.GetTracer(ctx, "filesystem-metrics")
 			if !config.LeaderElector.IsLeader() {
-				logger.Info("not leader pod to collect metrics")
+				csmlog.Info("not leader pod to collect metrics")
 				span.End()
 				continue
 			}
 			if !config.VolumeMetricsEnabled {
-				logger.Info("powerstore filesystem metrics collection is disabled")
+				csmlog.Info("powerstore filesystem metrics collection is disabled")
 				span.End()
 				continue
 			}
@@ -180,12 +178,12 @@ func Run(ctx context.Context, config *Config, exporter otlexporters.Otlexporter,
 		case <-topologyTicker.C:
 			ctx, span := tracer.GetTracer(ctx, "topology-metrics")
 			if !config.LeaderElector.IsLeader() {
-				logger.Info("not leader pod to collect metrics")
+				csmlog.Info("not leader pod to collect metrics")
 				span.End()
 				continue
 			}
 			if !config.TopologyMetricsEnabled {
-				logger.Info("powerstore topology metrics collection is disabled")
+				csmlog.Info("powerstore topology metrics collection is disabled")
 				span.End()
 				continue
 			}
